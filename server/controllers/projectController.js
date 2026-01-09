@@ -1,0 +1,334 @@
+const {
+    createProject,
+    getProjectById,
+    getProjectsByClient,
+    getAllProjects,
+    updateProject,
+    deleteProject
+} = require('../models/projectModel');
+
+// Create new project
+exports.createProject = async (req, res) => {
+    try {
+        const { title, description, budget, status, techStack } = req.body;
+        const clientId = req.user.id;
+
+        // Validate client role
+        if (req.user.role !== 'client') {
+            return res.status(403).json({ message: 'Only clients can create projects' });
+        }
+
+        // Validate required fields
+        if (!title) {
+            return res.status(400).json({ message: 'Project title is required' });
+        }
+
+        const project = await createProject({
+            clientId,
+            title,
+            description,
+            budget,
+            status: status || 'draft',
+            techStack,
+            deadline: req.body.deadline,
+            duration: req.body.duration
+        });
+
+        res.status(201).json(project);
+    } catch (error) {
+        console.error('Create project error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get project by ID
+exports.getProject = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const project = await getProjectById(id);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Check authorization
+        if (project.client_id !== req.user.id && req.user.role !== 'admin') {
+            // Check if user is an expert on this project
+            const { getContractsByProject } = require('../models/contractModel');
+            const contracts = await getContractsByProject(id);
+            const isExpert = contracts.some(c => c.expert_id === req.user.id);
+            const isInvited = project.selected_expert_id === req.user.id;
+
+            if (!isExpert && !isInvited) {
+                return res.status(403).json({ message: 'Not authorized to view this project' });
+            }
+        }
+
+        res.json(project);
+    } catch (error) {
+        console.error('Get project error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get client's projects
+exports.getClientProjects = async (req, res) => {
+    try {
+        const clientId = req.params.clientId || req.user.id;
+
+        // Ensure user can only view their own projects unless admin
+        if (req.user.id !== clientId && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        const projects = await getProjectsByClient(clientId);
+
+        res.json({
+            count: projects.length,
+            projects
+        });
+    } catch (error) {
+        console.error('Get client projects error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get all projects (with filters)
+exports.getAllProjects = async (req, res) => {
+    try {
+        const { status, minBudget, maxBudget, search, limit, offset } = req.query;
+
+        const filters = {
+            status,
+            minBudget: minBudget ? parseFloat(minBudget) : undefined,
+            maxBudget: maxBudget ? parseFloat(maxBudget) : undefined,
+            search,
+            limit: limit ? parseInt(limit) : 50,
+            offset: offset ? parseInt(offset) : 0
+        };
+
+        const projects = await getAllProjects(filters);
+
+        res.json({
+            count: projects.length,
+            projects
+        });
+    } catch (error) {
+        console.error('Get all projects error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Update project
+exports.updateProject = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, description, budget, status, techStack } = req.body;
+
+        // Get project to check ownership
+        const project = await getProjectById(id);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Check authorization
+        if (project.client_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized to update this project' });
+        }
+
+        const updatedProject = await updateProject(id, {
+            title,
+            description,
+            budget,
+            status,
+            techStack
+        });
+
+        res.json(updatedProject);
+    } catch (error) {
+        console.error('Update project error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Delete project
+exports.deleteProject = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Get project to check ownership
+        const project = await getProjectById(id);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Check authorization
+        if (project.client_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized to delete this project' });
+        }
+
+        await deleteProject(id);
+
+        res.json({ message: 'Project deleted successfully' });
+    } catch (error) {
+        console.error('Delete project error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Invite expert to project
+exports.inviteExpert = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { expertId } = req.body;
+
+        const project = await getProjectById(id);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Check authorization
+        if (project.client_id !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to invite experts to this project' });
+        }
+
+        // Create Notification for Expert
+        const { createNotification } = require('../models/notificationModel');
+        await createNotification({
+            userId: expertId,
+            type: 'invite',
+            title: 'New Project Invitation',
+            message: `You have been invited to join project: ${project.title}`,
+            link: `/expert-dashboard`
+        });
+
+        // Assign expert in DB
+        const { assignExpert } = require('../models/projectModel');
+        const updatedProject = await assignExpert(id, expertId);
+
+        // Notify expert via Socket.IO
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`user_${expertId}`).emit('project_invite', updatedProject);
+            io.to(`project_${id}`).emit('project_update', updatedProject);
+        }
+
+        res.json(updatedProject);
+    } catch (error) {
+        console.error('Invite expert error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Respond to project invite
+exports.respondToInvite = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body; // 'accepted' or 'rejected'
+
+        if (!['accepted', 'rejected'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status' });
+        }
+
+        const project = await getProjectById(id);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Verify it's the invited expert
+        if (project.selected_expert_id !== req.user.id) {
+            return res.status(403).json({ message: 'You are not the invited expert for this project' });
+        }
+
+        const { updateExpertStatus } = require('../models/projectModel');
+        const updatedProject = await updateExpertStatus(id, status);
+
+        // Create notification for Client
+        const { createNotification } = require('../models/notificationModel');
+        await createNotification({
+            userId: project.client_id,
+            type: 'system',
+            title: `Expert ${status === 'accepted' ? 'Accepted' : 'Declined'} Invitation`,
+            message: `${req.user.name} has ${status} your invitation for ${project.title}`,
+            link: `/projects/${id}`
+        });
+
+        if (status === 'accepted') {
+            // Auto-create contract placeholder
+            const { createContract } = require('../models/contractModel');
+            await createContract({
+                projectId: id,
+                expertId: req.user.id,
+                clientId: project.client_id,
+                terms: 'Standard Agreement', // Placeholder
+                amount: project.budget || 0,
+                status: 'pending'
+            });
+        }
+
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`project_${id}`).emit('project_update', updatedProject);
+            // Also notify client user directly?
+        }
+
+        res.json(updatedProject);
+    } catch (error) {
+        console.error('Respond to invite error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get projects expert is invited to
+exports.getInvitedProjects = async (req, res) => {
+    try {
+        const { getProjectsByExpert } = require('../models/projectModel');
+        const projects = await getProjectsByExpert(req.user.id);
+        res.json({ projects });
+    } catch (error) {
+        console.error('Get invited projects error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Transition project state
+exports.updateState = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { state, reason } = req.body;
+        const userId = req.user.id;
+
+        const { transitionState } = require('../models/projectStateMachine');
+
+        // Add authorization check here if needed (e.g. only admin or owner can change certain states)
+
+        const project = await transitionState(id, state, userId, reason);
+
+        // Notify relevant parties based on new state
+
+        res.json(project);
+    } catch (error) {
+        console.error('Update state error:', error);
+        res.status(400).json({ message: error.message });
+    }
+};
+
+// Get project state history
+exports.getHistory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { getStateHistory } = require('../models/projectStateMachine');
+
+        const history = await getStateHistory(id);
+        res.json(history);
+    } catch (error) {
+        console.error('Get history error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+

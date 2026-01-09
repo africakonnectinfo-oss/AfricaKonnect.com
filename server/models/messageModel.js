@@ -1,0 +1,131 @@
+const { query } = require('../database/db');
+
+// Create a new message
+const createMessage = async (messageData) => {
+    const { projectId, senderId, content } = messageData;
+
+    const text = `
+        INSERT INTO messages (project_id, sender_id, content)
+        VALUES ($1, $2, $3)
+        RETURNING *
+    `;
+    const values = [projectId, senderId, content];
+
+    const result = await query(text, values);
+    return result.rows[0];
+};
+
+// Get messages by project ID
+const getMessagesByProject = async (projectId, limit = 100, offset = 0) => {
+    const text = `
+        SELECT 
+            m.*,
+            u.name as sender_name,
+            u.email as sender_email,
+            u.role as sender_role
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.project_id = $1
+        ORDER BY m.created_at ASC
+        LIMIT $2 OFFSET $3
+    `;
+    const result = await query(text, [projectId, limit, offset]);
+    return result.rows;
+};
+
+// Get message by ID
+const getMessageById = async (id) => {
+    const text = `
+        SELECT 
+            m.*,
+            u.name as sender_name,
+            u.email as sender_email
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.id = $1
+    `;
+    const result = await query(text, [id]);
+    return result.rows[0];
+};
+
+// Mark message as read
+const markAsRead = async (messageId) => {
+    const text = `
+        UPDATE messages 
+        SET is_read = true
+        WHERE id = $1
+        RETURNING *
+    `;
+    const result = await query(text, [messageId]);
+    return result.rows[0];
+};
+
+// Mark all messages in a project as read for a user
+const markProjectMessagesAsRead = async (projectId, userId) => {
+    const text = `
+        UPDATE messages 
+        SET is_read = true
+        WHERE project_id = $1 AND sender_id != $2 AND is_read = false
+        RETURNING *
+    `;
+    const result = await query(text, [projectId, userId]);
+    return result.rows;
+};
+
+// Get unread message count for a project
+const getUnreadCount = async (projectId, userId) => {
+    const text = `
+        SELECT COUNT(*) as unread_count
+        FROM messages
+        WHERE project_id = $1 AND sender_id != $2 AND is_read = false
+    `;
+    const result = await query(text, [projectId, userId]);
+    return parseInt(result.rows[0].unread_count);
+};
+
+// Get all unread messages for a user across all projects
+const getAllUnreadMessages = async (userId) => {
+    const text = `
+        SELECT 
+            m.*,
+            u.name as sender_name,
+            p.title as project_title
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        JOIN projects p ON m.project_id = p.id
+        WHERE m.sender_id != $1 AND m.is_read = false
+        AND (p.client_id = $1 OR EXISTS (
+            SELECT 1 FROM contracts c 
+            WHERE c.project_id = p.id AND c.expert_id = $1
+        ))
+        ORDER BY m.created_at DESC
+    `;
+    const result = await query(text, [userId]);
+    return result.rows;
+};
+
+// Delete message
+const deleteMessage = async (id) => {
+    const text = 'DELETE FROM messages WHERE id = $1 RETURNING *';
+    const result = await query(text, [id]);
+    return result.rows[0];
+};
+
+// Delete all messages for a project
+const deleteProjectMessages = async (projectId) => {
+    const text = 'DELETE FROM messages WHERE project_id = $1 RETURNING *';
+    const result = await query(text, [projectId]);
+    return result.rows;
+};
+
+module.exports = {
+    createMessage,
+    getMessagesByProject,
+    getMessageById,
+    markAsRead,
+    markProjectMessagesAsRead,
+    getUnreadCount,
+    getAllUnreadMessages,
+    deleteMessage,
+    deleteProjectMessages
+};

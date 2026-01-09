@@ -1,0 +1,523 @@
+const {
+    createUser,
+    findUserByEmail,
+    verifyPassword,
+    generateVerificationToken,
+    verifyEmail,
+    updateLastLogin,
+    createSession,
+    getActiveSessions,
+    revokeSession,
+    revokeOtherSessions,
+    updatePassword,
+    generatePasswordResetToken,
+    verifyPasswordResetToken
+} = require('../models/userModel');
+const { sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
+const { logAuth, AUDIT_ACTIONS } = require('../middleware/auditLogger');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_EXPIRES_IN = '7d'; // Access token expires in 7 days
+const REFRESH_TOKEN_EXPIRES_IN = '30d'; // Refresh token expires in 30 days
+
+/**
+ * Generate access token
+ */
+const generateToken = (id, role) => {
+    return jwt.sign({ id, role }, JWT_SECRET, {
+        expiresIn: JWT_EXPIRES_IN,
+    });
+};
+
+/**
+ * Generate refresh token
+ */
+const generateRefreshToken = (id) => {
+    return jwt.sign({ id, type: 'refresh' }, JWT_SECRET, {
+        expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+    });
+};
+
+/**
+ * Register new user
+ */
+exports.registerUser = async (req, res) => {
+    const { name, email, password, role } = req.body;
+    console.log('📝 Register request received for:', email);
+
+    try {
+        // Validate input
+        if (!name || !email || !password) {
+            return res.status(400).json({ message: 'Please provide all required fields' });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ message: 'Please provide a valid email address' });
+        }
+
+        // Validate password strength
+        if (password.length < 6) {
+            return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+        }
+
+        // Check if user exists
+        const userExists = await findUserByEmail(email);
+
+        if (userExists) {
+            return res.status(400).json({ message: 'User already exists' });
+        }
+
+        // Create user
+        const user = await createUser({
+            name,
+            email,
+            password,
+            role: role || 'client',
+        });
+
+        if (user) {
+            // Generate verification token
+            const { token: verificationToken } = await generateVerificationToken(user.id);
+
+            // Send verification email
+            await sendVerificationEmail(user, verificationToken);
+
+            // Generate JWT tokens
+            const token = generateToken(user.id, user.role);
+            const refreshToken = generateRefreshToken(user.id);
+
+            // Create session
+            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+            await createSession(user.id, { token, refreshToken, expiresAt }, {
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent']
+            });
+
+            res.status(201).json({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                emailVerified: false,
+                token,
+                refreshToken,
+                message: 'Registration successful! Please check your email to verify your account.'
+            });
+
+            // Log successful registration
+            await logAuth(req, AUDIT_ACTIONS.REGISTER, true);
+        } else {
+            res.status(400).json({ message: 'Invalid user data' });
+        }
+    } catch (error) {
+        console.error('Register error:', error);
+        await logAuth(req, AUDIT_ACTIONS.REGISTER, false, error.message);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Login user
+ */
+exports.loginUser = async (req, res) => {
+    const { email, password, rememberMe } = req.body;
+
+    try {
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Please provide email and password' });
+        }
+
+        // Find user
+        const user = await findUserByEmail(email);
+
+        if (user && (await verifyPassword(password, user.password_hash))) {
+            // Update last login
+            await updateLastLogin(user.id);
+
+            // Generate JWT tokens
+            const token = generateToken(user.id, user.role);
+            const refreshToken = generateRefreshToken(user.id);
+
+            // Create session
+            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+            await createSession(user.id, { token, refreshToken, expiresAt }, {
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent']
+            });
+
+            res.json({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                emailVerified: user.email_verified,
+                lastLogin: user.last_login,
+                token,
+                refreshToken
+            });
+
+            // Log successful login
+            await logAuth(req, AUDIT_ACTIONS.LOGIN_SUCCESS, true);
+        } else {
+            // Log failed login attempt
+            await logAuth(req, AUDIT_ACTIONS.LOGIN_FAILED, false, 'Invalid credentials');
+            res.status(401).json({ message: 'Invalid email or password' });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        await logAuth(req, AUDIT_ACTIONS.LOGIN_FAILED, false, error.message);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Verify email with token
+ */
+exports.verifyEmailToken = async (req, res) => {
+    const { token } = req.body;
+
+    try {
+        if (!token) {
+            return res.status(400).json({ message: 'Verification token is required' });
+        }
+
+        const user = await verifyEmail(token);
+
+        // Send welcome email
+        await sendWelcomeEmail(user);
+
+        res.json({
+            message: 'Email verified successfully!',
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error('Email verification error:', error);
+        res.status(400).json({ message: error.message });
+    }
+};
+
+/**
+ * Resend verification email
+ */
+exports.resendVerification = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const user = await findUserByEmail(req.user.email);
+
+        if (user.email_verified) {
+            return res.status(400).json({ message: 'Email is already verified' });
+        }
+
+        // Generate new verification token
+        const { token: verificationToken } = await generateVerificationToken(userId);
+
+        // Send verification email
+        await sendVerificationEmail(user, verificationToken);
+
+        res.json({ message: 'Verification email sent successfully' });
+    } catch (error) {
+        console.error('Resend verification error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Refresh access token
+ */
+exports.refreshToken = async (req, res) => {
+    const { refreshToken } = req.body;
+
+    try {
+        if (!refreshToken) {
+            return res.status(400).json({ message: 'Refresh token is required' });
+        }
+
+        // Verify refresh token
+        const decoded = jwt.verify(refreshToken, JWT_SECRET);
+
+        if (decoded.type !== 'refresh') {
+            return res.status(401).json({ message: 'Invalid refresh token' });
+        }
+
+        // Find user
+        const user = await findUserByEmail(req.user?.email);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Generate new access token
+        const newToken = generateToken(decoded.id, user.role);
+
+        res.json({
+            token: newToken
+        });
+    } catch (error) {
+        console.error('Refresh token error:', error);
+        res.status(401).json({ message: 'Invalid or expired refresh token' });
+    }
+};
+
+/**
+ * Get current user profile
+ */
+exports.getProfile = async (req, res) => {
+    try {
+        // User is attached to request by auth middleware
+        const user = await findUserByEmail(req.user.email);
+
+        res.json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            emailVerified: user.email_verified,
+            lastLogin: user.last_login,
+            loginCount: user.login_count,
+            createdAt: user.created_at
+        });
+    } catch (error) {
+        console.error('Get profile error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Get active sessions
+ */
+exports.getSessions = async (req, res) => {
+    try {
+        const sessions = await getActiveSessions(req.user.id);
+
+        res.json({
+            count: sessions.length,
+            sessions
+        });
+    } catch (error) {
+        console.error('Get sessions error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Revoke a session
+ */
+exports.revokeSessionById = async (req, res) => {
+    const { sessionId } = req.params;
+
+    try {
+        const session = await revokeSession(sessionId, req.user.id);
+
+        if (!session) {
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        res.json({ message: 'Session revoked successfully' });
+    } catch (error) {
+        console.error('Revoke session error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Revoke all other sessions
+ */
+exports.revokeAllOtherSessions = async (req, res) => {
+    try {
+        // Get current session ID from token
+        const token = req.headers.authorization?.split(' ')[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        const sessions = await revokeOtherSessions(req.user.id, decoded.sessionId);
+
+        res.json({
+            message: 'All other sessions revoked successfully',
+            count: sessions.length
+        });
+    } catch (error) {
+        console.error('Revoke all sessions error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Logout (revoke current session)
+ */
+exports.logout = async (req, res) => {
+    try {
+        // Extract token from authorization header
+        const token = req.headers.authorization?.split(' ')[1];
+
+        if (!token) {
+            return res.status(400).json({ message: 'No token provided' });
+        }
+
+        // Decode token to get session information
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        // Revoke all sessions for this user (or specific session if sessionId is in token)
+        await revokeOtherSessions(req.user.id, null);
+
+        // Log successful logout
+        await logAuth(req, AUDIT_ACTIONS.LOGOUT, true);
+
+        res.json({
+            message: 'Logged out successfully',
+            action: 'clear_local_storage' // Signal to client to clear localStorage
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        // Even if there's an error, we should still tell client to clear storage
+        res.status(200).json({
+            message: 'Logged out successfully',
+            action: 'clear_local_storage'
+        });
+    }
+};
+
+/**
+ * Request password reset
+ */
+exports.requestPasswordReset = async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        // Validate input
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        // Find user
+        const user = await findUserByEmail(email);
+
+        // Always return success to prevent email enumeration
+        if (!user) {
+            return res.json({
+                message: 'If an account exists with that email, a password reset link has been sent.'
+            });
+        }
+
+        // Generate reset token
+        const { token } = await generatePasswordResetToken(user.id);
+
+        // Send reset email
+        await sendPasswordResetEmail(user, token);
+
+        // Log password reset request
+        await logAuth(req, AUDIT_ACTIONS.PASSWORD_CHANGE, true);
+
+        res.json({
+            message: 'If an account exists with that email, a password reset link has been sent.'
+        });
+    } catch (error) {
+        console.error('Password reset request error:', error);
+        await logAuth(req, AUDIT_ACTIONS.PASSWORD_CHANGE, false, error.message);
+        res.status(500).json({ message: 'Failed to process password reset request' });
+    }
+};
+
+/**
+ * Reset password with token
+ */
+exports.resetPassword = async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    try {
+        // Validate input
+        if (!token || !newPassword) {
+            return res.status(400).json({ message: 'Token and new password are required' });
+        }
+
+        // Validate password strength
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                message: 'Password must be at least 8 characters long'
+            });
+        }
+
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/.test(newPassword)) {
+            return res.status(400).json({
+                message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+            });
+        }
+
+        // Verify token and get user
+        const user = await verifyPasswordResetToken(token);
+
+        // Update password
+        await updatePassword(user.id, newPassword);
+
+        // Revoke all sessions for security
+        await revokeOtherSessions(user.id, null);
+
+        // Log password change
+        await logAuth(req, AUDIT_ACTIONS.PASSWORD_CHANGE, true);
+
+        res.json({
+            message: 'Password reset successfully. Please sign in with your new password.'
+        });
+    } catch (error) {
+        console.error('Password reset error:', error);
+        await logAuth(req, AUDIT_ACTIONS.PASSWORD_CHANGE, false, error.message);
+
+        if (error.message === 'Invalid or expired reset token') {
+            return res.status(400).json({ message: error.message });
+        }
+
+        res.status(500).json({ message: 'Failed to reset password' });
+    }
+};
+/**
+ * Update user profile (name, email, etc.)
+ */
+exports.updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { name, email, profileImageUrl } = req.body;
+
+        // Prevent users from changing their role
+        if (req.body.role) {
+            delete req.body.role;
+        }
+
+        // We imported { updateUser } from ../models/userModel at the top.
+        // Wait, did we? check lines 1-15.
+        // Yes, but I need to make sure updateUser is destructive or safe.
+
+        // Actually, updateUser is NOT imported in the original view.
+        // I need to import it first!
+        // So I will edit the imports first or verify.
+
+        // Wait, the view_file showed lines 1-15 imports:
+        // createUser, findUserByEmail, ... updatePassword... 
+        // NO updateUser !!
+
+        // So I must add updateUser to imports first.
+
+        // I will do this in 2 steps. First imports, then function.
+        // Actually I can do both if I use multi_replace.
+
+        const updatedUser = await require('../models/userModel').updateUser(userId, {
+            name,
+            email,
+            profileImageUrl
+        });
+
+        res.json({
+            message: 'Profile updated successfully',
+            user: updatedUser
+        });
+    } catch (error) {
+        console.error('Update user profile error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
