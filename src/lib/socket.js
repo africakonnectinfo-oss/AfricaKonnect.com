@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 // For development, use localhost (Vite proxy handles it)
 const SOCKET_URL = import.meta.env.VITE_API_URL
     ? import.meta.env.VITE_API_URL.replace('/api', '')
-    : 'http://localhost:5000';
+    : window.location.origin; // Fallback to current origin in production if env not set
 
 
 class SocketClient {

@@ -54,17 +54,14 @@ const AboutUs = () => {
 
     useEffect(() => {
         // Calculate real-time additions
-        // 1. Projects: count from localStorage/Context
-        const realProjectsCount = projects.length;
-
-        // 2. Experts: Use static or fetched, avoided localStorage mock
+        const realProjectsCount = projects ? projects.length : 0;
         const realUsersCount = 0;
 
         setStats(prev => [
-            { ...prev[0], baseAdd: realUsersCount },      // Vetted Experts + Real Users
-            { ...prev[1] },                               // Countries (Static for now)
-            { ...prev[2], baseAdd: realProjectsCount },   // Projects + Real Projects
-            { ...prev[3] }                                // Satisfaction (Static)
+            { ...prev[0], baseAdd: realUsersCount },
+            { ...prev[1] },
+            { ...prev[2], baseAdd: realProjectsCount },
+            { ...prev[3] }
         ]);
     }, [projects]);
 

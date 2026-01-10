@@ -88,9 +88,56 @@ const Collaboration = () => {
 
     // ... (useEffect for scroll and tabs definition remain same)
 
-    // ... (handleSendMessage, handleFileUpload remain same)
+    const tabs = [
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'messages', label: 'Messages', icon: MessageSquare },
+        { id: 'files', label: 'Files', icon: FolderOpen },
+        { id: 'tasks', label: 'Tasks', icon: List },
+        { id: 'payments', label: 'Payments', icon: CreditCard },
+    ];
 
-    // REMOVED: handleCreateTask, handleTaskStatusChange (handled within KanbanBoard now)
+    const handleSendMessage = (e) => {
+        if (e) e.preventDefault();
+        if (!messageInput.trim() || !projectId) return;
+
+        const newMessage = {
+            project_id: projectId,
+            text: messageInput,
+            sender_id: user.id,
+            sender: user.name || 'User',
+            channel: currentChannel,
+            timestamp: new Date().toISOString()
+        };
+
+        // Emit to socket
+        if (socket) {
+            socket.emit('send_message', newMessage);
+        }
+
+        // Optimistically add to UI
+        addMessage(projectId, { ...newMessage, isMe: true });
+        setMessageInput('');
+    };
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            await uploadFile(projectId, file);
+            // File upload hook should handle adding to context or we might need to refetch
+            // For now assuming success triggers refresh or we add manually
+            addProjectFile(projectId, {
+                id: Date.now(), // temp id
+                name: file.name,
+                size: file.size,
+                uploadedBy: user.name,
+                uploadedAt: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error("Upload failed", error);
+        }
+    };
 
     const renderContent = () => {
         switch (activeTab) {

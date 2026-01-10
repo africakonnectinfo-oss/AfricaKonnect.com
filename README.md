@@ -155,9 +155,23 @@ africa-konnect/
 
 ## 🌐 Deployment
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions to:
+### Netlify (Recommended)
+
+See [NETLIFY_DEPLOYMENT.md](./NETLIFY_DEPLOYMENT.md) for complete Netlify deployment guide.
+
+**Quick Start**:
+1. Push code to GitHub
+2. Connect repository to Netlify
+3. Set environment variables
+4. Deploy!
+
+**Checklist**: See [NETLIFY_CHECKLIST.md](./NETLIFY_CHECKLIST.md)
+
+### Alternative: Cloudflare Pages
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for Cloudflare Pages deployment:
 - **Frontend**: Cloudflare Pages
-- **Backend**: Render (or alternative platforms)
+- **Backend**: Render
 - **Database**: Supabase PostgreSQL
 
 ## 🔑 Environment Variables

@@ -289,7 +289,7 @@ const Step5Hub = ({ onNext }) => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <a
-                                                    href={`${api.API_URL || 'http://localhost:5000/api'}/files/${file.id}/download`} // Direct download link or use API handler
+                                                    href={`${api.API_URL}/files/${file.id}/download`} // Direct download link or use API handler
                                                     className="text-primary hover:text-primary/80 flex items-center justify-end gap-1"
                                                     target="_blank"
                                                     rel="noopener noreferrer"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
 import { Card } from '../components/ui/Card';
@@ -150,6 +150,20 @@ const ExpertDashboard = () => {
             socket.off('project_invite', handleInvite);
         };
     }, [socket, user]);
+
+    const getVettingStatusBadge = () => {
+        switch (vettingStatus.status) {
+            case 'verified':
+                return <span className="px-3 py-1 bg-success/10 text-success text-sm font-semibold rounded-full flex items-center gap-1"><Shield size={14} /> Verified</span>;
+            case 'pending':
+                return <span className="px-3 py-1 bg-warning/10 text-warning text-sm font-semibold rounded-full flex items-center gap-1"><Clock size={14} /> In Progress</span>;
+            case 'rejected':
+                return <span className="px-3 py-1 bg-error/10 text-error text-sm font-semibold rounded-full flex items-center gap-1"><XCircle size={14} /> Rejected</span>;
+            default:
+                return <span className="px-3 py-1 bg-gray-100 text-gray-500 text-sm font-semibold rounded-full">Unknown</span>;
+        }
+    };
+
 
     if (loading || authLoading) {
         return (

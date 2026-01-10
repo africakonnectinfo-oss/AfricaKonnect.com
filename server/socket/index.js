@@ -1,9 +1,15 @@
 const socketIo = require('socket.io');
 
 const setupSocket = (server) => {
+    const allowedOrigins = [
+        process.env.CLIENT_URL || "http://localhost:5173",
+        "http://localhost:5173",
+        "http://localhost:5174"
+    ];
+
     const io = socketIo(server, {
         cors: {
-            origin: process.env.CLIENT_URL || "http://localhost:5173",
+            origin: allowedOrigins,
             methods: ["GET", "POST"],
             credentials: true
         }

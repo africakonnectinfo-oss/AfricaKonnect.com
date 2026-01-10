@@ -12,6 +12,7 @@ const getHeaders = () => {
 };
 
 export const api = {
+    API_URL,
     // Auth
     auth: {
         register: async (data) => {

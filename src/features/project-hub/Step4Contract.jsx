@@ -116,7 +116,7 @@ const Step4Contract = ({ onNext }) => {
         try {
             // Capture Metadata
             const metadata = {
-                ip: '127.0.0.1', // In a real app, this would be captured by the server or an IP service
+                ip: window.location.hostname, // In a real app, this should be captured by the server
                 userAgent: navigator.userAgent,
                 timestamp: new Date().toISOString(),
                 consent: true
