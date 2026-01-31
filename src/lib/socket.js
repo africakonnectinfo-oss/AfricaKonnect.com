@@ -1,61 +1,113 @@
 import { io } from 'socket.io-client';
 
-// For production, use the base backend URL (without /api)
-// For development, use localhost (Vite proxy handles it)
-const SOCKET_URL = import.meta.env.VITE_API_URL
-    ? import.meta.env.VITE_API_URL.replace('/api', '')
-    : window.location.origin; // Fallback to current origin in production if env not set
+// Socket URL configuration
+// In development: use /api which Vite proxy will handle
+// In production: use the actual backend URL
+const getSocketURL = () => {
+    const apiUrl = import.meta.env.VITE_API_URL;
+
+    // If VITE_API_URL is set to /api (development with proxy)
+    if (apiUrl === '/api') {
+        return window.location.origin; // Use current origin, proxy will handle it
+    }
+
+    // If VITE_API_URL is a full URL (production)
+    if (apiUrl && apiUrl.startsWith('http')) {
+        return apiUrl.replace('/api', ''); // Remove /api suffix for socket connection
+    }
+
+    // Fallback to current origin
+    return window.location.origin;
+};
+
+const SOCKET_URL = getSocketURL();
+
+// Check if backend is configured
+const isBackendConfigured = () => {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    return apiUrl && !apiUrl.includes('your-backend-url.com');
+};
 
 
 class SocketClient {
     constructor() {
         this.socket = null;
+        this.isEnabled = isBackendConfigured();
+
+        if (!this.isEnabled) {
+            if (import.meta.env.DEV) {
+                console.warn('⚠️ Socket.IO disabled: Backend URL not configured in .env.production');
+            }
+            return;
+        }
     }
 
     connect() {
+        if (!this.isEnabled) {
+            if (import.meta.env.DEV) {
+                console.log('Socket.IO connection skipped - backend not configured');
+            }
+            return;
+        }
+
         if (!this.socket) {
             this.socket = io(SOCKET_URL, {
-                withCredentials: true,
-                autoConnect: false
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionAttempts: 5,
+                timeout: 10000,
             });
 
             this.socket.on('connect', () => {
-                console.log('Socket connected:', this.socket.id);
+                if (import.meta.env.DEV) {
+                    console.log('Socket connected:', this.socket.id);
+                }
             });
 
             this.socket.on('disconnect', () => {
-                console.log('Socket disconnected');
+                if (import.meta.env.DEV) {
+                    console.log('Socket disconnected');
+                }
+            });
+
+            this.socket.on('connect_error', (error) => {
+                if (import.meta.env.DEV) {
+                    console.error('Socket connection error:', error.message);
+                }
             });
 
             this.socket.connect();
         }
-        return this.socket;
     }
 
     disconnect() {
-        if (this.socket) {
+        if (this.socket && this.isEnabled) {
             this.socket.disconnect();
             this.socket = null;
         }
     }
 
-    joinProject(projectId) {
-        if (this.socket) {
-            this.socket.emit('join_project', projectId);
+    emit(event, data) {
+        if (this.socket && this.isEnabled) {
+            this.socket.emit(event, data);
+        } else if (import.meta.env.DEV) {
+            console.log(`Socket emit skipped (${event}):`, data);
         }
     }
 
-    leaveProject(projectId) {
-        if (this.socket) {
-            this.socket.emit('leave_project', projectId);
+    on(event, callback) {
+        if (this.socket && this.isEnabled) {
+            this.socket.on(event, callback);
         }
     }
 
-    joinUser(userId) {
-        if (this.socket) {
-            this.socket.emit('join_user', userId);
+    off(event, callback) {
+        if (this.socket && this.isEnabled) {
+            this.socket.off(event, callback);
         }
     }
 }
 
-export const socketService = new SocketClient();
+const socketClient = new SocketClient();
+export default socketClient;
