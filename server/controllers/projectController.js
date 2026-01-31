@@ -197,20 +197,22 @@ exports.inviteExpert = async (req, res) => {
         }
 
         // Create Notification for Expert
-        const { createNotification } = require('../models/notificationModel');
-        await createNotification({
-            userId: expertId,
-            type: 'invite',
-            title: 'New Project Invitation',
-            message: `You have been invited to join project: ${project.title}`,
-            link: `/expert-dashboard`
-        });
+        const { sendNotification } = require('../services/notificationService');
+        await sendNotification(
+            expertId,
+            'project_invite',
+            {
+                projectTitle: project.title,
+                actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/project-hub`
+            },
+            req.app.get('io')
+        );
 
         // Assign expert in DB
         const { assignExpert } = require('../models/projectModel');
         const updatedProject = await assignExpert(id, expertId);
 
-        // Notify expert via Socket.IO
+        // Notify expert via Socket.IO (handled by service for notification, but project_invite event is specific)
         const io = req.app.get('io');
         if (io) {
             io.to(`user_${expertId}`).emit('project_invite', updatedProject);
@@ -249,14 +251,17 @@ exports.respondToInvite = async (req, res) => {
         const updatedProject = await updateExpertStatus(id, status);
 
         // Create notification for Client
-        const { createNotification } = require('../models/notificationModel');
-        await createNotification({
-            userId: project.client_id,
-            type: 'system',
-            title: `Expert ${status === 'accepted' ? 'Accepted' : 'Declined'} Invitation`,
-            message: `${req.user.name} has ${status} your invitation for ${project.title}`,
-            link: `/projects/${id}`
-        });
+        const { sendNotification } = require('../services/notificationService');
+        await sendNotification(
+            project.client_id,
+            status === 'accepted' ? 'project_accepted' : 'project_rejected',
+            {
+                projectTitle: project.title,
+                senderName: req.user.name,
+                actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/projects/${id}`
+            },
+            req.app.get('io')
+        );
 
         if (status === 'accepted') {
             // Auto-create contract placeholder

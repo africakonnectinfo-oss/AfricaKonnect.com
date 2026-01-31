@@ -18,6 +18,8 @@ const Step1Vault = ({ onNext }) => {
     const [selectedStack, setSelectedStack] = useState(currentProject?.techStack || []);
     const [isDragging, setIsDragging] = useState(false);
     const [projectTitle, setProjectTitle] = useState(currentProject?.title || '');
+    const [budget, setBudget] = useState(currentProject?.budget || '');
+    const [duration, setDuration] = useState(currentProject?.duration || '');
 
     const handleDragOver = (e) => {
         e.preventDefault();
@@ -81,7 +83,9 @@ const Step1Vault = ({ onNext }) => {
                 const newProject = await createProject({
                     title: projectTitle || 'New Project',
                     techStack: selectedStack,
-                    description: 'Created via Vault'
+                    description: 'Created via Vault',
+                    budget: parseFloat(budget || 0),
+                    duration: duration
                 });
                 projectId = newProject.id;
             } else {
@@ -89,6 +93,8 @@ const Step1Vault = ({ onNext }) => {
                 await updateProject(projectId, {
                     techStack: selectedStack,
                     title: projectTitle || currentProject.title,
+                    budget: parseFloat(budget || currentProject.budget || 0),
+                    duration: duration || currentProject.duration
                 });
             }
 
@@ -124,6 +130,36 @@ const Step1Vault = ({ onNext }) => {
                     value={projectTitle}
                     onChange={(e) => setProjectTitle(e.target.value)}
                 />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Budget Match</h3>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                            <input
+                                type="number"
+                                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                                placeholder="5000"
+                                value={budget}
+                                onChange={(e) => setBudget(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Timeline</h3>
+                        <select
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                            value={duration}
+                            onChange={(e) => setDuration(e.target.value)}
+                        >
+                            <option value="">Select duration...</option>
+                            <option value="1_month">Wait (&lt; 1 month)</option>
+                            <option value="1_3_months">Sprint (1-3 months)</option>
+                            <option value="3_6_months">Marathon (3-6 months)</option>
+                            <option value="6_plus_months">Odyssey (6+ months)</option>
+                        </select>
+                    </div>
+                </div>
 
                 <h3 className="font-semibold text-gray-900 mb-4">1. What are you building?</h3>
                 <div

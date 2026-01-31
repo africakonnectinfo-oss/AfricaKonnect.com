@@ -81,6 +81,7 @@ app.use('/api', require('./routes/collaborationRoutes')); // Handling tasks, mil
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api', require('./routes/paymentRoutes')); // Handling escrow, releases
 app.use('/api/files', require('./routes/fileRoutes'));
+app.use('/api/applications', require('./routes/applicationRoutes'));
 
 // Initialize Scheduled Jobs
 const { initScheduledJobs } = require('./services/scheduledJobs');

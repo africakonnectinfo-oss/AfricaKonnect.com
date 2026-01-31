@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import SEO from '../components/SEO';
-import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -15,14 +14,12 @@ export default function SignIn() {
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
 
 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError(''); // Clear previous errors
         try {
             const { user, error: signInError } = await signIn(email, password, rememberMe);
 

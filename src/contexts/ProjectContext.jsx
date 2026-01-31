@@ -74,9 +74,54 @@ export const ProjectProvider = ({ children }) => {
 
         // Listen for invites
         socket.on('project_invite', (newProject) => {
-            // For now, no toast, but we could add one.
-            // Just helpful logging or maybe fetching data if dashboard is looking.
             console.log('You have been invited to a project:', newProject);
+        });
+
+        // Listen for task updates
+        socket.on('task_created', (newTask) => {
+            setProjects(prev => {
+                const projectIndex = prev.findIndex(p => p.id === newTask.project_id);
+                if (projectIndex === -1) return prev;
+
+                const project = prev[projectIndex];
+                // Check dupes
+                if (project.tasks?.some(t => t.id === newTask.id)) return prev;
+
+                const updatedTasks = [newTask, ...(project.tasks || [])]; // Add to top
+
+                // Add activity for task creation
+                // Note: We might want to dedup this if we also listen to 'activity_logged'
+                // But for now, ensuring the task list is up to date is priority.
+
+                return prev.map((p, i) => i === projectIndex ? { ...p, tasks: updatedTasks } : p);
+            });
+
+            if (currentProject?.id === newTask.project_id) {
+                setCurrentProject(prev => {
+                    if (prev.tasks?.some(t => t.id === newTask.id)) return prev;
+                    return { ...prev, tasks: [newTask, ...(prev.tasks || [])] };
+                });
+            }
+        });
+
+        socket.on('task_updated', (updatedTask) => {
+            setProjects(prev => {
+                const project = prev.find(p => p.id === updatedTask.project_id);
+                if (!project) return prev;
+
+                const updatedTasks = (project.tasks || []).map(t =>
+                    t.id === updatedTask.id ? updatedTask : t
+                );
+
+                return prev.map(p => p.id === updatedTask.project_id ? { ...p, tasks: updatedTasks } : p);
+            });
+
+            if (currentProject?.id === updatedTask.project_id) {
+                setCurrentProject(prev => ({
+                    ...prev,
+                    tasks: (prev.tasks || []).map(t => t.id === updatedTask.id ? updatedTask : t)
+                }));
+            }
         });
 
         return () => {

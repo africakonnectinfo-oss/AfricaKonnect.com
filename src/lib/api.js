@@ -589,6 +589,38 @@ export const api = {
             return handleResponse(response);
         }
     },
+
+    // Applications
+    applications: {
+        apply: async (projectId, data) => { // { pitch, rate }
+            const response = await fetch(`${API_URL}/applications/${projectId}/apply`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data),
+            });
+            return handleResponse(response);
+        },
+        getByProject: async (projectId) => {
+            const response = await fetch(`${API_URL}/applications/project/${projectId}`, {
+                headers: getHeaders(),
+            });
+            return handleResponse(response);
+        },
+        getMyApplications: async () => {
+            const response = await fetch(`${API_URL}/applications/my`, {
+                headers: getHeaders(),
+            });
+            return handleResponse(response);
+        },
+        updateStatus: async (id, status) => {
+            const response = await fetch(`${API_URL}/applications/${id}/status`, {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify({ status }),
+            });
+            return handleResponse(response);
+        }
+    },
 };
 
 const handleResponse = async (response) => {

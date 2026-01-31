@@ -23,7 +23,7 @@ import { useSocket } from '../hooks/useSocket';
 import { socketService } from '../lib/socket';
 
 const Collaboration = () => {
-    const { currentProject, addMessage, addProjectFile, removeProjectFile, addActivity, updateTask, addTask } = useProject();
+    const { currentProject, addMessage, addProjectFile, removeProjectFile, addActivity } = useProject();
     const { profile, user } = useAuth();
     const { uploadFile, downloadFile, uploading } = useFileUpload();
     const socket = useSocket();
@@ -33,31 +33,23 @@ const Collaboration = () => {
     const [currentChannel, setCurrentChannel] = useState('general');
     const messagesEndRef = useRef(null);
 
-    const projectId = currentProject?.id || 'demo_project';
     const messages = currentProject?.messages || [];
     const files = currentProject?.files || [];
     const activities = currentProject?.activities || [];
+
+    // Redirect or show loading if no project selected
+    // Ideally this component is protected by a wrapper that ensures a project is selected
+    if (!currentProject && !projectId) {
+        return <div className="p-8 text-center text-gray-500">Please select a project from the Project Hub.</div>;
+    }
 
     useEffect(() => {
         if (projectId && socket) {
             socketService.joinProject(projectId);
 
-            const handleNewMessage = (msg) => {
-                if (msg.project_id === projectId) {
-                    addMessage(projectId, { ...msg, isMe: msg.sender_id === user?.id });
-                }
-            };
-
             const handleTaskUpdate = (task) => {
-                // Determine if it's a new task or update
-                // For simplicity, we might just reload tasks or update local state if we have a robust reducer
-                // Here we'll just try to update if it exists, or add if not
-                // But since KanbanBoard fetches its own data, we might need a way to trigger it to refetch
-                // ideally KanbanBoard should also subscribe, or we hoist state.
-                // For now, we'll let KanbanBoard handle its own fetching, but we can emit a custom event or just accept that 
-                // "addActivity" will update the activity feed at least.
                 addActivity(projectId, {
-                    user: 'System', // or user name from event if available
+                    user: 'System',
                     action: 'updated a task',
                     target: task.title,
                     icon: AlertCircle,
@@ -70,20 +62,19 @@ const Collaboration = () => {
                 addActivity(projectId, activity);
             };
 
-            socket.on('new_message', handleNewMessage);
+            // Messages are handled by ProjectContext global listener
             socket.on('task_updated', handleTaskUpdate);
             socket.on('task_created', handleTaskUpdate);
             socket.on('activity_logged', handleActivity);
 
             return () => {
                 socketService.leaveProject(projectId);
-                socket.off('new_message', handleNewMessage);
                 socket.off('task_updated', handleTaskUpdate);
                 socket.off('task_created', handleTaskUpdate);
                 socket.off('activity_logged', handleActivity);
             };
         }
-    }, [projectId, socket, user]);
+    }, [projectId, socket, user, addActivity]); // Removed addMessage dependency
 
 
     // ... (useEffect for scroll and tabs definition remain same)
@@ -109,13 +100,9 @@ const Collaboration = () => {
             timestamp: new Date().toISOString()
         };
 
-        // Emit to socket
-        if (socket) {
-            socket.emit('send_message', newMessage);
-        }
-
-        // Optimistically add to UI
-        addMessage(projectId, { ...newMessage, isMe: true });
+        // UI Optimistic update via Context (which sends to API)
+        // Note: ProjectContext.addMessage calls api.messages.send
+        addMessage(projectId, { ...newMessage });
         setMessageInput('');
     };
 

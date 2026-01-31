@@ -5,7 +5,6 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useFileUpload } from '../hooks/useFileUpload';
-import { motion } from 'framer-motion';
 import {
     User, Mail, Phone, MapPin, Building, Globe, Camera,
     Briefcase, Award, Save, X, Loader2, Check

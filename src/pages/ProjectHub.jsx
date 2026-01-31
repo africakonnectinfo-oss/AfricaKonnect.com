@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { useProject } from '../contexts/ProjectContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Plus, Briefcase, ChevronRight, Clock, AlertCircle } from 'lucide-react';
@@ -42,7 +41,9 @@ const ProjectHub = () => {
                         navigate('/expert-dashboard');
                         return;
                     }
-                } catch (e) { }
+                } catch (e) {
+                    // ignore error
+                }
             }
 
             if (user?.id) {

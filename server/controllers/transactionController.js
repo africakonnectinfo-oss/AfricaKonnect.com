@@ -53,14 +53,17 @@ exports.fundEscrow = async (req, res) => {
         }
 
         // Create Notification for Expert
-        const { createNotification } = require('../models/notificationModel');
-        await createNotification({
-            userId: contract.expert_id,
-            type: 'payment',
-            title: 'Escrow Funded',
-            message: `Client has funded $${amount} into escrow for ${project.title}.`,
-            link: `/projects/${projectId}/payments`
-        });
+        const { sendNotification } = require('../services/notificationService');
+        await sendNotification(
+            contract.expert_id,
+            'payment',
+            {
+                amount: amount,
+                projectTitle: project.title,
+                link: `/projects/${projectId}/payments`
+            },
+            req.app.get('io')
+        );
 
         // Notify
         const io = getIO();
@@ -119,14 +122,17 @@ exports.releaseFunds = async (req, res) => {
 
         // Create Notification for Expert
         const expertId = contract ? contract.expert_id : project.selected_expert_id;
-        const { createNotification } = require('../models/notificationModel');
-        await createNotification({
-            userId: expertId,
-            type: 'payment',
-            title: 'Funds Released',
-            message: `You have received a payment of $${releaseAmount} from ${project.title}.`,
-            link: `/projects/${projectId}/payments`
-        });
+        const { sendNotification } = require('../services/notificationService');
+        await sendNotification(
+            expertId,
+            'payment_released',
+            {
+                amount: releaseAmount,
+                projectTitle: project.title,
+                link: `/projects/${projectId}/payments`
+            },
+            req.app.get('io')
+        );
 
         const io = getIO();
         io.to(`project_${projectId}`).emit('project_update', {

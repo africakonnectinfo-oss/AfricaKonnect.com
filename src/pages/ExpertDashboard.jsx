@@ -31,6 +31,7 @@ const ExpertDashboard = () => {
     });
     const [invitations, setInvitations] = useState([]);
     const [activeProjects, setActiveProjects] = useState([]);
+    const [openProjects, setOpenProjects] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [vettingStatus, setVettingStatus] = useState({
@@ -40,6 +41,8 @@ const ExpertDashboard = () => {
     });
 
     const [hasProfile, setHasProfile] = useState(false);
+    const [selectedProject, setSelectedProject] = useState(null);
+    const [applicationData, setApplicationData] = useState({ pitch: '', rate: '' });
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -108,6 +111,12 @@ const ExpertDashboard = () => {
                         receivedDate: new Date(p.created_at).toLocaleDateString(),
                         status: 'pending'
                     })));
+                }
+
+                // Get open projects
+                const openData = await api.projects.getAll({ status: 'open', limit: 5 });
+                if (openData && openData.projects) {
+                    setOpenProjects(openData.projects);
                 }
 
             } catch (error) {
@@ -382,6 +391,65 @@ const ExpertDashboard = () => {
                             </div>
                         </Card>
 
+                        {/* Open Projects Feed */}
+                        <Card className="p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-gray-900">Open Projects</h2>
+                                <Button variant="ghost" size="sm" onClick={() => navigate('/find-work')}>View All</Button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {openProjects.length === 0 ? (
+                                    <p className="text-gray-500 text-center py-4">No open projects matching your skills right now.</p>
+                                ) : (
+                                    openProjects.map((project) => (
+                                        <div
+                                            key={project.id}
+                                            className="border border-gray-200 rounded-lg p-4 hover:border-primary/50 transition-colors"
+                                        >
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h3 className="font-semibold text-gray-900 mb-1">{project.title}</h3>
+                                                    <p className="text-sm text-gray-600 line-clamp-2">{project.description}</p>
+                                                </div>
+                                                <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(project.created_at).toLocaleDateString()}</span>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                {project.tech_stack && project.tech_stack.map((skill, idx) => (
+                                                    <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                                                        {skill}
+                                                    </span>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4 text-sm text-gray-600">
+                                                    <span className="flex items-center gap-1">
+                                                        <DollarSign size={16} />
+                                                        ${project.budget}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock size={16} />
+                                                        {project.duration}
+                                                    </span>
+                                                </div>
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setSelectedProject(project);
+                                                        setApplicationData({ pitch: '', rate: project.budget || '' });
+                                                    }}
+                                                >
+                                                    Show Interest
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </Card>
+
                         {/* Active Projects */}
                         <Card className="p-6">
                             <h2 className="text-xl font-bold text-gray-900 mb-6">Active Projects</h2>
@@ -527,6 +595,61 @@ const ExpertDashboard = () => {
                     </div>
                 </div>
             </div>
+            {/* Apply Modal */}
+            <AnimatePresence>
+                {selectedProject && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6"
+                        >
+                            <h3 className="text-xl font-bold text-gray-900 mb-4">Apply for {selectedProject.title}</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Your Pitch</label>
+                                    <textarea
+                                        className="w-full h-32 p-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                        placeholder="Why are you the best fit for this project? Mention your relevant experience."
+                                        value={applicationData.pitch}
+                                        onChange={(e) => setApplicationData({ ...applicationData, pitch: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Proposed Rate ($)</label>
+                                    <input
+                                        type="number"
+                                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                        placeholder="5000"
+                                        value={applicationData.rate}
+                                        onChange={(e) => setApplicationData({ ...applicationData, rate: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <Button variant="secondary" onClick={() => setSelectedProject(null)}>Cancel</Button>
+                                <Button
+                                    onClick={async () => {
+                                        if (!applicationData.pitch || !applicationData.rate) return;
+                                        try {
+                                            await api.applications.apply(selectedProject.id, applicationData);
+                                            alert("Application sent successfully!");
+                                            setSelectedProject(null);
+                                            // Ideally refresh the list to show 'Applied' status
+                                        } catch (e) {
+                                            console.error(e);
+                                            alert("Failed to apply: " + e.message);
+                                        }
+                                    }}
+                                >
+                                    Submit Application
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

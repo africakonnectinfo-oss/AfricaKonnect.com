@@ -45,25 +45,17 @@ const AnimatedCounter = ({ value, label, icon: Icon, baseValue = 0 }) => {
 
 const AboutUs = () => {
     const { projects } = useProject();
-    const [stats, setStats] = useState([
-        { icon: Users, label: "Vetted Experts", value: "2,500+", baseAdd: 0 },
+
+    // Calculate real-time stats directly
+    const realProjectsCount = projects ? projects.length : 0;
+    const realUsersCount = 0;
+
+    const stats = [
+        { icon: Users, label: "Vetted Experts", value: "2,500+", baseAdd: realUsersCount },
         { icon: Globe, label: "Countries Served", value: "30+", baseAdd: 0 },
-        { icon: Award, label: "Projects Completed", value: "10k+", baseAdd: 0 },
+        { icon: Award, label: "Projects Completed", value: "10k+", baseAdd: realProjectsCount },
         { icon: TrendingUp, label: "Client Satisfaction", value: "98%", baseAdd: 0 }
-    ]);
-
-    useEffect(() => {
-        // Calculate real-time additions
-        const realProjectsCount = projects ? projects.length : 0;
-        const realUsersCount = 0;
-
-        setStats(prev => [
-            { ...prev[0], baseAdd: realUsersCount },
-            { ...prev[1] },
-            { ...prev[2], baseAdd: realProjectsCount },
-            { ...prev[3] }
-        ]);
-    }, [projects]);
+    ];
 
     return (
         <div className="bg-white min-h-screen pt-20">

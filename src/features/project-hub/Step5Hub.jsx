@@ -36,14 +36,14 @@ const Step5Hub = ({ onNext }) => {
         if (activeTab === 'messages' && projectId) {
             fetchMessages();
         }
-    }, [activeTab, projectId]);
+    }, [activeTab, projectId, fetchMessages]);
 
     // Fetch Files
     useEffect(() => {
         if (activeTab === 'files' && projectId) {
             fetchFiles();
         }
-    }, [activeTab, projectId]);
+    }, [activeTab, projectId, fetchFiles]);
 
     // Socket Listener for New Messages
     useEffect(() => {
@@ -64,7 +64,7 @@ const Step5Hub = ({ onNext }) => {
         return () => socket.off('receive_message', handleNewMessage);
     }, [socket, projectId]);
 
-    const fetchMessages = async () => {
+    const fetchMessages = React.useCallback(async () => {
         try {
             setLoadingMessages(true);
             const res = await api.messages.getMessages(projectId);
@@ -75,9 +75,9 @@ const Step5Hub = ({ onNext }) => {
         } finally {
             setLoadingMessages(false);
         }
-    };
+    }, [projectId]);
 
-    const fetchFiles = async () => {
+    const fetchFiles = React.useCallback(async () => {
         try {
             setLoadingFiles(true);
             const res = await api.files.getFiles(projectId);
@@ -87,7 +87,7 @@ const Step5Hub = ({ onNext }) => {
         } finally {
             setLoadingFiles(false);
         }
-    };
+    }, [projectId]);
 
     const scrollToBottom = () => {
         setTimeout(() => {

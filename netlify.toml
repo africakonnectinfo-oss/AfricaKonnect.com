@@ -10,7 +10,16 @@
 
 [build.environment]
   # Node version
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
+  # Prevent build caching issues
+  CI = "true"
+
+# Development server configuration
+[dev]
+  command = "npm run dev"
+  targetPort = 5173
+  port = 8888
+  publish = "dist"
 
 # Redirect rules for SPA
 [[redirects]]
@@ -19,11 +28,12 @@
   status = 200
 
 # API proxy (optional - if you want to proxy API calls through Netlify)
-# [[redirects]]
-#   from = "/api/*"
-#   to = "https://your-backend-url.onrender.com/api/:splat"
-#   status = 200
-#   force = true
+# API proxy (optional - if you want to proxy API calls through Netlify)
+[[redirects]]
+  from = "/api/*"
+  to = "https://africa-konnect-api.onrender.com/api/:splat"
+  status = 200
+  force = true
 
 # Headers for security
 [[headers]]

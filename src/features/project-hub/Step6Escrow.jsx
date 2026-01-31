@@ -23,9 +23,9 @@ const Step6Escrow = ({ onReset }) => {
         if (currentProject?.id) {
             checkEscrowStatus();
         }
-    }, [currentProject]);
+    }, [currentProject, checkEscrowStatus]);
 
-    const checkEscrowStatus = async () => {
+    const checkEscrowStatus = React.useCallback(async () => {
         try {
             setLoading(true);
             const txs = await api.transactions.getHistory(currentProject.id);
@@ -51,7 +51,7 @@ const Step6Escrow = ({ onReset }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentProject, contractAmount]);
 
     const handleFundEscrow = async () => {
         try {
