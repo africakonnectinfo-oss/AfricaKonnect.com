@@ -13,7 +13,8 @@ const {
     logout,
     requestPasswordReset,
     resetPassword,
-    updateUserProfile
+    updateUserProfile,
+    getPublicProfile
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 const { authLimiter, passwordResetLimiter } = require('../middleware/rateLimitMiddleware');
@@ -24,6 +25,7 @@ router.post('/register', authLimiter, validateRegister, registerUser);
 router.post('/login', authLimiter, validateLogin, loginUser);
 router.post('/verify-email', verifyEmailToken);
 router.post('/refresh-token', refreshToken);
+router.get('/users/:id/public', protect, getPublicProfile);
 
 // Password reset routes (public but rate limited)
 router.post('/forgot-password', passwordResetLimiter, requestPasswordReset);
@@ -39,5 +41,8 @@ router.post('/logout', protect, logout);
 router.get('/sessions', protect, getSessions);
 router.delete('/sessions/:sessionId', protect, revokeSessionById);
 router.post('/sessions/revoke-others', protect, revokeAllOtherSessions);
+
+// OAuth Consent Decision
+router.post('/oauth/decision', protect, require('../controllers/authController').oauthDecision);
 
 module.exports = router;

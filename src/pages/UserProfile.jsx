@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
+import { motion } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +29,8 @@ const UserProfile = () => {
     });
     const [newSkill, setNewSkill] = useState('');
     const [imagePreview, setImagePreview] = useState(null);
+    const [newCert, setNewCert] = useState({ name: '', issuer: '', year: '' });
+    const [newCertFile, setNewCertFile] = useState(null);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -377,11 +380,13 @@ const UserProfile = () => {
                                 </div>
                             )}
 
+
+
                             {/* Certifications (for experts) */}
                             {isExpert && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Certifications
+                                        Certifications & Registrations
                                     </label>
                                     <div className="space-y-4">
                                         {formData.certifications?.map((cert, index) => (
@@ -389,6 +394,18 @@ const UserProfile = () => {
                                                 <div>
                                                     <p className="font-semibold text-gray-900">{cert.name}</p>
                                                     <p className="text-sm text-gray-600">{cert.issuer} • {cert.year}</p>
+                                                    {cert.document && (
+                                                        <a
+                                                            href={cert.document.data}
+                                                            download={cert.document.name}
+                                                            className="text-xs text-primary hover:underline flex items-center mt-1"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            <Award size={12} className="mr-1" />
+                                                            View Document
+                                                        </a>
+                                                    )}
                                                 </div>
                                                 {editing && (
                                                     <button
@@ -404,45 +421,76 @@ const UserProfile = () => {
                                             </div>
                                         ))}
                                         {editing && (
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-4 border border-dashed border-gray-300 rounded-lg">
-                                                <input
-                                                    placeholder="Certification Name"
-                                                    className="px-3 py-2 border rounded text-sm"
-                                                    id="new-cert-name"
-                                                />
-                                                <input
-                                                    placeholder="Issuer"
-                                                    className="px-3 py-2 border rounded text-sm"
-                                                    id="new-cert-issuer"
-                                                />
-                                                <div className="flex gap-2">
+                                            <div className="p-4 border border-dashed border-gray-300 rounded-lg space-y-3">
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                    <input
+                                                        placeholder="Name (e.g. PMP, Registration)"
+                                                        className="px-3 py-2 border rounded text-sm"
+                                                        value={newCert.name}
+                                                        onChange={(e) => setNewCert({ ...newCert, name: e.target.value })}
+                                                    />
+                                                    <input
+                                                        placeholder="Issuer"
+                                                        className="px-3 py-2 border rounded text-sm"
+                                                        value={newCert.issuer}
+                                                        onChange={(e) => setNewCert({ ...newCert, issuer: e.target.value })}
+                                                    />
                                                     <input
                                                         placeholder="Year"
-                                                        className="px-3 py-2 border rounded text-sm w-20"
-                                                        id="new-cert-year"
+                                                        className="px-3 py-2 border rounded text-sm"
+                                                        value={newCert.year}
+                                                        onChange={(e) => setNewCert({ ...newCert, year: e.target.value })}
                                                     />
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <label className="flex-1">
+                                                        <span className="sr-only">Choose file</span>
+                                                        <input
+                                                            type="file"
+                                                            accept=".pdf,.jpg,.jpeg,.png"
+                                                            onChange={(e) => setNewCertFile(e.target.files[0])}
+                                                            className="block w-full text-sm text-gray-500
+                                                                file:mr-4 file:py-2 file:px-4
+                                                                file:rounded-full file:border-0
+                                                                file:text-xs file:font-semibold
+                                                                file:bg-primary/10 file:text-primary
+                                                                hover:file:bg-primary/20
+                                                            "
+                                                        />
+                                                    </label>
                                                     <Button
                                                         size="sm"
-                                                        onClick={() => {
-                                                            const name = document.getElementById('new-cert-name');
-                                                            const issuer = document.getElementById('new-cert-issuer');
-                                                            const year = document.getElementById('new-cert-year');
-                                                            if (name.value && issuer.value) {
+                                                        onClick={async () => {
+                                                            if (newCert.name && newCert.issuer) {
+                                                                let documentData = null;
+                                                                if (newCertFile) {
+                                                                    try {
+                                                                        const result = await uploadFile(newCertFile, {
+                                                                            allowedTypes: ['application/pdf', 'image/jpeg', 'image/png']
+                                                                        });
+                                                                        if (result.file) {
+                                                                            documentData = result.file;
+                                                                        }
+                                                                    } catch (e) {
+                                                                        alert("File upload failed: " + e.message);
+                                                                        return;
+                                                                    }
+                                                                }
+
                                                                 setFormData({
                                                                     ...formData,
                                                                     certifications: [...(formData.certifications || []), {
-                                                                        name: name.value,
-                                                                        issuer: issuer.value,
-                                                                        year: year.value
+                                                                        ...newCert,
+                                                                        document: documentData
                                                                     }]
                                                                 });
-                                                                name.value = '';
-                                                                issuer.value = '';
-                                                                year.value = '';
+                                                                setNewCert({ name: '', issuer: '', year: '' });
+                                                                setNewCertFile(null);
                                                             }
                                                         }}
+                                                        disabled={uploading}
                                                     >
-                                                        Add
+                                                        {uploading ? <Loader2 className="animate-spin" size={16} /> : 'Add'}
                                                     </Button>
                                                 </div>
                                             </div>

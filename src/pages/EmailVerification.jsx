@@ -13,6 +13,27 @@ const EmailVerification = () => {
     const [resending, setResending] = useState(false);
 
     useEffect(() => {
+        const verifyEmail = async (token) => {
+            try {
+                const data = await api.auth.verifyEmail(token);
+                setStatus('success');
+                setMessage(data.message || 'Email verified successfully!');
+
+                // Redirect to dashboard after 3 seconds
+                setTimeout(() => {
+                    const user = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                    if (user.role === 'expert') {
+                        navigate('/expert-dashboard');
+                    } else {
+                        navigate('/project-hub');
+                    }
+                }, 3000);
+            } catch (error) {
+                setStatus('error');
+                setMessage(error.message || 'Verification failed. The link may have expired.');
+            }
+        };
+
         const token = searchParams.get('token');
         if (token) {
             verifyEmail(token);
@@ -20,28 +41,7 @@ const EmailVerification = () => {
             setStatus('error');
             setMessage('No verification token provided');
         }
-    }, [searchParams]);
-
-    const verifyEmail = async (token) => {
-        try {
-            const data = await api.auth.verifyEmail(token);
-            setStatus('success');
-            setMessage(data.message || 'Email verified successfully!');
-
-            // Redirect to dashboard after 3 seconds
-            setTimeout(() => {
-                const user = JSON.parse(localStorage.getItem('userInfo') || '{}');
-                if (user.role === 'expert') {
-                    navigate('/expert-dashboard');
-                } else {
-                    navigate('/project-hub');
-                }
-            }, 3000);
-        } catch (error) {
-            setStatus('error');
-            setMessage(error.message || 'Verification failed. The link may have expired.');
-        }
-    };
+    }, [searchParams, navigate]);
 
     const handleResend = async () => {
         setResending(true);

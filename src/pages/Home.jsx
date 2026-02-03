@@ -4,6 +4,7 @@ import { Hero } from '../features/home/Hero';
 import { TrustSection } from '../features/home/TrustSection';
 import { HowItWorksPreview } from '../features/home/HowItWorksPreview';
 import { FeaturedExperts } from '../features/home/FeaturedExperts';
+import { FAQSection } from '../features/home/FAQSection';
 
 const Home = () => {
     return (
@@ -16,6 +17,7 @@ const Home = () => {
             <HowItWorksPreview />
             <TrustSection />
             <FeaturedExperts />
+            <FAQSection />
         </div>
     );
 };

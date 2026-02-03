@@ -4,7 +4,10 @@ const setupSocket = (server) => {
     const allowedOrigins = [
         process.env.CLIENT_URL || "http://localhost:5173",
         "http://localhost:5173",
-        "http://localhost:5174"
+        "http://localhost:5174",
+        "https://africakonnect.com",
+        "https://www.africakonnect.com",
+        "https://africa-konnect.netlify.app"
     ];
 
     const io = socketIo(server, {

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@jitsi/react-sdk": "^1.4.4",
+    "@neondatabase/neon-js": "^0.1.0-beta.22",
     "@supabase/supabase-js": "^2.89.0",
     "@tailwindcss/postcss": "^4.1.18",
     "clsx": "^2.1.1",
@@ -21,6 +23,7 @@
     "react-helmet-async": "^2.0.5",
     "react-router-dom": "^7.11.0",
     "socket.io-client": "^4.8.3",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {

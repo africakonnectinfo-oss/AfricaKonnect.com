@@ -1,37 +1,158 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
-import { Mail, Lock, User, Briefcase, ArrowRight, Loader2, Check } from 'lucide-react';
+import { Mail, Lock, User, Briefcase, ArrowRight, Loader2, Check, ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import { useAuth } from '../contexts/AuthContext';
+import { AuthLayout } from '../components/layout/AuthLayout';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const RoleSelection = ({ role, onUpdate, onNext }) => (
+    <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-4">
+            <button
+                type="button"
+                onClick={() => { onUpdate('role', 'client'); onNext(); }}
+                className={`relative group p-6 rounded-xl border-2 hover:border-primary/50 hover:bg-primary/5 transition-all text-left ${role === 'client' ? 'border-primary bg-primary/5' : 'border-gray-100'}`}
+            >
+                <div className="flex items-center gap-4 mb-2">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                        <User size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-900">I want to hire talent</h3>
+                        <p className="text-sm text-gray-500">Find top African experts for your project</p>
+                    </div>
+                </div>
+            </button>
+
+            <button
+                type="button"
+                onClick={() => { onUpdate('role', 'expert'); onNext(); }}
+                className={`relative group p-6 rounded-xl border-2 hover:border-primary/50 hover:bg-primary/5 transition-all text-left ${role === 'expert' ? 'border-primary bg-primary/5' : 'border-gray-100'}`}
+            >
+                <div className="flex items-center gap-4 mb-2">
+                    <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+                        <Briefcase size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-900">I want to work</h3>
+                        <p className="text-sm text-gray-500">Find global opportunities and grow</p>
+                    </div>
+                </div>
+            </button>
+        </div>
+
+        <div className="text-center text-sm text-gray-500 mt-6">
+            Already have an account? {' '}
+            <Link to="/signin" className="font-semibold text-primary hover:text-primary/80">
+                Sign in
+            </Link>
+        </div>
+    </div>
+);
+
+const AccountDetails = ({ formData, onUpdate, onSubmit, onBack, loading }) => (
+    <form onSubmit={onSubmit} className="space-y-5">
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <div className="relative">
+                <User className="absolute left-3 top-3 text-gray-400" size={18} />
+                <input
+                    required
+                    type="text"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    placeholder="John Doe"
+                    value={formData.name}
+                    onChange={(e) => onUpdate('name', e.target.value)}
+                />
+            </div>
+        </div>
+
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+            <div className="relative">
+                <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+                <input
+                    required
+                    type="email"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    placeholder="you@company.com"
+                    value={formData.email}
+                    onChange={(e) => onUpdate('email', e.target.value)}
+                />
+            </div>
+        </div>
+
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <div className="relative">
+                <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+                <input
+                    required
+                    type="password"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={(e) => onUpdate('password', e.target.value)}
+                />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters.</p>
+        </div>
+
+        <div className="pt-2">
+            <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+                {loading ? <Loader2 className="animate-spin" /> : 'Create Account'}
+            </Button>
+        </div>
+
+        <div className="text-center pt-2">
+            <button
+                type="button"
+                onClick={onBack}
+                className="text-sm text-gray-500 hover:text-gray-900 flex items-center justify-center mx-auto"
+            >
+                <ArrowLeft size={14} className="mr-1" /> Back to role selection
+            </button>
+        </div>
+    </form>
+);
 
 const SignUp = () => {
     const navigate = useNavigate();
     const { signUp, signOut } = useAuth();
-    const [role, setRole] = useState('client'); // 'client' or 'expert'
+    const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+
+    // Form State
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        password: ''
+        password: '',
+        role: '' // 'client' or 'expert'
     });
 
+    const updateData = (key, value) => {
+        setFormData(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleNext = () => setStep(prev => prev + 1);
+    const handleBack = () => setStep(prev => prev - 1);
+
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setLoading(true);
         try {
             const { user, error } = await signUp(
                 formData.email,
                 formData.password,
                 formData.name,
-                role
+                formData.role
             );
 
             if (error) throw error;
 
             if (user) {
-                // Sign out immediately to force manual login and verification
                 await signOut();
                 navigate('/signin', {
                     state: {
@@ -41,156 +162,45 @@ const SignUp = () => {
                 });
             }
         } catch (error) {
-            alert(error.message);
+            alert(typeof error === 'string' ? error : error.message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <SEO
-                title="Sign Up"
-                description="Create your Africa Konnect account today. Hire top African talent or find your next global opportunity."
-            />
-            <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-                <Link to="/">
-                    {/* <img
-                        className="mx-auto h-12 w-auto"
-                        src="/logo.svg"
-                        alt="Workflow"
-                    /> */}
-                </Link >
-                <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
-                <p className="mt-2 text-gray-600">Join the platform bridging African excellence</p>
-            </div >
+        <AuthLayout
+            title={step === 1 ? "Join Africa Konnect" : "Create Account"}
+            subtitle={step === 1 ? "Choose how you want to use the platform" : `Signing up as a ${formData.role === 'client' ? 'Client' : 'Expert'}`}
+        >
+            <SEO title="Sign Up" description="Create your Africa Konnect account." />
 
-            <Card className="sm:mx-auto sm:w-full sm:max-w-md p-8">
-                {/* Role Selection */}
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                    <button
-                        type="button"
-                        onClick={() => setRole('client')}
-                        className={`relative flex flex-col items-center p-4 rounded-xl border-2 transition-all ${role === 'client'
-                            ? 'border-primary bg-primary/5 text-primary'
-                            : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                            }`}
-                    >
-                        {role === 'client' && (
-                            <div className="absolute top-2 right-2 text-primary">
-                                <Check size={16} />
-                            </div>
-                        )}
-                        <User size={24} className="mb-2" />
-                        <span className="font-medium text-sm">I'm a Client</span>
-                        <span className="text-xs text-gray-500 mt-1">We deliver the right African expert safely</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setRole('expert')}
-                        className={`relative flex flex-col items-center p-4 rounded-xl border-2 transition-all ${role === 'expert'
-                            ? 'border-primary bg-primary/5 text-primary'
-                            : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                            }`}
-                    >
-                        {role === 'expert' && (
-                            <div className="absolute top-2 right-2 text-primary">
-                                <Check size={16} />
-                            </div>
-                        )}
-                        <Briefcase size={24} className="mb-2" />
-                        <span className="font-medium text-sm">I'm an Expert</span>
-                        <span className="text-xs text-gray-500 mt-1">Serious work without the noise</span>
-                    </button>
-                </div>
-
-                <form className="space-y-6" onSubmit={handleSubmit}>
-                    <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                            Full Name
-                        </label>
-                        <div className="mt-1 relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <User className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                                id="name"
-                                name="name"
-                                type="text"
-                                required
-                                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
-                                placeholder="John Doe"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                            Email address
-                        </label>
-                        <div className="mt-1 relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Mail className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                required
-                                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
-                                placeholder="you@example.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                            Password
-                        </label>
-                        <div className="mt-1 relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Lock className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
-                                placeholder="••••••••"
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <Button type="submit" className="w-full" disabled={loading}>
-                        {loading ? (
-                            <Loader2 className="animate-spin mr-2" size={20} />
-                        ) : (
-                            <>
-                                Create Account
-                                <ArrowRight className="ml-2" size={20} />
-                            </>
-                        )}
-                    </Button>
-                </form>
-
-                <div className="mt-6 text-center">
-                    <p className="text-sm text-gray-600">
-                        Already have an account?{' '}
-                        <Link to="/signin" className="font-medium text-primary hover:text-primary/80">
-                            Sign in
-                        </Link>
-                    </p>
-                </div>
-            </Card>
-        </div >
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={step}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    {step === 1 ? (
+                        <RoleSelection
+                            role={formData.role}
+                            onUpdate={updateData}
+                            onNext={handleNext}
+                        />
+                    ) : (
+                        <AccountDetails
+                            formData={formData}
+                            onUpdate={updateData}
+                            onSubmit={handleSubmit}
+                            onBack={handleBack}
+                            loading={loading}
+                        />
+                    )}
+                </motion.div>
+            </AnimatePresence>
+        </AuthLayout>
     );
 };
 

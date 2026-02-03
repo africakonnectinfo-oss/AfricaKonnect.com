@@ -2,19 +2,18 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 // Create PostgreSQL connection pool
-const pool = new Pool({
-    host: process.env.DB_HOST || 'db.kifppregsosrjyewoyis.supabase.co',
-    port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME || 'postgres',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD,
+// Create PostgreSQL connection pool
+const poolConfig = {
+    connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
     },
-    max: 20, // Maximum number of clients in the pool
+    max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
-});
+};
+
+const pool = new Pool(poolConfig);
 
 // Test database connection
 pool.on('connect', () => {

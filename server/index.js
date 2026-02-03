@@ -7,7 +7,7 @@ const { testConnection } = require('./database/db');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const { apiLimiter } = require('./middleware/rateLimitMiddleware');
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const http = require('http');
 const setupSocket = require('./socket');
@@ -39,7 +39,10 @@ app.use(helmet({
 const allowedOrigins = [
     process.env.CLIENT_URL || "http://localhost:5173",
     "http://localhost:5173",
-    "http://localhost:5174"
+    "http://localhost:5174",
+    "https://africakonnect.com",
+    "https://www.africakonnect.com",
+    "https://africa-konnect.netlify.app"
 ];
 
 app.use(cors({
@@ -66,10 +69,7 @@ app.use('/api/', apiLimiter);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Request logging middleware
-app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`);
-    next();
-});
+app.use(require('morgan')('dev'));
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -82,12 +82,49 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api', require('./routes/paymentRoutes')); // Handling escrow, releases
 app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/applications', require('./routes/applicationRoutes'));
+app.use('/api/interviews', require('./routes/interviewRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes'));
+
+// System Health Check Endpoint
+app.get('/api/health', async (req, res) => {
+    try {
+        const dbStart = Date.now();
+        const dbConnected = await testConnection();
+        const dbLatency = Date.now() - dbStart;
+
+        res.json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            system: {
+                memory: process.memoryUsage(),
+                cpu: process.cpuUsage()
+            },
+            services: {
+                database: {
+                    status: dbConnected ? 'connected' : 'disconnected',
+                    latency: `${dbLatency}ms`
+                },
+                server: {
+                    status: 'running',
+                    port: PORT
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
 
 // Initialize Scheduled Jobs
 const { initScheduledJobs } = require('./services/scheduledJobs');
 initScheduledJobs();
 
-// Health check route
+// Health check route (Simple)
 app.get('/', (req, res) => {
     res.json({
         message: 'Africa Konnect API Running',
@@ -138,7 +175,8 @@ const startServer = async () => {
             console.log(`   - Experts: http://localhost:${PORT}/api/experts`);
             console.log(`   - Projects: http://localhost:${PORT}/api/projects`);
             console.log(`   - Contracts: http://localhost:${PORT}/api/contracts`);
-            console.log(`   - Messages: http://localhost:${PORT}/api/messages\n`);
+            console.log(`   - Messages: http://localhost:${PORT}/api/messages`);
+            console.log(`   - Health: http://localhost:${PORT}/api/health\n`);
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);

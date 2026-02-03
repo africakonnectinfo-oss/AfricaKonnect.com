@@ -13,11 +13,7 @@ const KanbanBoard = ({ projectId }) => {
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
 
-    useEffect(() => {
-        loadTasks();
-    }, [projectId]);
-
-    const loadTasks = async () => {
+    const loadTasks = useCallback(async () => {
         try {
             setLoading(true);
             const data = await api.tasks.getByProject(projectId);
@@ -45,7 +41,11 @@ const KanbanBoard = ({ projectId }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [projectId]);
+
+    useEffect(() => {
+        loadTasks();
+    }, [loadTasks]);
 
     const onDragEnd = async (result) => {
         if (!result.destination) return;

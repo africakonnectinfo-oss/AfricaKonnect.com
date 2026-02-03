@@ -159,6 +159,8 @@ exports.signContract = async (req, res) => {
         // Emit socket event for real-time updates
         const io = req.app.get('io');
         if (io) {
+            io.to(`project_${contract.project_id}`).emit('contract_updated', updatedContract);
+
             io.to(`project_${contract.project_id}`).emit('project_update', {
                 id: contract.project_id,
                 status: 'active', // Assuming signing makes it active

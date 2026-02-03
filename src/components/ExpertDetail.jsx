@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import {
     ChevronLeft, MapPin, Star, DollarSign, CheckCircle,
     Briefcase, Award, Globe, Shield, Clock
@@ -7,7 +6,7 @@ import {
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 
-const ExpertDetail = ({ expert, onBack }) => {
+const ExpertDetail = ({ expert, onBack, isOwnProfile, onEditProfile, onHire }) => {
     if (!expert) return null;
 
     return (
@@ -60,9 +59,15 @@ const ExpertDetail = ({ expert, onBack }) => {
                             </div>
                         </div>
 
+
                         <div className="space-y-3">
-                            <Button className="w-full">Hire {expert.name.split(' ')[0]}</Button>
+                            <Button className="w-full" onClick={() => onHire && onHire(expert)}>Hire {expert.name.split(' ')[0]}</Button>
                             <Button variant="secondary" className="w-full">Send Message</Button>
+                            {isOwnProfile && (
+                                <Button variant="outline" className="w-full mt-2" onClick={() => onEditProfile && onEditProfile()}>
+                                    Edit Profile
+                                </Button>
+                            )}
                         </div>
                     </Card>
 

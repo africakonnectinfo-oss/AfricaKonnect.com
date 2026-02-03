@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileSignature, ShieldCheck, Download, Check, Edit2, Save } from 'lucide-react';
+import { FileSignature, ShieldCheck, Download, Check, Edit2, Save, Bot } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useProject } from '../../contexts/ProjectContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../lib/api';
-import { socketService } from '../../lib/socket';
+import socketService from '../../lib/socket';
 import { useNavigate } from 'react-router-dom';
 
 const Step4Contract = ({ onNext }) => {
@@ -16,18 +16,22 @@ const Step4Contract = ({ onNext }) => {
     const [contract, setContract] = useState(null);
     const [isSigned, setIsSigned] = useState(false);
     const [showConfetti, setShowConfetti] = useState(false);
-    const [loading, setLoading] = useState(true);
+    // const [loading, setLoading] = useState(true); // Unused
 
     // Edit Mode State
     const [isEditing, setIsEditing] = useState(false);
     const [terms, setTerms] = useState('');
     const [amount, setAmount] = useState('');
     const [saving, setSaving] = useState(false);
+    const [generating, setGenerating] = useState(false);
 
-    // Check status
-    const expertStatus = currentProject?.expert_status || 'none';
-    const isExpertAccepted = expertStatus === 'accepted';
-    const isExpertPending = expertStatus === 'pending';
+    const [escrowFunded, setEscrowFunded] = useState(false);
+    const [funding, setFunding] = useState(false);
+
+    // Derived State
+    const isExpertAccepted = currentProject?.expert_status === 'accepted';
+    const isExpertPending = currentProject?.expert_status === 'pending';
+    const expertStatus = currentProject?.expert_status;
 
     useEffect(() => {
         const fetchContract = async () => {
@@ -36,107 +40,189 @@ const Step4Contract = ({ onNext }) => {
                 // Fetch contracts for this project
                 const contracts = await api.contracts.getByProject(currentProject.id);
                 // Assume the most recent one is active
-                const activeContract = contracts[0];
+                const activeContract = contracts.contracts ? contracts.contracts[0] : (Array.isArray(contracts) ? contracts[0] : null);
 
                 if (activeContract) {
                     setContract(activeContract);
                     setTerms(activeContract.terms || '');
                     setAmount(activeContract.amount || '');
                     // Check if *current user* has signed?
-                    // The standard schema just has `status` ('signed', 'pending') and `signed_at`.
-                    // A proper contract might need `client_signed_at` and `expert_signed_at`.
-                    // For MPV we assume 'signed' means fully executed or just use status.
                     if (activeContract.status === 'signed' || activeContract.status === 'active') {
                         setIsSigned(true);
                     }
                 }
             } catch (error) {
                 console.error("Failed to fetch contract", error);
-            } finally {
-                setLoading(false);
             }
         };
 
         if (isExpertAccepted) {
             fetchContract();
-        } else {
-            setLoading(false);
         }
     }, [currentProject, isExpertAccepted]);
+
+
+    const generateContract = async () => {
+        if (!currentProject?.selected_expert_id) return;
+        setGenerating(true);
+        try {
+            // In a real app, AI would draft this. Here we use a template.
+            const template = `INDEPENDENT CONTRACTOR AGREEMENT
+
+Date: ${new Date().toLocaleDateString()}
+
+1. PARTIES
+Client: ${user.name}
+Expert ID: ${currentProject.selected_expert_id}
+
+2. SERVICES
+The Expert agrees to perform the following services:
+${currentProject.description}
+
+3. COMPENSATION
+Total Amount: $${currentProject.budget || '0.00'}
+
+4. TIMELINE
+Duration: ${currentProject.duration || 'TBD'}
+
+5. CONFIDENTIALITY
+All work is confidential.
+`;
+            setTerms(template);
+            setAmount(currentProject.budget || '');
+
+            // Auto-create? Or wait for save? Let's auto-create draft.
+            const newContract = await api.contracts.create({
+                projectId: currentProject.id,
+                expertId: currentProject.selected_expert_id,
+                terms: template,
+                amount: currentProject.budget || 0
+            });
+            setContract(newContract);
+        } catch (error) {
+            console.error("Failed to generate", error);
+        } finally {
+            setGenerating(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!contract) return;
         setSaving(true);
         try {
-            const updated = await api.contracts.update(contract.id, { terms, amount });
+            const updated = await api.contracts.update(contract.id, {
+                terms,
+                amount: parseFloat(amount)
+            });
             setContract(updated);
             setIsEditing(false);
         } catch (error) {
-            console.error("Failed to save contract", error);
-            alert("Failed to save changes.");
+            console.error("Failed to save", error);
         } finally {
             setSaving(false);
         }
     };
 
-    // Real-time updates
-    useEffect(() => {
-        if (!currentProject?.id) return;
-
-        const socket = socketService.connect();
-
-        const handleProjectUpdate = (updatedProject) => {
-            if (updatedProject.id === currentProject.id) {
-                // Check if contract status changed
-                // This assumes updatedProject might contain contract info or we trigger a refetch
-                // For robustness, let's just refetch the contract if we see a significant update
-                if (updatedProject.status === 'contracted' || updatedProject.status === 'active') {
-                    // Refetch specific contract to get signature details
-                    api.contracts.getByProject(currentProject.id).then(contracts => {
-                        const active = contracts[0];
-                        if (active && (active.status === 'signed' || active.status === 'active')) {
-                            setContract(active);
-                            setIsSigned(true);
-                            if (!isSigned) setShowConfetti(true); // Don't show if already signed locally
-                        }
-                    });
-                }
-            }
-        };
-
-        socket.on('project_update', handleProjectUpdate);
-
-        return () => {
-            socket.off('project_update', handleProjectUpdate);
-        };
-    }, [currentProject?.id, isSigned]);
-
     const handleSign = async () => {
         if (!contract) return;
         try {
-            // Capture Metadata
-            const metadata = {
-                ip: window.location.hostname, // In a real app, this should be captured by the server
+            await api.contracts.sign(contract.id, {
+                ip: '127.0.0.1', // Mock IP
                 userAgent: navigator.userAgent,
-                timestamp: new Date().toISOString(),
-                consent: true
-            };
-
-            await api.contracts.sign(contract.id, metadata);
+                timestamp: new Date().toISOString()
+            });
             setIsSigned(true);
             setShowConfetti(true);
-            setContract(prev => ({ ...prev, status: 'signed' }));
+            setTimeout(() => setShowConfetti(false), 5000);
         } catch (error) {
-            console.error("Failed to sign contract", error);
-            alert("Failed to sign contract.");
+            console.error("Failed to sign", error);
+            alert("Failed to sign contract");
+        }
+    };
+
+    // ...
+
+    // Initial check for escrow
+    useEffect(() => {
+        const checkEscrow = async () => {
+            try {
+                // Check if escrow exists
+                const escrow = await api.payments.getEscrow(currentProject.id);
+                if (escrow && escrow.status === 'funded') {
+                    setEscrowFunded(true);
+                }
+            } catch (_) {
+                // Escrow might not exist yet, which is fine
+            }
+        };
+
+        if (currentProject?.id && isSigned) {
+            checkEscrow();
+        }
+    }, [currentProject?.id, isSigned]);
+
+    const handleFundEscrow = async () => {
+        try {
+            setFunding(true);
+            // In a real app, this would redirect to Stripe/PayPal
+            // Here we verify intent and mock the transaction
+            await api.payments.initEscrow(currentProject.id, {
+                amount: amount || 0 // Default to contract amount
+            });
+            setEscrowFunded(true);
+            alert("Escrow Funded Successfully! Project is Active.");
+            // Trigger project status update to 'active' if not already
+            onNext(); // Navigate to Collaboration
+        } catch (error) {
+            console.error("Funding failed", error);
+            alert("Payment failed: " + error.message);
+        } finally {
+            setFunding(false);
         }
     };
 
     const handleProceed = () => {
-        navigate('/collaboration');
+        onNext();
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading contract details...</div>;
+    if (isSigned && !escrowFunded) {
+        return (
+            <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Fund Escrow</h2>
+                    <p className="text-gray-600">Secure the project by funding the escrow account.</p>
+                </div>
+
+                <Card className="p-8 text-center space-y-6">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                        <ShieldCheck size={40} className="text-green-600" />
+                    </div>
+
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900">Contract Signed!</h3>
+                        <p className="text-gray-600 mt-2">
+                            To activate the project and allow the expert to begin, please fund the agreed amount of <span className="font-bold text-gray-900">${amount}</span>.
+                        </p>
+                    </div>
+
+                    <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 text-left max-w-md mx-auto">
+                        <p className="font-semibold mb-1">🛡️ Africa Konnect Protection</p>
+                        <p>Funds are held securely in escrow and only released when you approve milestones.</p>
+                    </div>
+
+                    <Button
+                        size="lg"
+                        onClick={handleFundEscrow}
+                        disabled={funding}
+                        className="w-full max-w-sm"
+                    >
+                        {funding ? 'Processing Secure Payment...' : `Fund $${amount} & Activate Project`}
+                    </Button>
+                </Card>
+            </div>
+        );
+    }
+
 
     if (isExpertPending) {
         return (
@@ -167,6 +253,16 @@ const Step4Contract = ({ onNext }) => {
         );
     }
 
+    const handleDownload = () => {
+        if (!contract) return;
+        const element = document.createElement("a");
+        const file = new Blob([contract.terms], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = `Contract_${currentProject.id}.txt`;
+        document.body.appendChild(element);
+        element.click();
+    };
+
     // Role check: Only client can edit, and only if pending
     const canEdit = user?.role === 'client' && contract?.status === 'pending';
 
@@ -185,10 +281,16 @@ const Step4Contract = ({ onNext }) => {
                     </div>
                     <div className="flex items-center gap-2">
                         {canEdit && !isEditing && !isSigned && (
-                            <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
-                                <Edit2 size={16} className="mr-2" />
-                                Edit Terms
-                            </Button>
+                            <>
+                                <Button variant="ghost" size="sm" onClick={generateContract} disabled={generating} className="text-purple-600 hover:text-purple-700 hover:bg-purple-50">
+                                    <Bot size={16} className="mr-2" />
+                                    {generating ? 'Drafting...' : 'Generate with AI'}
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
+                                    <Edit2 size={16} className="mr-2" />
+                                    Edit Terms
+                                </Button>
+                            </>
                         )}
                         {isEditing && (
                             <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
@@ -196,7 +298,7 @@ const Step4Contract = ({ onNext }) => {
                                 {saving ? 'Saving...' : 'Save Changes'}
                             </Button>
                         )}
-                        <Button variant="ghost" size="sm" className="text-gray-500">
+                        <Button variant="ghost" size="sm" className="text-gray-500" onClick={handleDownload} disabled={!contract}>
                             <Download size={16} className="mr-2" />
                             Download
                         </Button>

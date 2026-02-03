@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://africa-konnect-api.onrender.com/api';
 
 const getHeaders = () => {
     const headers = {
@@ -11,143 +11,126 @@ const getHeaders = () => {
     return headers;
 };
 
+// Debug Helper
+const debugLog = (type, ...args) => {
+    if (import.meta.env.DEV && localStorage.getItem('DEBUG') === 'true') {
+        const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+        console.log(`%c[API ${type}] ${timestamp}`, 'color: #00bcd4; font-weight: bold;', ...args);
+    }
+};
+
+// Wrapper for fetch to handle logging
+const apiRequest = async (endpoint, options = {}) => {
+    const url = `${API_URL}${endpoint}`;
+
+    debugLog('REQ', options.method || 'GET', endpoint, options.body ? JSON.parse(options.body) : '');
+
+    try {
+        const response = await fetch(url, options);
+        debugLog('RES', response.status, endpoint);
+
+        return handleResponse(response);
+    } catch (error) {
+        if (import.meta.env.DEV) {
+            console.error(`API Error (${endpoint}):`, error);
+        }
+        throw error;
+    }
+};
+
 export const api = {
     API_URL,
     // Auth
     auth: {
-        register: async (data) => {
-            const response = await fetch(`${API_URL}/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        login: async (data) => {
-            const response = await fetch(`${API_URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getProfile: async () => {
-            const response = await fetch(`${API_URL}/auth/profile`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        updateProfile: async (data) => {
-            const response = await fetch(`${API_URL}/auth/profile`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        verifyEmail: async (token) => {
-            const response = await fetch(`${API_URL}/auth/verify-email`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token }),
-            });
-            return handleResponse(response);
-        },
-        resendVerification: async () => {
-            const response = await fetch(`${API_URL}/auth/resend-verification`, {
-                method: 'POST',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        refreshToken: async (refreshToken) => {
-            const response = await fetch(`${API_URL}/auth/refresh-token`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken }),
-            });
-            return handleResponse(response);
-        },
-        getSessions: async () => {
-            const response = await fetch(`${API_URL}/auth/sessions`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        revokeSession: async (sessionId) => {
-            const response = await fetch(`${API_URL}/auth/sessions/${sessionId}`, {
-                method: 'DELETE',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        revokeOtherSessions: async () => {
-            const response = await fetch(`${API_URL}/auth/sessions/revoke-others`, {
-                method: 'POST',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        logout: async () => {
-            const response = await fetch(`${API_URL}/auth/logout`, {
-                method: 'POST',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        forgotPassword: async (email) => {
-            const response = await fetch(`${API_URL}/auth/forgot-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
-            return handleResponse(response);
-        },
-        resetPassword: async (token, newPassword) => {
-            const response = await fetch(`${API_URL}/auth/reset-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, newPassword }),
-            });
-            return handleResponse(response);
-        },
+        register: async (data) => apiRequest('/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        }),
+        login: async (data) => apiRequest('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        }),
+        getProfile: async () => apiRequest('/auth/profile', {
+            headers: getHeaders(),
+        }),
+        updateProfile: async (data) => apiRequest('/auth/profile', {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getPublicProfile: async (id) => apiRequest(`/auth/users/${id}/public`, {
+            headers: getHeaders(),
+        }),
+        verifyEmail: async (token) => apiRequest('/auth/verify-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+        }),
+        resendVerification: async () => apiRequest('/auth/resend-verification', {
+            method: 'POST',
+            headers: getHeaders(),
+        }),
+        refreshToken: async (refreshToken) => apiRequest('/auth/refresh-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+        }),
+        getSessions: async () => apiRequest('/auth/sessions', {
+            headers: getHeaders(),
+        }),
+        revokeSession: async (sessionId) => apiRequest('/auth/sessions/' + sessionId, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
+        revokeOtherSessions: async () => apiRequest('/auth/sessions/revoke-others', {
+            method: 'POST',
+            headers: getHeaders(),
+        }),
+        logout: async () => apiRequest('/auth/logout', {
+            method: 'POST',
+            headers: getHeaders(),
+        }),
+        forgotPassword: async (email) => apiRequest('/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        }),
+        resetPassword: async (token, newPassword) => apiRequest('/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, newPassword }),
+        }),
+        oauthDecision: async (data) => apiRequest('/auth/oauth/decision', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
     },
 
     // Projects
     projects: {
-        create: async (data) => {
-            const response = await fetch(`${API_URL}/projects`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
+        create: async (data) => apiRequest('/projects', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
         getAll: async (params = {}) => {
             const queryString = new URLSearchParams(params).toString();
-            const response = await fetch(`${API_URL}/projects?${queryString}`, {
+            return apiRequest(`/projects?${queryString}`, {
                 headers: getHeaders(),
             });
-            return handleResponse(response);
         },
-        getById: async (id) => {
-            const response = await fetch(`${API_URL}/projects/${id}`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        getInvitedProjects: async () => {
-            const response = await fetch(`${API_URL}/projects/expert/invites`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        getClientProjects: async (clientId) => {
-            const response = await fetch(`${API_URL}/projects/client/${clientId}`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
+        getById: async (id) => apiRequest(`/projects/${id}`, {
+            headers: getHeaders(),
+        }),
+        getInvitedProjects: async () => apiRequest('/projects/expert/invites', {
+            headers: getHeaders(),
+        }),
+        getClientProjects: async (clientId) => apiRequest(`/projects/client/${clientId}`, {
+            headers: getHeaders(),
+        }),
         getMine: async () => {
             // Retrieve self client ID from token or use generic "me" endpoint if available
             // Since endpoint is /projects/client/:clientId, and we have user info in localStorage
@@ -155,278 +138,253 @@ export const api = {
             if (!user.id) throw new Error('User not found');
 
             // Reuse getClientProjects
-            const response = await fetch(`${API_URL}/projects/client/${user.id}`, {
+            return apiRequest(`/projects/client/${user.id}`, {
                 headers: getHeaders(),
             });
-            return handleResponse(response);
         },
-        update: async (id, data) => {
-            const response = await fetch(`${API_URL}/projects/${id}`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        delete: async (id) => {
-            const response = await fetch(`${API_URL}/projects/${id}`, {
-                method: 'DELETE',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        invite: async (id, expertId) => {
-            const response = await fetch(`${API_URL}/projects/${id}/invite`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({ expertId }),
-            });
-            return handleResponse(response);
-        },
-        respond: async (id, status) => {
-            const response = await fetch(`${API_URL}/projects/${id}/invite`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify({ status }),
-            });
-            return handleResponse(response);
-        },
+        update: async (id, data) => apiRequest(`/projects/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        delete: async (id) => apiRequest(`/projects/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
+        invite: async (id, expertId) => apiRequest(`/projects/${id}/invite`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ expertId }),
+        }),
+        respond: async (id, status) => apiRequest(`/projects/${id}/invite`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ status }),
+        }),
     },
 
     // Experts
     experts: {
         getAll: async (params = {}) => {
             const queryString = new URLSearchParams(params).toString();
-            const response = await fetch(`${API_URL}/experts?${queryString}`, {
+            return apiRequest(`/experts?${queryString}`, {
                 headers: getHeaders(),
             });
-            return handleResponse(response);
         },
-        createProfile: async (data) => {
-            const response = await fetch(`${API_URL}/experts/profile`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getProfile: async (userId) => {
-            const response = await fetch(`${API_URL}/experts/profile/${userId}`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        updateProfile: async (userId, data) => {
-            const response = await fetch(`${API_URL}/experts/profile/${userId}`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getCompleteness: async (userId) => {
-            const response = await fetch(`${API_URL}/experts/profile/${userId}/completeness`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        updateCompleteness: async () => {
-            const response = await fetch(`${API_URL}/experts/profile/completeness`, {
-                method: 'POST',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        addPortfolio: async (data) => {
-            const response = await fetch(`${API_URL}/experts/portfolio`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        removePortfolio: async (itemId) => {
-            const response = await fetch(`${API_URL}/experts/portfolio/${itemId}`, {
-                method: 'DELETE',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        updateAvailability: async (calendar) => {
-            const response = await fetch(`${API_URL}/experts/availability`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify({ calendar }),
-            });
-            return handleResponse(response);
-        },
-        setRateRange: async (min, max, currency = 'USD') => {
-            const response = await fetch(`${API_URL}/experts/rate-range`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify({ min, max, currency }),
-            });
-            return handleResponse(response);
-        },
-        updateSkills: async (skillCategories) => {
-            const response = await fetch(`${API_URL}/experts/skills`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify({ skillCategories }),
-            });
-            return handleResponse(response);
-        },
-        getSkills: async () => {
-            const response = await fetch(`${API_URL}/experts/skills`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        getCategories: async () => {
-            const response = await fetch(`${API_URL}/experts/skills/categories`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        searchSkills: async (query) => {
-            const response = await fetch(`${API_URL}/experts/skills/search?q=${encodeURIComponent(query)}`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
+        createProfile: async (data) => apiRequest('/experts/profile', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getProfile: async (userId) => apiRequest(`/experts/profile/${userId}`, {
+            headers: getHeaders(),
+        }),
+        updateProfile: async (userId, data) => apiRequest(`/experts/profile/${userId}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getCompleteness: async (userId) => apiRequest(`/experts/profile/${userId}/completeness`, {
+            headers: getHeaders(),
+        }),
+        updateCompleteness: async () => apiRequest('/experts/profile/completeness', {
+            method: 'POST',
+            headers: getHeaders(),
+        }),
+        addPortfolio: async (data) => apiRequest('/experts/portfolio', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        removePortfolio: async (itemId) => apiRequest(`/experts/portfolio/${itemId}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
+        updateAvailability: async (calendar) => apiRequest('/experts/availability', {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ calendar }),
+        }),
+        setRateRange: async (min, max, currency = 'USD') => apiRequest('/experts/rate-range', {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ min, max, currency }),
+        }),
+        updateSkills: async (skillCategories) => apiRequest('/experts/skills', {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ skillCategories }),
+        }),
+        getSkills: async () => apiRequest('/experts/skills', {
+            headers: getHeaders(),
+        }),
+        getCategories: async () => apiRequest('/experts/skills/categories', {
+            headers: getHeaders(),
+        }),
+        searchSkills: async (query) => apiRequest(`/experts/skills/search?q=${encodeURIComponent(query)}`, {
+            headers: getHeaders(),
+        }),
     },
 
     // Transactions
     transactions: {
-        fund: async (projectId, amount) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/fund`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({ amount }),
-            });
-            return handleResponse(response);
-        },
-        release: async (projectId, amount) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/release`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({ amount }),
-            });
-            return handleResponse(response);
-        },
-        getHistory: async (projectId) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/transactions`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
+        fund: async (projectId, amount) => apiRequest(`/projects/${projectId}/fund`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ amount }),
+        }),
+        release: async (projectId, amount) => apiRequest(`/projects/${projectId}/release`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ amount }),
+        }),
+        getHistory: async (projectId) => apiRequest(`/projects/${projectId}/transactions`, {
+            headers: getHeaders(),
+        }),
     },
 
     // Messages
     messages: {
-        getMessages: async (projectId) => {
-            const response = await fetch(`${API_URL}/messages/project/${projectId}`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        send: async (projectId, content) => {
-            const response = await fetch(`${API_URL}/messages`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({ projectId, content }),
-            });
-            return handleResponse(response);
-        },
-        getUnread: async () => {
-            const response = await fetch(`${API_URL}/messages/unread`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        markRead: async (id) => {
-            const response = await fetch(`${API_URL}/messages/${id}/read`, {
-                method: 'PUT',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        markProjectRead: async (projectId) => {
-            const response = await fetch(`${API_URL}/messages/project/${projectId}/read`, {
-                method: 'PUT',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        }
+        getMessages: async (projectId) => apiRequest(`/messages/project/${projectId}`, {
+            headers: getHeaders(),
+        }),
+        send: async (projectId, content) => apiRequest('/messages', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ projectId, content }),
+        }),
+        getUnread: async () => apiRequest('/messages/unread', {
+            headers: getHeaders(),
+        }),
+        markRead: async (id) => apiRequest(`/messages/${id}/read`, {
+            method: 'PUT',
+            headers: getHeaders(),
+        }),
+        markProjectRead: async (projectId) => apiRequest(`/messages/project/${projectId}/read`, {
+            method: 'PUT',
+            headers: getHeaders(),
+        }),
     },
 
     // Tasks
     tasks: {
-        create: async (projectId, data) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/tasks`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getByProject: async (projectId) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/tasks`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        update: async (id, data) => {
-            const response = await fetch(`${API_URL}/tasks/${id}`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        delete: async (id) => {
-            const response = await fetch(`${API_URL}/tasks/${id}`, {
-                method: 'DELETE',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
+        create: async (projectId, data) => apiRequest(`/projects/${projectId}/tasks`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getByProject: async (projectId) => apiRequest(`/projects/${projectId}/tasks`, {
+            headers: getHeaders(),
+        }),
+        update: async (id, data) => apiRequest(`/tasks/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        delete: async (id) => apiRequest(`/tasks/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
     },
 
     // Milestones
     milestones: {
-        create: async (projectId, data) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/milestones`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getByProject: async (projectId) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/milestones`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        update: async (id, data) => {
-            const response = await fetch(`${API_URL}/milestones/${id}`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
+        create: async (projectId, data) => apiRequest(`/projects/${projectId}/milestones`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getByProject: async (projectId) => apiRequest(`/projects/${projectId}/milestones`, {
+            headers: getHeaders(),
+        }),
+        update: async (id, data) => apiRequest(`/milestones/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
     },
 
     // Files
     files: {
-        getFiles: async (projectId) => {
-            const response = await fetch(`${API_URL}/files/project/${projectId}`, {
+        upload: async (data) => {
+            // Data is { projectId, name, type, size, data } or FormData
+            if (data instanceof FormData) {
+                // Determine URL based on endpoint availability, trying generic upload
+                return apiRequest(`/files/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }, // No content-type for FormData
+                    body: data
+                });
+            }
+
+            return apiRequest(`/files/upload`, {
+                method: 'POST',
                 headers: getHeaders(),
+                body: JSON.stringify(data),
             });
-            return handleResponse(response);
         },
+        getByProject: async (projectId) => apiRequest(`/projects/${projectId}/files`, {
+            headers: getHeaders(),
+        }),
+        delete: async (id) => apiRequest(`/files/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
+    },
+
+    // Contracts
+    contracts: {
+        create: async (data) => apiRequest('/contracts', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        get: async (id) => apiRequest(`/contracts/${id}`, {
+            headers: getHeaders(),
+        }),
+        getByProject: async (projectId) => apiRequest(`/contracts/project/${projectId}`, {
+            headers: getHeaders(),
+        }),
+        getUserContracts: async () => apiRequest('/contracts/user', {
+            headers: getHeaders(),
+        }),
+        sign: async (id, metadata = null) => apiRequest(`/contracts/${id}/sign`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ signatureMetadata: metadata }),
+        }),
+        update: async (id, data) => apiRequest(`/contracts/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+    },
+
+    // Interviews
+    interviews: {
+        schedule: async (data) => apiRequest('/interviews', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getByProject: async (projectId) => apiRequest(`/interviews/project/${projectId}`, {
+            headers: getHeaders(),
+        }),
+        getMyInterviews: async () => apiRequest('/interviews/my', {
+            headers: getHeaders(),
+        }),
+        updateStatus: async (id, status) => apiRequest(`/interviews/${id}/status`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ status }),
+        }),
+    },
+
+    // Files
+    files: {
+        getFiles: async (projectId) => apiRequest(`/files/project/${projectId}`, {
+            headers: getHeaders(),
+        }),
         upload: async (projectId, formData) => {
             const token = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')).token : null;
             const response = await fetch(`${API_URL}/files`, {
@@ -442,191 +400,128 @@ export const api = {
             }
             return response.json();
         },
-        uploadImage: async (fileData) => {
-            const response = await fetch(`${API_URL}/files/upload`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(fileData), // { data: base64, name: "foo.png" }
-            });
-            return handleResponse(response);
-        },
-        addVersion: async (fileId, data) => {
-            const response = await fetch(`${API_URL}/files/${fileId}/versions`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getVersions: async (fileId) => {
-            const response = await fetch(`${API_URL}/files/${fileId}/versions`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        download: async (id) => {
-            const response = await fetch(`${API_URL}/files/${id}/download`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        delete: async (id) => {
-            const response = await fetch(`${API_URL}/files/${id}`, {
-                method: 'DELETE',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
+        uploadImage: async (fileData) => apiRequest('/files/upload', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(fileData),
+        }),
+        addVersion: async (fileId, data) => apiRequest(`/files/${fileId}/versions`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getVersions: async (fileId) => apiRequest(`/files/${fileId}/versions`, {
+            headers: getHeaders(),
+        }),
+        download: async (id) => apiRequest(`/files/${id}/download`, {
+            headers: getHeaders(),
+        }),
+        delete: async (id) => apiRequest(`/files/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
     },
 
     // Notifications
     notifications: {
-        getAll: async (limit = 20, offset = 0) => {
-            const response = await fetch(`${API_URL}/notifications?limit=${limit}&offset=${offset}`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        markRead: async (id) => {
-            const response = await fetch(`${API_URL}/notifications/${id}/read`, {
-                method: 'PUT',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        delete: async (id) => {
-            const response = await fetch(`${API_URL}/notifications/${id}`, {
-                method: 'DELETE',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        getPreferences: async () => {
-            const response = await fetch(`${API_URL}/notifications/preferences`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        updatePreferences: async (data) => {
-            const response = await fetch(`${API_URL}/notifications/preferences`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify(data)
-            });
-            return handleResponse(response);
-        }
-    },
-
-    // Contracts
-    contracts: {
-        update: async (id, data) => {
-            const response = await fetch(`${API_URL}/contracts/${id}`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getByProject: async (projectId) => {
-            const response = await fetch(`${API_URL}/contracts/project/${projectId}`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        create: async (data) => {
-            const response = await fetch(`${API_URL}/contracts`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getUserContracts: async () => {
-            const response = await fetch(`${API_URL}/contracts/user`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        sign: async (id, metadata = null) => {
-            const response = await fetch(`${API_URL}/contracts/${id}/sign`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify({ signatureMetadata: metadata }),
-            });
-            return handleResponse(response);
-        },
+        getAll: async (limit = 20, offset = 0) => apiRequest(`/notifications?limit=${limit}&offset=${offset}`, {
+            headers: getHeaders(),
+        }),
+        markRead: async (id) => apiRequest(`/notifications/${id}/read`, {
+            method: 'PUT',
+            headers: getHeaders(),
+        }),
+        delete: async (id) => apiRequest(`/notifications/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
+        getPreferences: async () => apiRequest('/notifications/preferences', {
+            headers: getHeaders(),
+        }),
+        updatePreferences: async (data) => apiRequest('/notifications/preferences', {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data)
+        }),
     },
 
     // Payments
     payments: {
-        initEscrow: async (projectId, amount) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/escrow`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({ amount }),
-            });
-            return handleResponse(response);
-        },
-        getEscrow: async (projectId) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/escrow`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        requestRelease: async (projectId, data) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/releases`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        approveRelease: async (projectId, releaseId) => {
-            const response = await fetch(`${API_URL}/projects/${projectId}/releases/${releaseId}/approve`, {
-                method: 'PUT',
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        }
+        initEscrow: (projectId, amount) => apiRequest(`/payments/${projectId}/escrow`, {
+            method: 'POST',
+            body: JSON.stringify({ amount }),
+            headers: getHeaders(),
+        }),
+        getEscrow: (projectId) => apiRequest(`/payments/${projectId}/escrow`, {
+            headers: getHeaders(),
+        }),
+        requestRelease: (projectId, data) => apiRequest(`/payments/${projectId}/release`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: getHeaders(),
+        }),
+        approveRelease: (projectId, releaseId) => apiRequest(`/payments/${projectId}/release/${releaseId}/approve`, {
+            method: 'POST',
+            headers: getHeaders(),
+        })
+    },
+
+    // AI Features (DeepSeek)
+    ai: {
+        draftContract: (data) => apiRequest('/ai/draft-contract', {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: getHeaders(),
+        }),
+        matchExperts: (data) => apiRequest('/ai/match', {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: getHeaders(),
+        })
     },
 
     // Applications
     applications: {
-        apply: async (projectId, data) => { // { pitch, rate }
-            const response = await fetch(`${API_URL}/applications/${projectId}/apply`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(data),
-            });
-            return handleResponse(response);
-        },
-        getByProject: async (projectId) => {
-            const response = await fetch(`${API_URL}/applications/project/${projectId}`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        getMyApplications: async () => {
-            const response = await fetch(`${API_URL}/applications/my`, {
-                headers: getHeaders(),
-            });
-            return handleResponse(response);
-        },
-        updateStatus: async (id, status) => {
-            const response = await fetch(`${API_URL}/applications/${id}/status`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify({ status }),
-            });
-            return handleResponse(response);
-        }
+        apply: async (projectId, data) => apiRequest(`/applications/${projectId}/apply`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getByProject: async (projectId) => apiRequest(`/applications/project/${projectId}`, {
+            headers: getHeaders(),
+        }),
+        getMyApplications: async () => apiRequest('/applications/my', {
+            headers: getHeaders(),
+        }),
+        updateStatus: async (id, status) => apiRequest(`/applications/${id}/status`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ status }),
+        }),
     },
 };
 
 const handleResponse = async (response) => {
-    const data = await response.json();
+    let data;
+    const contentType = response.headers.get("content-type");
+
+    try {
+        if (contentType && contentType.includes("application/json")) {
+            data = await response.json();
+        } else {
+            data = { message: await response.text() };
+        }
+    } catch (err) {
+        // Fallback if parsing fails
+        data = { message: response.statusText || 'Unknown Error' };
+    }
+
     if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
+        const errorMessage = data.message || `Error ${response.status}: ${response.statusText}`;
+        if (import.meta.env.DEV) {
+            console.error("API Response Error:", errorMessage);
+        }
+        throw new Error(errorMessage);
     }
     return data;
 };

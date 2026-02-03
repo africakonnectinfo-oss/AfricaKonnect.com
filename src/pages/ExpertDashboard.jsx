@@ -1,180 +1,136 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { motion } from 'framer-motion';
-import {
-    CheckCircle, Clock, XCircle, FileText, Video, Star,
-    Briefcase, DollarSign, Calendar, AlertCircle, UserCheck,
-    Shield, Award, TrendingUp, Mail
-} from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
-import ProfileCompletenessBar from '../components/ProfileCompletenessBar';
-import SkillSelector from '../components/SkillSelector';
-import PortfolioManager from '../components/PortfolioManager';
-import RateRangeSelector from '../components/RateRangeSelector';
-import SessionManagement from '../components/SessionManagement';
 import { useSocket } from '../hooks/useSocket';
+import {
+    LayoutDashboard, Briefcase, DollarSign, Star,
+    Bell, CheckCircle, Clock, ChevronRight, Search,
+    Filter, ArrowUpRight, User as UserIcon
+} from 'lucide-react';
+import { Avatar } from '../components/ui/Avatar';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 
-const ExpertDashboard = () => {
+// Sub-components can remain or be refactored inline if simple
+import ExpertProfile from '../features/expert/ExpertProfile';
+
+export default function ExpertDashboard() {
+    const { user } = useAuth();
     const navigate = useNavigate();
-    const { profile, user, loading: authLoading } = useAuth();
-    const [isAvailable, setIsAvailable] = useState(true);
+    const socket = useSocket();
 
+    const [profile, setProfile] = useState(null);
+    const [invitations, setInvitations] = useState([]);
+    const [activeProjects, setActiveProjects] = useState([]);
+    const [openProjects, setOpenProjects] = useState([]); // Marketplace
+    const [loading, setLoading] = useState(true);
+    const [showProfileSetup, setShowProfileSetup] = useState(false);
+
+    // Stats
     const [stats, setStats] = useState({
-        totalEarnings: '$0',
-        activeProjects: 0,
+        earnings: 0,
         completedProjects: 0,
         rating: 5.0
     });
-    const [invitations, setInvitations] = useState([]);
-    const [activeProjects, setActiveProjects] = useState([]);
-    const [openProjects, setOpenProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    const [vettingStatus, setVettingStatus] = useState({
-        status: 'pending',
-        completedSteps: [],
-        pendingSteps: ['identity', 'skills', 'interview']
-    });
-
-    const [hasProfile, setHasProfile] = useState(false);
-    const [selectedProject, setSelectedProject] = useState(null);
-    const [applicationData, setApplicationData] = useState({ pitch: '', rate: '' });
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            // Wait for auth to initialize
-            if (authLoading) return;
+        if (!user) return;
 
-            // If no user, let protected route handle redirect, or do nothing
-            if (!user) return;
-
-            // If no profile (and auth loaded), it means expert hasn't created profile yet
-            if (!profile) {
-                setHasProfile(false);
-                setLoading(false);
-                return;
-            }
-
-            // Profile exists, load dashboard data
-            setHasProfile(true);
-
+        const fetchData = async () => {
             try {
-                // Set initial status from profile context
-                setVettingStatus({
-                    status: profile.vetting_status || 'pending',
-                    completedSteps: [],
-                    pendingSteps: []
+                // Check profile
+                const profileData = await api.experts.getProfile(user.id).catch(() => null);
+                setProfile(profileData);
+
+                if (!profileData || !profileData.is_complete) {
+                    setShowProfileSetup(true);
+                }
+
+                // Fetch dashboard data
+                const [invites, projects, open] = await Promise.all([
+                    api.experts.getInvitations(),
+                    api.projects.getInvitedProjects(), // Use expert specific endpoint
+                    api.projects.getOpen()   // Marketplace
+                ]);
+
+                if (invites) setInvitations(invites);
+                if (projects && projects.projects) {
+                    // Filter out pending invites from active projects list to avoid duplicates
+                    const active = projects.projects.filter(p => p.expert_status === 'accepted');
+                    setActiveProjects(active);
+                }
+                if (open) setOpenProjects(open);
+
+                // Set default stats if not returned by API yet
+                setStats({
+                    earnings: profileData?.total_earnings || 0,
+                    completedProjects: profileData?.completed_projects || 0,
+                    rating: profileData?.rating || 5.0
                 });
-                setStats(prev => ({ ...prev, rating: profile.rating || 5.0 }));
-                setIsAvailable(profile.availability_calendar ? true : false); // Simplified check
-
-                // Fetch contracts (active projects & earnings)
-                const contractsData = await api.contracts.getUserContracts();
-                if (contractsData && contractsData.contracts) {
-                    const contracts = contractsData.contracts;
-                    const active = contracts.filter(c => c.status === 'active');
-                    const completed = contracts.filter(c => c.status === 'completed');
-
-                    setActiveProjects(active.map(c => ({
-                        id: c.id,
-                        title: c.project_title,
-                        client: c.client_name,
-                        progress: c.progress || 0,
-                        nextMilestone: 'TBD',
-                        dueDate: c.end_date ? new Date(c.end_date).toLocaleDateString() : 'N/A',
-                        earnings: `$${c.total_amount}`
-                    })));
-
-                    setStats(prev => ({
-                        ...prev,
-                        activeProjects: active.length,
-                        completedProjects: completed.length,
-                        totalEarnings: `$${completed.reduce((acc, c) => acc + Number(c.total_amount), 0)}`
-                    }));
-                }
-
-                // Get pending invitations 
-                const invitesData = await api.projects.getInvitedProjects();
-                if (invitesData && invitesData.projects) {
-                    const invites = invitesData.projects.filter(p => p.expert_status === 'pending');
-                    setInvitations(invites.map(p => ({
-                        id: p.id,
-                        projectTitle: p.title,
-                        client: p.client_name,
-                        budget: `$${p.budget}`,
-                        duration: 'TBD',
-                        skills: p.tech_stack || [],
-                        receivedDate: new Date(p.created_at).toLocaleDateString(),
-                        status: 'pending'
-                    })));
-                }
-
-                // Get open projects
-                const openData = await api.projects.getAll({ status: 'open', limit: 5 });
-                if (openData && openData.projects) {
-                    setOpenProjects(openData.projects);
-                }
 
             } catch (error) {
-                console.error('Error loading dashboard:', error);
+                console.error("Dashboard load failed", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchDashboardData();
-    }, [profile, user, authLoading]);
-
-    // Real-time invites
-    const socket = useSocket();
+        fetchData();
+    }, [user]);
 
     useEffect(() => {
         if (!socket || !user) return;
 
-        // Join private user room
         socket.emit('join_user', user.id);
 
-        const handleInvite = (project) => {
-            // Add new invite to state
-            const newInvite = {
-                id: project.id,
-                projectTitle: project.title,
-                client: project.client_name || 'New Client', // client_name might be missing in update object if not joined
-                budget: `$${project.budget}`,
-                duration: project.duration || 'TBD',
-                skills: project.tech_stack || [],
-                receivedDate: new Date().toLocaleDateString(),
-                status: 'pending'
-            };
+        const handleInvite = (newInvite) => {
             setInvitations(prev => [newInvite, ...prev]);
+            // Optional: Show toast
         };
 
         socket.on('project_invite', handleInvite);
 
         return () => {
             socket.off('project_invite', handleInvite);
-        };
+        }
     }, [socket, user]);
 
-    const getVettingStatusBadge = () => {
-        switch (vettingStatus.status) {
-            case 'verified':
-                return <span className="px-3 py-1 bg-success/10 text-success text-sm font-semibold rounded-full flex items-center gap-1"><Shield size={14} /> Verified</span>;
-            case 'pending':
-                return <span className="px-3 py-1 bg-warning/10 text-warning text-sm font-semibold rounded-full flex items-center gap-1"><Clock size={14} /> In Progress</span>;
-            case 'rejected':
-                return <span className="px-3 py-1 bg-error/10 text-error text-sm font-semibold rounded-full flex items-center gap-1"><XCircle size={14} /> Rejected</span>;
-            default:
-                return <span className="px-3 py-1 bg-gray-100 text-gray-500 text-sm font-semibold rounded-full">Unknown</span>;
+    const handleProfileComplete = () => {
+        setShowProfileSetup(false);
+        // refresh profile
+        api.experts.getProfile(user.id).then(setProfile);
+    };
+
+    const handleAcceptInvite = async (invite) => {
+        try {
+            await api.projects.respondToInvite(invite.project_id || invite.id, 'accepted');
+            // Remove from invitations
+            setInvitations(prev => prev.filter(i => i.id !== invite.id));
+            // Refresh active projects
+            const projects = await api.projects.getInvitedProjects();
+            if (projects && projects.projects) {
+                const active = projects.projects.filter(p => p.expert_status === 'accepted');
+                setActiveProjects(active);
+            }
+            // Optional: Toast success
+        } catch (error) {
+            console.error("Failed to accept invite", error);
         }
     };
 
+    const handleDeclineInvite = async (invite) => {
+        try {
+            await api.projects.respondToInvite(invite.project_id || invite.id, 'rejected');
+            setInvitations(prev => prev.filter(i => i.id !== invite.id));
+        } catch (error) {
+            console.error("Failed to decline invite", error);
+        }
+    };
 
-    if (loading || authLoading) {
+    if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -182,476 +138,200 @@ const ExpertDashboard = () => {
         );
     }
 
-    if (!hasProfile) {
+    if (showProfileSetup) {
         return (
-            <div className="min-h-screen bg-gray-50 py-12">
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <Card className="p-8 text-center">
-                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Briefcase className="text-primary w-10 h-10" />
-                        </div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-4">Complete Your Expert Profile</h1>
-                        <p className="text-gray-600 mb-8 max-w-lg mx-auto">
-                            To start receiving project invitations and appearing in our expert directory, you need to complete your profile details.
-                        </p>
-                        <Button onClick={() => navigate('/profile')} size="lg">
-                            Create Profile
-                        </Button>
-                    </Card>
+            <div className="min-h-screen bg-gray-50 pt-24 pb-12">
+                <div className="max-w-4xl mx-auto px-4">
+                    <div className="mb-8 text-center">
+                        <h1 className="text-3xl font-bold text-gray-900">Complete Your Expert Profile</h1>
+                        <p className="text-gray-600">To start receiving invitations, we need to know your skills.</p>
+                    </div>
+                    <ExpertProfile user={user} existingProfile={profile} onComplete={handleProfileComplete} />
                 </div>
             </div>
-        );
+        )
     }
 
     return (
         <div className="min-h-screen bg-gray-50 pt-24 pb-12">
-            <SEO
-                title="Expert Dashboard"
-                description="Manage your expert profile, view project invitations, and track your earnings."
-            />
+            <SEO title="Expert Dashboard" description="Manage your work and find opportunities." />
+
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Expert Dashboard</h1>
-                    <p className="text-gray-600">Manage your projects and opportunities</p>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Expert Dashboard</h1>
+                        <p className="text-gray-600">Welcome back, {user?.user_metadata?.name || user?.email}</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <Button variant="outline" onClick={() => navigate('/profile')}>
+                            <UserIcon size={16} className="mr-2" /> My Profile
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
                     <Card className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
-                                <DollarSign className="text-success" size={24} />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Earnings</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats.totalEarnings}</p>
+                        <div className="flex items-center justify-between mb-4">
+                            <span className="text-gray-500 font-medium text-sm">Total Earnings</span>
+                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                                <DollarSign size={16} />
                             </div>
                         </div>
+                        <h3 className="text-2xl font-bold text-gray-900">${stats.earnings.toLocaleString()}</h3>
+                        <p className="text-xs text-gray-400 mt-2">+12% from last month</p>
                     </Card>
 
                     <Card className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Briefcase className="text-primary" size={24} />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Active Projects</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats.activeProjects}</p>
+                        <div className="flex items-center justify-between mb-4">
+                            <span className="text-gray-500 font-medium text-sm">Rating</span>
+                            <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
+                                <Star size={16} />
                             </div>
                         </div>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats.rating}</h3>
+                        <p className="text-xs text-gray-400 mt-2">Top Rated Plus</p>
                     </Card>
 
                     <Card className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-highlight/10 flex items-center justify-center">
-                                <Award className="text-highlight" size={24} />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Completed</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats.completedProjects}</p>
+                        <div className="flex items-center justify-between mb-4">
+                            <span className="text-gray-500 font-medium text-sm">Active Projects</span>
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                <Briefcase size={16} />
                             </div>
                         </div>
+                        <h3 className="text-2xl font-bold text-gray-900">{activeProjects.length}</h3>
+                        <p className="text-xs text-gray-400 mt-2">Current workload</p>
                     </Card>
 
-                    <Card className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center">
-                                <Star className="text-warning" size={24} />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Rating</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats.rating}</p>
+                    <Card className="p-6 bg-primary text-white">
+                        <div className="flex items-center justify-between mb-4">
+                            <span className="text-white/80 font-medium text-sm">Invitations</span>
+                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
+                                <Bell size={16} />
                             </div>
                         </div>
+                        <h3 className="text-2xl font-bold text-white mb-2">{invitations.length}</h3>
+                        <p className="text-xs text-white/80">
+                            {invitations.length > 0 ? 'You have new invites!' : 'No pending invites'}
+                        </p>
                     </Card>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Main Content */}
+                    {/* Left Column: Active Projects & Invites */}
                     <div className="lg:col-span-2 space-y-8">
-                        {/* Vetting Status */}
-                        <Card className="p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-gray-900">Verification Status</h2>
-                                {getVettingStatusBadge()}
-                            </div>
-
-                            {vettingStatus.status === 'verified' ? (
-                                <div className="bg-success/5 border border-success/20 rounded-lg p-4">
-                                    <div className="flex items-start gap-3">
-                                        <Shield className="text-success mt-1" size={20} />
-                                        <div>
-                                            <p className="font-semibold text-gray-900 mb-1">You're a verified expert!</p>
-                                            <p className="text-sm text-gray-600">
-                                                Your identity and skills have been verified. You can now receive project invitations from clients.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                        {/* Active Projects */}
+                        <section>
+                            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                                <LayoutDashboard className="mr-2 text-primary" size={20} />
+                                Active Workspaces
+                            </h2>
+                            {activeProjects.length === 0 ? (
+                                <Card className="p-8 text-center bg-gray-50 border-dashed">
+                                    <p className="text-gray-500">No active projects yet. Apply to open roles below!</p>
+                                </Card>
                             ) : (
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                        <CheckCircle className="text-success" size={20} />
-                                        <span className="text-sm text-gray-700">Identity Verification</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                        <Clock className="text-warning" size={20} />
-                                        <span className="text-sm text-gray-700">Skills Assessment</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                        <Clock className="text-gray-400" size={20} />
-                                        <span className="text-sm text-gray-700">Video Interview</span>
-                                    </div>
+                                <div className="space-y-4">
+                                    {activeProjects.map(p => (
+                                        <Card key={p.id} className="p-6 hover:shadow-md transition-shadow group cursor-pointer" onClick={() => navigate('/collaboration', { state: { projectId: p.id } })}>
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors">{p.title}</h3>
+                                                    <p className="text-sm text-gray-500 mb-2">{p.client_name || 'Confidential Client'}</p>
+                                                    <div className="flex gap-4 text-xs text-gray-400">
+                                                        <span className="flex items-center"><Clock size={12} className="mr-1" /> Due {new Date(p.deadline || Date.now() + 86400000).toLocaleDateString()}</span>
+                                                    </div>
+                                                </div>
+                                                <Button size="sm" variant="secondary" className="group-hover:bg-primary group-hover:text-white transition-colors">
+                                                    Enter <ChevronRight size={16} className="ml-1" />
+                                                </Button>
+                                            </div>
+                                        </Card>
+                                    ))}
                                 </div>
                             )}
-                        </Card>
+                        </section>
 
-                        {/* Project Invitations */}
-                        <Card className="p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-gray-900">Project Invitations</h2>
-                                <span className="px-3 py-1 bg-primary/10 text-primary text-sm font-semibold rounded-full">
-                                    {invitations.length} New
-                                </span>
+                        {/* Open Market */}
+                        <section>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                                    <Search className="mr-2 text-primary" size={20} />
+                                    Explore Opportunities
+                                </h2>
+                                <Button variant="ghost" size="sm">View All</Button>
                             </div>
 
                             <div className="space-y-4">
-                                {invitations.map((invitation) => (
-                                    <motion.div
-                                        key={invitation.id}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="border border-gray-200 rounded-lg p-4 hover:border-primary/50 transition-colors"
-                                    >
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <h3 className="font-semibold text-gray-900 mb-1">{invitation.projectTitle}</h3>
-                                                <p className="text-sm text-gray-600">{invitation.client}</p>
+                                {openProjects.slice(0, 3).map(p => (
+                                    <Card key={p.id} className="p-6">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1">
+                                                <div className="flex gap-2 mb-2">
+                                                    {p.skills_required?.map(skill => (
+                                                        <span key={skill} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                                                            {skill}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <h3 className="font-bold text-gray-900 text-lg mb-1">{p.title}</h3>
+                                                <p className="text-sm text-gray-600 line-clamp-2 mb-4">{p.description}</p>
+                                                <div className="font-semibold text-gray-900">
+                                                    ${p.budget?.toLocaleString()} <span className="text-gray-400 font-normal">/ Fixed Price</span>
+                                                </div>
                                             </div>
-                                            <span className="text-sm text-gray-500">{invitation.receivedDate}</span>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2 mb-4">
-                                            {invitation.skills.map((skill, idx) => (
-                                                <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                                                    {skill}
-                                                </span>
-                                            ))}
-                                        </div>
-
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                                                <span className="flex items-center gap-1">
-                                                    <DollarSign size={16} />
-                                                    {invitation.budget}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar size={16} />
-                                                    {invitation.duration}
-                                                </span>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    onClick={async () => {
-                                                        try {
-                                                            await api.projects.respond(invitation.id, 'rejected');
-                                                            // Refresh list
-                                                            setInvitations(prev => prev.filter(i => i.id !== invitation.id));
-                                                        } catch (err) {
-                                                            console.error(err);
-                                                            alert('Failed to decline');
-                                                        }
-                                                    }}
-                                                >
-                                                    Decline
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    onClick={async () => {
-                                                        try {
-                                                            await api.projects.respond(invitation.id, 'accepted');
-                                                            // Refresh list and navigate to Collaboration (which might redirect to Contract if needed)
-                                                            setInvitations(prev => prev.filter(i => i.id !== invitation.id));
-                                                            navigate('/collaboration');
-                                                        } catch (err) {
-                                                            console.error(err);
-                                                            alert('Failed to accept');
-                                                        }
-                                                    }}
-                                                >
-                                                    Accept
-                                                </Button>
+                                            <div className="ml-4 flex flex-col items-end gap-2">
+                                                <Button size="sm">Apply Now</Button>
+                                                <span className="text-xs text-gray-400">Posted {new Date(p.created_at).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                    </motion.div>
+                                    </Card>
                                 ))}
-                            </div>
-                        </Card>
-
-                        {/* Open Projects Feed */}
-                        <Card className="p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-gray-900">Open Projects</h2>
-                                <Button variant="ghost" size="sm" onClick={() => navigate('/find-work')}>View All</Button>
-                            </div>
-
-                            <div className="space-y-4">
-                                {openProjects.length === 0 ? (
-                                    <p className="text-gray-500 text-center py-4">No open projects matching your skills right now.</p>
-                                ) : (
-                                    openProjects.map((project) => (
-                                        <div
-                                            key={project.id}
-                                            className="border border-gray-200 rounded-lg p-4 hover:border-primary/50 transition-colors"
-                                        >
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <h3 className="font-semibold text-gray-900 mb-1">{project.title}</h3>
-                                                    <p className="text-sm text-gray-600 line-clamp-2">{project.description}</p>
-                                                </div>
-                                                <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(project.created_at).toLocaleDateString()}</span>
-                                            </div>
-
-                                            <div className="flex flex-wrap gap-2 mb-4">
-                                                {project.tech_stack && project.tech_stack.map((skill, idx) => (
-                                                    <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                                                        {skill}
-                                                    </span>
-                                                ))}
-                                            </div>
-
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-4 text-sm text-gray-600">
-                                                    <span className="flex items-center gap-1">
-                                                        <DollarSign size={16} />
-                                                        ${project.budget}
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock size={16} />
-                                                        {project.duration}
-                                                    </span>
-                                                </div>
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setSelectedProject(project);
-                                                        setApplicationData({ pitch: '', rate: project.budget || '' });
-                                                    }}
-                                                >
-                                                    Show Interest
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))
+                                {openProjects.length === 0 && (
+                                    <div className="text-center py-8 text-gray-500">
+                                        No open projects matching your profile currently.
+                                    </div>
                                 )}
                             </div>
-                        </Card>
-
-                        {/* Active Projects */}
-                        <Card className="p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-6">Active Projects</h2>
-
-                            <div className="space-y-4">
-                                {activeProjects.map((project) => (
-                                    <div key={project.id} className="border border-gray-200 rounded-lg p-4">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <h3 className="font-semibold text-gray-900 mb-1">{project.title}</h3>
-                                                <p className="text-sm text-gray-600">{project.client}</p>
-                                            </div>
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                onClick={() => {
-                                                    // Set active project via context if needed, then navigate
-                                                    // Ideally setActiveProject(project.id) but we can just nav
-                                                    navigate('/collaboration');
-                                                }}
-                                            >
-                                                View Details
-                                            </Button>
-                                        </div>
-
-                                        <div className="mb-4">
-                                            <div className="flex justify-between text-sm mb-2">
-                                                <span className="text-gray-600">Progress</span>
-                                                <span className="font-semibold text-gray-900">{project.progress}%</span>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-2">
-                                                <div
-                                                    className="bg-primary h-2 rounded-full transition-all"
-                                                    style={{ width: `${project.progress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-between text-sm">
-                                            <div className="flex items-center gap-4 text-gray-600">
-                                                <span>Next: {project.nextMilestone}</span>
-                                                <span>Due: {project.dueDate}</span>
-                                            </div>
-                                            <span className="font-semibold text-success">{project.earnings}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
+                        </section>
                     </div>
 
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        {/* Availability Toggle */}
-                        <Card className="p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Availability</h3>
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-sm text-gray-600">Open to new projects</span>
-                                <button
-                                    onClick={() => setIsAvailable(!isAvailable)}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAvailable ? 'bg-success' : 'bg-gray-300'
-                                        }`}
-                                >
-                                    <span
-                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAvailable ? 'translate-x-6' : 'translate-x-1'
-                                            }`}
-                                    />
-                                </button>
-                            </div>
-                            <p className="text-xs text-gray-500">
-                                {isAvailable
-                                    ? 'You are visible to clients and can receive invitations'
-                                    : 'You are not receiving new project invitations'}
-                            </p>
-                        </Card>
+                    {/* Right Column: Invitations & Insights */}
+                    <div className="space-y-8">
+                        {invitations.length > 0 && (
+                            <section>
+                                <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                    <Bell className="mr-2 text-primary" size={20} />
+                                    Invitations
+                                </h2>
+                                <div className="space-y-3">
+                                    {invitations.map(inv => (
+                                        <Card key={inv.id} className="p-4 border-l-4 border-l-primary cursor-pointer">
+                                            <h4 className="font-bold text-sm text-gray-900 mb-1" onClick={() => navigate('/collaboration', { state: { projectId: inv.project_id } })}>{inv.project_title}</h4>
+                                            <p className="text-xs text-gray-500 mb-3">You've been invited to apply.</p>
+                                            <div className="flex gap-2">
+                                                <Button size="sm" className="w-full text-xs" onClick={() => handleAcceptInvite(inv)}>Accept</Button>
+                                                <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => handleDeclineInvite(inv)}>Decline</Button>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
 
-                        {/* Performance Score */}
-                        <Card className="p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Performance Score</h3>
-                            <div className="flex items-center justify-center mb-4">
-                                <div className="relative w-32 h-32">
-                                    <svg className="transform -rotate-90 w-32 h-32">
-                                        <circle
-                                            cx="64"
-                                            cy="64"
-                                            r="56"
-                                            stroke="currentColor"
-                                            strokeWidth="8"
-                                            fill="transparent"
-                                            className="text-gray-200"
-                                        />
-                                        <circle
-                                            cx="64"
-                                            cy="64"
-                                            r="56"
-                                            stroke="currentColor"
-                                            strokeWidth="8"
-                                            fill="transparent"
-                                            strokeDasharray={`${2 * Math.PI * 56}`}
-                                            strokeDashoffset={`${2 * Math.PI * 56 * (1 - 0.92)}`}
-                                            className="text-success"
-                                        />
-                                    </svg>
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className="text-3xl font-bold text-gray-900">92</span>
-                                    </div>
-                                </div>
+                        <Card className="p-6 bg-gradient-to-br from-indigo-900 to-purple-900 text-white">
+                            <h3 className="font-bold text-lg mb-2">Profile Boost</h3>
+                            <p className="text-sm text-white/80 mb-4">Complete your portfolio to rank higher in searches.</p>
+                            <div className="w-full bg-white/20 rounded-full h-2 mb-4">
+                                <div className="bg-white h-2 rounded-full" style={{ width: '70%' }}></div>
                             </div>
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">On-time Delivery</span>
-                                    <span className="font-semibold text-gray-900">95%</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Client Satisfaction</span>
-                                    <span className="font-semibold text-gray-900">4.9/5</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Response Time</span>
-                                    <span className="font-semibold text-gray-900">2.3 hrs</span>
-                                </div>
-                            </div>
-                        </Card>
-
-                        {/* Quick Actions */}
-                        <Card className="p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Quick Actions</h3>
-                            <div className="space-y-2">
-                                <Button variant="secondary" className="w-full justify-start" onClick={() => navigate('/profile')}>
-                                    <UserCheck size={16} className="mr-2" />
-                                    Update Profile
-                                </Button>
-                                <Button variant="secondary" className="w-full justify-start" onClick={() => navigate('/profile')}>
-                                    <FileText size={16} className="mr-2" />
-                                    View Portfolio
-                                </Button>
-                                <Button variant="secondary" className="w-full justify-start" onClick={() => alert('Analytics feature coming soon!')}>
-                                    <TrendingUp size={16} className="mr-2" />
-                                    View Analytics
-                                </Button>
-                            </div>
+                            <Button size="sm" variant="secondary" className="w-full">Update Portfolio</Button>
                         </Card>
                     </div>
                 </div>
             </div>
-            {/* Apply Modal */}
-            <AnimatePresence>
-                {selectedProject && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6"
-                        >
-                            <h3 className="text-xl font-bold text-gray-900 mb-4">Apply for {selectedProject.title}</h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Your Pitch</label>
-                                    <textarea
-                                        className="w-full h-32 p-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                                        placeholder="Why are you the best fit for this project? Mention your relevant experience."
-                                        value={applicationData.pitch}
-                                        onChange={(e) => setApplicationData({ ...applicationData, pitch: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Proposed Rate ($)</label>
-                                    <input
-                                        type="number"
-                                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                                        placeholder="5000"
-                                        value={applicationData.rate}
-                                        onChange={(e) => setApplicationData({ ...applicationData, rate: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <Button variant="secondary" onClick={() => setSelectedProject(null)}>Cancel</Button>
-                                <Button
-                                    onClick={async () => {
-                                        if (!applicationData.pitch || !applicationData.rate) return;
-                                        try {
-                                            await api.applications.apply(selectedProject.id, applicationData);
-                                            alert("Application sent successfully!");
-                                            setSelectedProject(null);
-                                            // Ideally refresh the list to show 'Applied' status
-                                        } catch (e) {
-                                            console.error(e);
-                                            alert("Failed to apply: " + e.message);
-                                        }
-                                    }}
-                                >
-                                    Submit Application
-                                </Button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
         </div>
     );
 };
-
-export default ExpertDashboard;

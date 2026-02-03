@@ -1,41 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { CreditCard, Lock, CheckCircle, Clock, AlertCircle, DollarSign, Download, ArrowRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { CreditCard, Lock, CheckCircle, Clock, AlertCircle, DollarSign, Download, ArrowRight, Calendar } from 'lucide-react';
 
 const PaymentDashboard = ({ projectId }) => {
-    const { user, isClient, isExpert } = useAuth();
+    const { isClient, isExpert } = useAuth();
     const [escrow, setEscrow] = useState(null);
     const [milestones, setMilestones] = useState([]);
-    const [releases, setReleases] = useState([]);
+    // const [releases, setReleases] = useState([]); // Unused for now
     const [loading, setLoading] = useState(true);
     const [initAmount, setInitAmount] = useState('');
 
-    useEffect(() => {
-        loadData();
-    }, [projectId]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             setLoading(true);
-            const [escrowData, milestonesData, releaseData] = await Promise.all([
+            const [escrowData, milestonesData] = await Promise.all([
                 api.payments.getEscrow(projectId).catch(() => null),
                 api.milestones.getByProject(projectId),
-                api.transactions.getHistory(projectId) // Assuming this endpoint gives us relevant payment history/releases
-                // Actually we probably need a specific endpoint for releases. 
-                // Using getHistory for now as per previous api.js structure or relying on milestones status
+                // api.transactions.getHistory(projectId) // Unused
             ]);
 
             setEscrow(escrowData);
             setMilestones(milestonesData || []);
-            setReleases(releaseData || []); // This might need adjustment based on backend response shape
+            // setReleases(releaseData || []);
         } catch (error) {
             console.error('Failed to load payment data', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [projectId]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const handleInitEscrow = async (e) => {
         e.preventDefault();

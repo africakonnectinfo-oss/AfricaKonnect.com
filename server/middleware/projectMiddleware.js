@@ -26,6 +26,7 @@ const requireProjectParticipant = async (req, res, next) => {
             FROM projects 
             WHERE id = $1
         `;
+        // console.log('Checking participation for project:', projectId, 'User:', req.user.id);
         const result = await query(text, [projectId]);
 
         if (result.rows.length === 0) {
@@ -33,12 +34,14 @@ const requireProjectParticipant = async (req, res, next) => {
         }
 
         const project = result.rows[0];
+        // console.log('Project participants:', project);
 
-        if (project.client_id !== req.user.id && project.selected_expert_id !== req.user.id) {
-            // Check if user is an "invited" expert (checked via selected_expert_id), 
-            // but maybe we want to allow admins too?
-            if (req.user.role === 'admin') return next();
+        // Allow if Client OR Expert OR Admin
+        const isClient = project.client_id === req.user.id;
+        const isExpert = project.selected_expert_id === req.user.id;
+        const isAdmin = req.user.role === 'admin';
 
+        if (!isClient && !isExpert && !isAdmin) {
             return res.status(403).json({
                 message: 'Access denied. You are not a participant in this project.'
             });
@@ -46,14 +49,17 @@ const requireProjectParticipant = async (req, res, next) => {
 
         // Attach basics for downstream use
         req.projectParticipant = {
-            isClient: project.client_id === req.user.id,
-            isExpert: project.selected_expert_id === req.user.id
+            isClient,
+            isExpert
         };
 
         next();
     } catch (error) {
-        console.error('Participant middleware error:', error);
-        res.status(500).json({ message: 'Server error checking project participation' });
+        console.error('Participant middleware error debug:', error); // Enhanced logging
+        if (error.code === '22P02') { // Invalid text representation (UUID)
+            return res.status(400).json({ message: 'Invalid Project ID format' });
+        }
+        res.status(500).json({ message: 'Server error checking project participation', details: error.message });
     }
 };
 

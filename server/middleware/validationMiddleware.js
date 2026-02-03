@@ -167,9 +167,9 @@ const validateMessage = [
         .notEmpty().withMessage('Message content is required')
         .isLength({ min: 1, max: 5000 }).withMessage('Message must be between 1 and 5000 characters')
         .customSanitizer(sanitizeText),
-    body('recipientId')
-        .notEmpty().withMessage('Recipient ID is required')
-        .isUUID().withMessage('Invalid Recipient ID format'),
+    body('projectId')
+        .notEmpty().withMessage('Project ID is required')
+        .isUUID().withMessage('Invalid Project ID format'),
     validate
 ];
 
@@ -190,9 +190,16 @@ const validatePayment = [
 /**
  * Validation rules for ID parameters
  */
+/**
+ * Validation rules for ID parameters
+ */
 const validateId = [
     param('id')
+        .optional()
         .isUUID().withMessage('Invalid ID format'),
+    param('projectId')
+        .optional()
+        .isUUID().withMessage('Invalid Project ID format'),
     validate
 ];
 

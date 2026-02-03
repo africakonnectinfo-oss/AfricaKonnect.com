@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, CheckCircle, MapPin, Star, Search, User, FileText } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Sparkles, CheckCircle, MapPin, Star, Search, User, FileText, Bot } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { api } from '../../lib/api';
@@ -15,6 +15,7 @@ const Step2Match = ({ onNext }) => {
     const [selectedExpert, setSelectedExpert] = useState(null);
     const [inviting, setInviting] = useState(false);
     const [activeTab, setActiveTab] = useState('matches'); // 'matches' | 'applicants'
+    const [isMatching, setIsMatching] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -44,6 +45,30 @@ const Step2Match = ({ onNext }) => {
         } finally {
             setLoading(false);
             setTimeout(() => setStatsLoading(false), 2000);
+        }
+    };
+
+    const runAIMatch = async () => {
+        if (!currentProject) return;
+        setIsMatching(true);
+        try {
+            const result = await api.ai.match({
+                projectDescription: currentProject.description,
+                requirements: currentProject.requirements || '', // Assuming requirements field exists or just use desc
+            });
+
+            if (result.matches && result.matches.length > 0) {
+                setExperts(result.matches);
+                setActiveTab('matches');
+                alert(`AI found ${result.matches.length} perfect matches!`);
+            } else {
+                alert("AI couldn't find specific matches, showing all experts.");
+            }
+        } catch (error) {
+            console.error("AI Match failed", error);
+            alert("AI Match failed. Please try again.");
+        } finally {
+            setIsMatching(false);
         }
     };
 
@@ -94,9 +119,18 @@ const Step2Match = ({ onNext }) => {
 
     return (
         <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Expert Candidates</h2>
-                <p className="text-gray-600">Review AI-matched experts or check your project applicants.</p>
+            <div className="flex justify-between items-end mb-8">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Expert Candidates</h2>
+                    <p className="text-gray-600">Review AI-matched experts or check your project applicants.</p>
+                </div>
+                <Button
+                    onClick={runAIMatch}
+                    disabled={isMatching}
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 border-none shadow-lg hover:shadow-purple-500/20"
+                >
+                    {isMatching ? 'Scanning...' : <><Bot size={18} className="mr-2" /> Run AI Match Engine</>}
+                </Button>
             </div>
 
             {/* Tabs */}
@@ -216,7 +250,7 @@ const ExpertCard = ({ expert, selected, onSelect, type, application }) => (
                 {type === 'match' && (
                     <div className="flex items-center gap-1 bg-highlight/10 px-2 py-1 rounded-lg">
                         <Star size={12} className="text-highlight fill-highlight" />
-                        <span className="text-highlight font-bold text-sm">9.8</span>
+                        <span className="text-highlight font-bold text-sm">{expert.score ? `${expert.score}% Match` : '9.8'}</span>
                     </div>
                 )}
                 {type === 'applicant' && (
@@ -228,10 +262,14 @@ const ExpertCard = ({ expert, selected, onSelect, type, application }) => (
 
             <div className="bg-blue-50 p-3 rounded-lg mb-4">
                 <p className="text-xs text-blue-700 font-medium">
-                    {type === 'match' ? <><Sparkles size={12} className="inline mr-1" /> Why We Matched You</> : <><FileText size={12} className="inline mr-1" /> Pitch</>}
+                    {type === 'match' ? (
+                        expert.reason ? <><Bot size={12} className="inline mr-1" /> AI Reason: {expert.reason}</> : <><Sparkles size={12} className="inline mr-1" /> Why We Matched You</>
+                    ) : (
+                        <><FileText size={12} className="inline mr-1" /> Pitch</>
+                    )}
                 </p>
                 <p className="text-xs text-blue-600 mt-1 leading-relaxed line-clamp-3">
-                    {expert.bio || application?.pitch || 'No description available.'}
+                    {expert.reason || expert.bio || application?.pitch || 'No description available.'}
                 </p>
             </div>
 

@@ -37,116 +37,127 @@ exports.initEscrow = async (req, res) => {
                 message: `Escrow account funded for ${project.title}`,
                 amount: amount
             });
+            if (project.selected_expert_id) {
+                await sendNotification(project.selected_expert_id, 'payment', {
+                    message: `Escrow account funded for ${project.title}`,
+                    amount: amount
+                });
+            }
+
+            // Emit real-time update
+            const io = req.app.get('io');
+            if (io) {
+                io.to(`project_${projectId}`).emit('escrow_updated', escrow);
+            }
+
+            res.status(201).json(escrow);
+        } catch (error) {
+            console.error('Init escrow error:', error);
+            res.status(500).json({ message: error.message });
         }
+    };
 
-        res.status(201).json(escrow);
-    } catch (error) {
-        console.error('Init escrow error:', error);
-        res.status(500).json({ message: error.message });
-    }
-};
+    // Get escrow details
+    exports.getEscrow = async (req, res) => {
+        try {
+            const { projectId } = req.params;
+            const escrow = await getEscrowByProject(projectId);
 
-// Get escrow details
-exports.getEscrow = async (req, res) => {
-    try {
-        const { projectId } = req.params;
-        const escrow = await getEscrowByProject(projectId);
+            if (!escrow) {
+                return res.status(404).json({ message: 'Escrow not found' });
+            }
 
-        if (!escrow) {
-            return res.status(404).json({ message: 'Escrow not found' });
+            // Get releases
+            const releases = await getReleasesByEscrow(escrow.id);
+
+            res.json({
+                ...escrow,
+                releases
+            });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
         }
+    };
 
-        // Get releases
-        const releases = await getReleasesByEscrow(escrow.id);
+    // Request release
+    exports.requestRelease = async (req, res) => {
+        try {
+            const { projectId } = req.params;
+            const { milestoneId, amount } = req.body;
 
-        res.json({
-            ...escrow,
-            releases
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+            const escrow = await getEscrowByProject(projectId);
+            if (!escrow) {
+                return res.status(404).json({ message: 'Escrow not found' });
+            }
 
-// Request release
-exports.requestRelease = async (req, res) => {
-    try {
-        const { projectId } = req.params;
-        const { milestoneId, amount } = req.body;
+            // Calculate fees
+            const platformFeePercent = parseFloat(escrow.platform_fee_percent);
+            const platformFee = (amount * platformFeePercent) / 100;
+            const expertReceives = amount - platformFee;
 
-        const escrow = await getEscrowByProject(projectId);
-        if (!escrow) {
-            return res.status(404).json({ message: 'Escrow not found' });
+            const release = await createReleaseRequest({
+                escrowAccountId: escrow.id,
+                milestoneId,
+                amount,
+                platformFee,
+                expertReceives,
+                requestedBy: req.user.id
+            });
+
+            // Notify client to approve
+            const project = await getProjectById(projectId);
+            await sendNotification(project.client_id, 'payment', {
+                message: `Payment release requested for ${project.title}`,
+                amount: amount,
+                actionUrl: `/projects/${projectId}/payments`
+            });
+
+            res.status(201).json(release);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
         }
+    };
 
-        // Calculate fees
-        const platformFeePercent = parseFloat(escrow.platform_fee_percent);
-        const platformFee = (amount * platformFeePercent) / 100;
-        const expertReceives = amount - platformFee;
+    // Approve release
+    exports.approveRelease = async (req, res) => {
+        try {
+            const { projectId, releaseId } = req.params;
 
-        const release = await createReleaseRequest({
-            escrowAccountId: escrow.id,
-            milestoneId,
-            amount,
-            platformFee,
-            expertReceives,
-            requestedBy: req.user.id
-        });
+            // Verify ownership/client role
+            const project = await getProjectById(projectId);
+            if (project.client_id !== req.user.id) {
+                return res.status(403).json({ message: 'Only client can approve releases' });
+            }
 
-        // Notify client to approve
-        const project = await getProjectById(projectId);
-        await sendNotification(project.client_id, 'payment', {
-            message: `Payment release requested for ${project.title}`,
-            amount: amount,
-            actionUrl: `/projects/${projectId}/payments`
-        });
+            // 1. Mark as approved in DB
+            const release = await approveRelease(releaseId, req.user.id);
 
-        res.status(201).json(release);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+            // 2. Process Transfer (Mock)
+            await transferFunds(release.expert_receives, 'expert_account_id');
 
-// Approve release
-exports.approveRelease = async (req, res) => {
-    try {
-        const { projectId, releaseId } = req.params;
+            // 3. Mark as Released
+            const finalRelease = await markAsReleased(releaseId);
 
-        // Verify ownership/client role
-        const project = await getProjectById(projectId);
-        if (project.client_id !== req.user.id) {
-            return res.status(403).json({ message: 'Only client can approve releases' });
+            // 4. Update Escrow Balance
+            await updateEscrowBalance(release.escrow_account_id, release.amount);
+
+            // 5. Generate Invoice
+            await createInvoice({
+                projectId,
+                amount: release.amount,
+                platformFee: release.platform_fee,
+                issuedTo: req.user.id
+            });
+
+            // Notify Expert
+            await sendNotification(project.selected_expert_id, 'payment_released', {
+                amount: release.expert_receives,
+                projectTitle: project.title
+            });
+
+            res.json(finalRelease);
+        } catch (error) {
+            console.error('Approve release error:', error);
+            res.status(500).json({ message: error.message });
         }
-
-        // 1. Mark as approved in DB
-        const release = await approveRelease(releaseId, req.user.id);
-
-        // 2. Process Transfer (Mock)
-        await transferFunds(release.expert_receives, 'expert_account_id');
-
-        // 3. Mark as Released
-        const finalRelease = await markAsReleased(releaseId);
-
-        // 4. Update Escrow Balance
-        await updateEscrowBalance(release.escrow_account_id, release.amount);
-
-        // 5. Generate Invoice
-        await createInvoice({
-            projectId,
-            amount: release.amount,
-            platformFee: release.platform_fee,
-            issuedTo: req.user.id
-        });
-
-        // Notify Expert
-        await sendNotification(project.selected_expert_id, 'payment_released', {
-            amount: release.expert_receives,
-            projectTitle: project.title
-        });
-
-        res.json(finalRelease);
-    } catch (error) {
-        console.error('Approve release error:', error);
-        res.status(500).json({ message: error.message });
-    }
-};
+    };

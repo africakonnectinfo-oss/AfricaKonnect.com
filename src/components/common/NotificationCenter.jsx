@@ -3,6 +3,7 @@ import { Bell, Check, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useSocket } from '../../hooks/useSocket';
+import { toast } from 'sonner';
 import { useAuth } from "../../contexts/AuthContext";
 import { Link } from 'react-router-dom';
 
@@ -56,20 +57,48 @@ const NotificationCenter = () => {
     useEffect(() => {
         if (!socket || !user) return;
 
-        const handleRefresh = () => {
+        // Generic handler for all notification-like events
+        const handleRefresh = (data) => {
             fetchNotifications();
-            // Optional: User toast sound?
+            // Show toast if data is provided
+            // data can be the object { ... } or just a trigger
+            if (data && (data.title || data.message)) {
+                toast(data.title || 'New Notification', {
+                    description: data.message,
+                    action: data.actionUrl ? {
+                        label: 'View',
+                        onClick: () => window.location.href = data.actionUrl
+                    } : undefined
+                });
+            } else if (data && data.project_title) {
+                // Handle specific legacy events like 'project_invite' if they send different structure
+                toast.info('New Invitation', {
+                    description: `Invited to project: ${data.project_title}`
+                });
+            }
+        };
+
+        const handleNotification = (data) => {
+            // data from sendNotification service: { id, type, message, data: {...} }
+            fetchNotifications();
+            toast(data.type?.replace('_', ' ').toUpperCase() || 'NOTIFICATION', {
+                description: data.message,
+                // Add action if link/url exists in data.data
+                action: data.data?.actionUrl ? {
+                    label: 'Go',
+                    onClick: () => window.location.href = data.data.actionUrl
+                } : undefined
+            });
         };
 
         socket.on('project_invite', handleRefresh);
         socket.on('project_update', handleRefresh);
-        // If we add a generic 'notification' event later
-        socket.on('notification', handleRefresh);
+        socket.on('notification', handleNotification);
 
         return () => {
             socket.off('project_invite', handleRefresh);
             socket.off('project_update', handleRefresh);
-            socket.off('notification', handleRefresh);
+            socket.off('notification', handleNotification);
         };
     }, [socket, user]);
 

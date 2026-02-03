@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { socketService } from '../lib/socket';
+import socketService from '../lib/socket';
 
 const ProjectContext = createContext({});
 
@@ -369,7 +369,7 @@ export const ProjectProvider = ({ children }) => {
             localStorage.setItem('currentProjectId', projectId);
 
             // Join socket room
-            const socket = socketService.connect();
+            socketService.connect();
             socketService.joinProject(projectId);
 
             // Load full details

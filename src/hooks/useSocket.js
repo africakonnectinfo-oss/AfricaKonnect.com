@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { socketService } from '../lib/socket';
+import socketService from '../lib/socket';
 
 export const useSocket = () => {
     // Initialize socket only once

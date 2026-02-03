@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { Layout } from './components/layout/Layout';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProjectProvider } from './contexts/ProjectContext';
@@ -13,11 +14,13 @@ import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import Pricing from './pages/Pricing';
 import UserProfile from './pages/UserProfile';
+import PublicProfile from './pages/PublicProfile';
 // Company Pages
 import AboutUs from './pages/AboutUs';
 import Careers from './pages/Careers';
 import Blog from './pages/Blog';
 import Contact from './pages/Contact';
+import Commitment from './pages/Commitment';
 // Legal Pages
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
@@ -26,12 +29,18 @@ import PrivateRoute from './components/auth/PrivateRoute';
 import EmailVerification from './pages/EmailVerification';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import OAuthConsent from './pages/OAuthConsent';
+// Neon Auth Pages
+import { Home as NeonHome } from './pages/NeonHome';
+import Auth from './pages/AuthPage';
+import { Account } from './pages/account';
 
 function App() {
   return (
     <AuthProvider>
       <ProjectProvider>
         <Layout>
+          <Toaster position="top-right" richColors />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
@@ -42,6 +51,7 @@ function App() {
             <Route path="/verify-email" element={<EmailVerification />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/oauth/consent" element={<OAuthConsent />} />
 
             {/* Protected Routes */}
             <Route
@@ -68,11 +78,20 @@ function App() {
                 </PrivateRoute>
               }
             />
+
             <Route
               path="/profile"
               element={
                 <PrivateRoute>
                   <UserProfile />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/profile/view/:id"
+              element={
+                <PrivateRoute>
+                  <PublicProfile />
                 </PrivateRoute>
               }
             />
@@ -82,6 +101,12 @@ function App() {
             <Route path="/careers" element={<Careers />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/commitment" element={<Commitment />} />
+
+            {/* Neon Auth Routes */}
+            <Route path="/neon-home" element={<NeonHome />} />
+            <Route path="/auth/:pathname" element={<Auth />} />
+            <Route path="/account/:pathname" element={<Account />} />
 
             {/* Legal Routes */}
             <Route path="/privacy" element={<PrivacyPolicy />} />

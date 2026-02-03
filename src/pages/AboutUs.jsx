@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import SEO from '../components/SEO';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { Users, Globe, Award, TrendingUp } from 'lucide-react';

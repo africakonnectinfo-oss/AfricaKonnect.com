@@ -177,8 +177,10 @@ const generateEmailHTML = (notification, data, userName) => {
  */
 const deliverPush = async (userId, notification, data) => {
     // TODO: Implement push notifications (Firebase, OneSignal, etc.)
-    console.log('Push notification not yet implemented:', userId, notification.id);
-    throw new Error('Push notifications not implemented');
+    // TODO: Implement push notifications (Firebase, OneSignal, etc.)
+    console.warn('Push notification not yet implemented for user:', userId);
+    // Return skipped status instead of throwing
+    return { channel: 'push', status: 'skipped', reason: 'Not implemented' };
 };
 
 /**

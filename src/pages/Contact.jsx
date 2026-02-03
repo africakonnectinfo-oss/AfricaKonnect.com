@@ -47,8 +47,9 @@ const Contact = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-semibold text-gray-900 text-lg">Call Us</h3>
-                                    <p className="text-gray-600">+232 76 000 000</p>
-                                    <p className="text-gray-500 text-sm">Mon-Fri from 8am to 5pm GMT</p>
+                                    <p className="text-gray-600">+1 (404) 713-2428 (USA)</p>
+                                    <p className="text-gray-600">+232 88 580 063 (Sierra Leone)</p>
+                                    <p className="text-gray-500 text-sm">Mon-Fri from 8am to 5pm</p>
                                 </div>
                             </div>
 
@@ -59,8 +60,9 @@ const Contact = () => {
                                 <div>
                                     <h3 className="font-semibold text-gray-900 text-lg">Visit Us</h3>
                                     <p className="text-gray-600">
-                                        123 Tech Avenue, Freetown<br />
-                                        Sierra Leone, West Africa
+                                        3310 Waterford Way<br />
+                                        Conyers, GA 30012<br />
+                                        USA
                                     </p>
                                 </div>
                             </div>
