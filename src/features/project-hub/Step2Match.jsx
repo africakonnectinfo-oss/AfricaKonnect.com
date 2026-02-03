@@ -1,0 +1,285 @@
+import React, { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Sparkles, CheckCircle, MapPin, Star, Search, User, FileText, Bot } from 'lucide-react';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { api } from '../../lib/api';
+import { useProject } from '../../contexts/ProjectContext';
+
+const Step2Match = ({ onNext }) => {
+    const { currentProject, inviteExpert } = useProject();
+    const [loading, setLoading] = useState(true);
+    const [statsLoading, setStatsLoading] = useState(true);
+    const [experts, setExperts] = useState([]);
+    const [applicants, setApplicants] = useState([]);
+    const [selectedExpert, setSelectedExpert] = useState(null);
+    const [inviting, setInviting] = useState(false);
+    const [activeTab, setActiveTab] = useState('matches'); // 'matches' | 'applicants'
+    const [isMatching, setIsMatching] = useState(false);
+
+    useEffect(() => {
+        loadData();
+    }, [currentProject]);
+
+    const loadData = async () => {
+        try {
+            setLoading(true);
+
+            // 1. Fetch AI Matches (All experts for now, filtered by verification)
+            const expertsData = await api.experts.getAll({ verified: 'true' });
+            setExperts(expertsData.experts || []);
+
+            // 2. Fetch Applicants if project exists
+            if (currentProject?.id) {
+                try {
+                    const appsData = await api.applications.getByProject(currentProject.id);
+                    if (appsData && appsData.applications) {
+                        setApplicants(appsData.applications);
+                    }
+                } catch (e) {
+                    console.log("No applications or error fetching", e);
+                }
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+            setTimeout(() => setStatsLoading(false), 2000);
+        }
+    };
+
+    const runAIMatch = async () => {
+        if (!currentProject) return;
+        setIsMatching(true);
+        try {
+            const result = await api.ai.match({
+                projectDescription: currentProject.description,
+                requirements: currentProject.requirements || '', // Assuming requirements field exists or just use desc
+            });
+
+            if (result.matches && result.matches.length > 0) {
+                setExperts(result.matches);
+                setActiveTab('matches');
+                alert(`AI found ${result.matches.length} perfect matches!`);
+            } else {
+                alert("AI couldn't find specific matches, showing all experts.");
+            }
+        } catch (error) {
+            console.error("AI Match failed", error);
+            alert("AI Match failed. Please try again.");
+        } finally {
+            setIsMatching(false);
+        }
+    };
+
+    const handleInvite = async () => {
+        if (!selectedExpert || !currentProject) return;
+
+        try {
+            setInviting(true);
+            // If selected expert is an applicant, we accept the application
+            const applicant = applicants.find(a => a.expert_id === selectedExpert);
+
+            if (applicant) {
+                // Update application status
+                await api.applications.updateStatus(applicant.id, 'shortlisted'); // or accepted
+                // Also invite/assign to project logic
+                await inviteExpert(currentProject.id, selectedExpert);
+            } else {
+                // Regular invite
+                await inviteExpert(currentProject.id, selectedExpert);
+            }
+
+            onNext();
+        } catch (error) {
+            alert('Failed to invite expert');
+        } finally {
+            setInviting(false);
+        }
+    };
+
+    if (loading || statsLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px]">
+                <div className="relative w-24 h-24 mb-8">
+                    <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        className="w-full h-full border-4 border-gray-200 border-t-primary rounded-full"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center text-primary">
+                        <Sparkles size={32} className="animate-pulse" />
+                    </div>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Analyzing your company DNA...</h2>
+                <p className="text-gray-600">Scanning {experts.length > 0 ? experts.length : '5,000+'} vetted experts for the perfect match.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-5xl mx-auto">
+            <div className="flex justify-between items-end mb-8">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Expert Candidates</h2>
+                    <p className="text-gray-600">Review AI-matched experts or check your project applicants.</p>
+                </div>
+                <Button
+                    onClick={runAIMatch}
+                    disabled={isMatching}
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 border-none shadow-lg hover:shadow-purple-500/20"
+                >
+                    {isMatching ? 'Scanning...' : <><Bot size={18} className="mr-2" /> Run AI Match Engine</>}
+                </Button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex justify-center mb-8">
+                <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-200 flex">
+                    <button
+                        onClick={() => setActiveTab('matches')}
+                        className={`px-6 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'matches' ? 'bg-primary text-white shadow' : 'text-gray-600 hover:bg-gray-50'}`}
+                    >
+                        <Sparkles size={16} />
+                        AI Matches
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('applicants')}
+                        className={`px-6 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'applicants' ? 'bg-primary text-white shadow' : 'text-gray-600 hover:bg-gray-50'}`}
+                    >
+                        <User size={16} />
+                        Applicants
+                        {applicants.length > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{applicants.length}</span>
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {activeTab === 'matches' ? (
+                    experts.map((expert) => (
+                        <ExpertCard
+                            key={expert.id}
+                            expert={expert}
+                            selected={selectedExpert === expert.id}
+                            onSelect={() => setSelectedExpert(expert.id)}
+                            type="match"
+                        />
+                    ))
+                ) : (
+                    applicants.length === 0 ? (
+                        <div className="col-span-3 text-center py-12 text-gray-500">
+                            No applicants yet. Experts will appear here once they show interest.
+                        </div>
+                    ) : (
+                        applicants.map((app) => (
+                            <ExpertCard
+                                key={app.expert_id}
+                                expert={{
+                                    id: app.expert_id,
+                                    name: app.expert_name,
+                                    // placeholder if not joined/fetched fully
+                                    title: 'Applicant',
+                                    location: 'Remote', // placeholder
+                                    bio: app.pitch,
+                                    rate: app.rate
+                                }}
+                                selected={selectedExpert === app.expert_id}
+                                onSelect={() => setSelectedExpert(app.expert_id)}
+                                type="applicant"
+                                application={app}
+                            />
+                        ))
+                    )
+                )}
+            </div>
+
+            <div className="flex justify-between items-center">
+                <Button
+                    variant="ghost"
+                    onClick={async () => {
+                        if (confirm("Make this project public for all experts to see?")) {
+                            await api.projects.update(currentProject.id, { status: 'open' });
+                            alert("Project is now live in the marketplace!");
+                            // Optionally stay here or go to dashboard
+                        }
+                    }}
+                >
+                    Post to Marketplace (Public)
+                </Button>
+
+                <Button
+                    size="lg"
+                    onClick={handleInvite}
+                    disabled={!selectedExpert || inviting}
+                >
+                    {inviting ? 'Processing...' : activeTab === 'applicants' ? 'Shortlist & Interview' : 'Invite & Continue'}
+                </Button>
+            </div>
+        </div>
+    );
+};
+
+const ExpertCard = ({ expert, selected, onSelect, type, application }) => (
+    <Card
+        className={`cursor-pointer transition-all ${selected
+            ? 'ring-2 ring-primary border-primary shadow-xl shadow-primary/10'
+            : 'hover:border-primary/50'
+            }`}
+        onClick={onSelect}
+    >
+        <div className="p-6">
+            <div className="flex items-center gap-4 mb-4">
+                <img
+                    src={expert.profile_image_url || `https://ui-avatars.com/api/?name=${expert.name}`}
+                    alt={expert.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+                />
+                <div>
+                    <h3 className="font-bold text-gray-900">{expert.name}</h3>
+                    <p className="text-primary font-medium text-sm">{expert.title || 'Expert'}</p>
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                <div className="flex items-center gap-1">
+                    <MapPin size={14} />
+                    {expert.location || 'Remote'}
+                </div>
+                {type === 'match' && (
+                    <div className="flex items-center gap-1 bg-highlight/10 px-2 py-1 rounded-lg">
+                        <Star size={12} className="text-highlight fill-highlight" />
+                        <span className="text-highlight font-bold text-sm">{expert.score ? `${expert.score}% Match` : '9.8'}</span>
+                    </div>
+                )}
+                {type === 'applicant' && (
+                    <div className="font-bold text-gray-900">
+                        ${application.rate}
+                    </div>
+                )}
+            </div>
+
+            <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                <p className="text-xs text-blue-700 font-medium">
+                    {type === 'match' ? (
+                        expert.reason ? <><Bot size={12} className="inline mr-1" /> AI Reason: {expert.reason}</> : <><Sparkles size={12} className="inline mr-1" /> Why We Matched You</>
+                    ) : (
+                        <><FileText size={12} className="inline mr-1" /> Pitch</>
+                    )}
+                </p>
+                <p className="text-xs text-blue-600 mt-1 leading-relaxed line-clamp-3">
+                    {expert.reason || expert.bio || application?.pitch || 'No description available.'}
+                </p>
+            </div>
+
+            {selected && (
+                <div className="flex justify-center text-primary">
+                    <CheckCircle size={24} className="fill-primary text-white" />
+                </div>
+            )}
+        </div>
+    </Card>
+);
+
+export { Step2Match };
