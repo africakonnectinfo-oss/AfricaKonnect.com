@@ -32,9 +32,9 @@ if (!authUrl) {
     <React.StrictMode>
       <HelmetProvider>
         <BrowserRouter>
-          <NeonAuthUIProvider auth={authClient}>
-            <App />
-          </NeonAuthUIProvider>
+          {/* <NeonAuthUIProvider auth={authClient}> */}
+          <App />
+          {/* </NeonAuthUIProvider> */}
         </BrowserRouter>
       </HelmetProvider>
     </React.StrictMode>,
