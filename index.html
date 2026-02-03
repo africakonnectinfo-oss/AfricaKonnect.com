@@ -12,6 +12,38 @@
 
 <body>
   <div id="root"></div>
+  <script>
+    window.onerror = function (message, source, lineno, colno, error) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.position = 'fixed';
+      errorDiv.style.top = '0';
+      errorDiv.style.left = '0';
+      errorDiv.style.width = '100%';
+      errorDiv.style.backgroundColor = '#fee2e2';
+      errorDiv.style.color = '#991b1b';
+      errorDiv.style.padding = '20px';
+      errorDiv.style.zIndex = '9999';
+      errorDiv.style.fontFamily = 'monospace';
+      errorDiv.innerHTML = '<strong>Runtime Error:</strong><br>' + message + '<br><br>Source: ' + source + ':' + lineno;
+      document.body.appendChild(errorDiv);
+      console.error('Captured Error:', error);
+    };
+    window.onunhandledrejection = function (event) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.position = 'fixed';
+      errorDiv.style.bottom = '0';
+      errorDiv.style.left = '0';
+      errorDiv.style.width = '100%';
+      errorDiv.style.backgroundColor = '#fef3c7';
+      errorDiv.style.color = '#92400e';
+      errorDiv.style.padding = '20px';
+      errorDiv.style.zIndex = '9999';
+      errorDiv.style.fontFamily = 'monospace';
+      errorDiv.innerHTML = '<strong>Unhandled Promise Rejection:</strong><br>' + event.reason;
+      document.body.appendChild(errorDiv);
+      console.error('Captured Rejection:', event.reason);
+    };
+  </script>
   <script type="module" src="./src/index.jsx"></script>
 </body>
 
