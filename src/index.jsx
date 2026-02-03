@@ -25,15 +25,14 @@ if (!authUrl) {
     </div>
   );
 } else {
-  const authConfig = {
-    baseURL: authUrl,
-  };
+  console.log('DEBUG: authUrl present', authUrl);
+  console.log('DEBUG: authClient', authClient);
 
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       <HelmetProvider>
         <BrowserRouter>
-          <NeonAuthUIProvider client={authClient}>
+          <NeonAuthUIProvider auth={authClient}>
             <App />
           </NeonAuthUIProvider>
         </BrowserRouter>
