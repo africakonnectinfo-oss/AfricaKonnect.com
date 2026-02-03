@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
-import { NeonAuthUIProvider } from './lib/auth'
+import { NeonAuthUIProvider, authClient } from './lib/auth'
 import App from './App.jsx'
 import './index.css'
 
@@ -33,7 +33,7 @@ if (!authUrl) {
     <React.StrictMode>
       <HelmetProvider>
         <BrowserRouter>
-          <NeonAuthUIProvider {...authConfig}>
+          <NeonAuthUIProvider client={authClient}>
             <App />
           </NeonAuthUIProvider>
         </BrowserRouter>
