@@ -31,15 +31,30 @@ const isBackendConfigured = () => {
 
 class SocketClient {
     constructor() {
-        this.socket = null;
         this.isEnabled = isBackendConfigured();
 
         if (!this.isEnabled) {
             if (import.meta.env.DEV) {
                 console.warn('⚠️ Socket.IO disabled: Backend URL not configured in .env.production');
             }
+            // Create a noop socket object to prevent errors when components try to use it
+            this.socket = this.createNoopSocket();
             return;
         }
+
+        this.socket = null;
+    }
+
+    createNoopSocket() {
+        // Return a mock socket object with noop methods
+        return {
+            connected: false,
+            on: () => { },
+            off: () => { },
+            emit: () => { },
+            connect: () => this,
+            disconnect: () => { }
+        };
     }
 
     connect() {
@@ -47,7 +62,7 @@ class SocketClient {
             if (import.meta.env.DEV) {
                 console.log('Socket.IO connection skipped - backend not configured');
             }
-            return;
+            return this;
         }
 
         if (!this.socket) {
@@ -79,6 +94,7 @@ class SocketClient {
 
             this.socket.connect();
         }
+        return this;
     }
 
     disconnect() {

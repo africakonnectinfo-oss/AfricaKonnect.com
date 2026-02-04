@@ -6,11 +6,9 @@ export const useSocket = () => {
     const [socket] = useState(() => socketService.connect());
 
     useEffect(() => {
-        // Connection is handled by socketService.connect() which is idempotent-ish
-        // or we can ensure connection here if needed, but lazy init handles the object creation.
-        if (!socket.connected) {
-            socket.connect();
-        }
+        // Connection is handled by socketService.connect() which is idempotent
+        // The socketService already handles the enabled/disabled state
+        // No need to do anything here since connect() is called in useState initializer
 
         return () => {
             // Optional: socket.disconnect() if we want to clean up on unmount
