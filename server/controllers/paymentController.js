@@ -51,6 +51,28 @@ exports.initEscrow = async (req, res) => {
     }
 };
 
+// Get escrow details
+exports.getEscrow = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const escrow = await getEscrowByProject(projectId);
+
+        if (!escrow) {
+            return res.status(404).json({ message: 'Escrow not found' });
+        }
+
+        // Get releases
+        const releases = await getReleasesByEscrow(escrow.id);
+
+        res.json({
+            ...escrow,
+            releases
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // Request release
 exports.requestRelease = async (req, res) => {
     try {
