@@ -52,6 +52,7 @@ class SocketClient {
             on: () => { },
             off: () => { },
             emit: () => { },
+            joinUser: () => { },
             connect: () => this,
             disconnect: () => { }
         };
@@ -109,6 +110,15 @@ class SocketClient {
             this.socket.emit(event, data);
         } else if (import.meta.env.DEV) {
             console.log(`Socket emit skipped (${event}):`, data);
+        }
+    }
+
+    joinUser(userId) {
+        if (this.socket && this.isEnabled && userId) {
+            this.socket.emit('join_user', userId);
+            if (import.meta.env.DEV) {
+                console.log(`Socket: Joined user room ${userId}`);
+            }
         }
     }
 
