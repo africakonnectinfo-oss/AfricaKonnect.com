@@ -61,17 +61,7 @@ exports.scheduleInterview = async (req, res) => {
                 actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard`
             },
             req.app.get('io')
-        await sendNotification(
-                expertId,
-                'interview_scheduled',
-                {
-                    projectTitle: project.title,
-                    scheduledAt: scheduledAt,
-                    meetingLink: meetingLink,
-                    actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard`
-                },
-                req.app.get('io')
-            );
+        );
 
         // Emit real-time event
         const io = req.app.get('io');
