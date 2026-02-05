@@ -89,7 +89,7 @@ const updateExpertProfile = async (userId, profileData) => {
 // Get all experts with optional filters
 const getAllExperts = async (filters = {}) => {
     let text = `
-        SELECT ep.*, u.name, u.email
+        SELECT ep.*, u.name, u.email, COALESCE(ep.profile_image_url, u.profile_image_url) as profile_image_url
         FROM expert_profiles ep
         JOIN users u ON ep.user_id = u.id
         WHERE 1=1

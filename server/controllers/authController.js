@@ -14,6 +14,7 @@ const {
     verifyPasswordResetToken,
     updateUser
 } = require('../models/userModel');
+const { createExpertProfile } = require('../models/expertModel');
 const { sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
 const { logAuth, AUDIT_ACTIONS } = require('../middleware/auditLogger');
 const jwt = require('jsonwebtoken');
@@ -111,6 +112,26 @@ exports.registerUser = async (req, res) => {
 
             // Log successful registration
             await logAuth(req, AUDIT_ACTIONS.REGISTER, true);
+
+            // Auto-create expert profile if role is expert
+            if (user.role === 'expert') {
+                try {
+                    await createExpertProfile({
+                        userId: user.id,
+                        title: 'New Expert',
+                        bio: `Hi, I'm ${user.name}. I'm a new expert on Africa Konnect.`,
+                        location: 'Remote',
+                        skills: [],
+                        hourlyRate: 0,
+                        profileImageUrl: null,
+                        certifications: []
+                    });
+                    console.log(`✅ Auto-created expert profile for ${user.email}`);
+                } catch (expertError) {
+                    console.error('Failed to auto-create expert profile:', expertError);
+                    // Don't fail the whole registration, just log it
+                }
+            }
         } else {
             res.status(400).json({ message: 'Invalid user data' });
         }
