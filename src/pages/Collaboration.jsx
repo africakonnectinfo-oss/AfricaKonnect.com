@@ -17,7 +17,6 @@ import { Card } from '../components/ui/Card';
 import { Avatar } from '../components/ui/Avatar';
 import { motion, AnimatePresence } from 'framer-motion';
 import MeetingRoom from '../components/common/MeetingRoom';
-import { AIAssistant } from '../components/AIAssistant';
 
 // --- Shared Components ---
 
@@ -573,9 +572,6 @@ export default function Collaboration() {
                         {activeTab === 'video' && <VideoConferenceTab project={project} user={user} onNotify={(msg) => actions.sendMessage(msg)} />}
                     </motion.div>
                 </AnimatePresence>
-
-                {/* AI Assistant Floating Chat */}
-                <AIAssistant context={{ projectId: project.id, projectTitle: project.title, role: user.role }} />
             </main>
         </div>
     );

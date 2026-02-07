@@ -96,24 +96,33 @@ const Navbar = () => {
                                         <div className="relative group">
                                             <button
                                                 onClick={() => setShowUserMenu(!showUserMenu)}
-                                                className="flex items-center gap-3 pl-2 pr-4 py-1.5 bg-white border border-gray-200 rounded-full hover:shadow-md transition-all duration-200 group-hover:border-primary/30"
+                                                className="flex items-center gap-3 pl-1 pr-3 py-1 bg-white hover:bg-gray-50 border border-gray-100 rounded-full transition-all duration-200 group relative"
                                             >
-                                                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm ring-2 ring-gray-50">
-                                                    {(profile?.profile_image_url || user?.profile_image_url) ? (
-                                                        <img
-                                                            src={profile?.profile_image_url || user?.profile_image_url}
-                                                            alt="Profile"
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <User size={18} className="text-gray-400" />
-                                                    )}
+                                                <div className="relative">
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-primary to-blue-600 rounded-full blur-[2px] opacity-70 group-hover:opacity-100 transition-opacity"></div>
+                                                    <div className="relative w-10 h-10 rounded-full bg-white p-[2px]">
+                                                        <div className="w-full h-full rounded-full overflow-hidden">
+                                                            {(profile?.profile_image_url || user?.profile_image_url) ? (
+                                                                <img
+                                                                    src={profile?.profile_image_url || user?.profile_image_url}
+                                                                    alt="Profile"
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                                                                    <User size={18} className="text-gray-400" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                                                 </div>
-                                                <div className="text-left hidden lg:block">
-                                                    <p className="text-sm font-bold text-gray-900 leading-none mb-1">
+
+                                                <div className="text-left hidden lg:block mr-1">
+                                                    <p className="text-sm font-bold text-gray-900 leading-none mb-0.5">
                                                         {profile?.name?.split(' ')[0] || user.name?.split(' ')[0] || user.email?.split('@')[0]}
                                                     </p>
-                                                    <p className="text-[10px] font-bold uppercase tracking-wide text-primary">
+                                                    <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">
                                                         {isExpert ? 'Expert' : 'Client'}
                                                     </p>
                                                 </div>
