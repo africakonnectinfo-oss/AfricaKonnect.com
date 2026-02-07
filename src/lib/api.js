@@ -478,6 +478,11 @@ export const api = {
             body: JSON.stringify(data),
             headers: getHeaders(),
         }),
+        chat: (message, context) => apiRequest('/ai/chat', {
+            method: 'POST',
+            body: JSON.stringify({ message, context }),
+            headers: getHeaders(),
+        }),
         matchExperts: (data) => apiRequest('/ai/match', {
             method: 'POST',
             body: JSON.stringify(data),

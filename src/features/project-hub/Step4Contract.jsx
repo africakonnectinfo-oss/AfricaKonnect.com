@@ -69,41 +69,33 @@ const Step4Contract = ({ onNext, project, hideProceed }) => {
         if (!currentProject?.selected_expert_id) return;
         setGenerating(true);
         try {
-            // In a real app, AI would draft this. Here we use a template.
-            const template = `INDEPENDENT CONTRACTOR AGREEMENT
-
-Date: ${new Date().toLocaleDateString()}
-
-1. PARTIES
-Client: ${user.name}
-Expert ID: ${currentProject.selected_expert_id}
-
-2. SERVICES
-The Expert agrees to perform the following services:
-${currentProject.description}
-
-3. COMPENSATION
-Total Amount: $${currentProject.budget || '0.00'}
-
-4. TIMELINE
-Duration: ${currentProject.duration || 'TBD'}
-
-5. CONFIDENTIALITY
-All work is confidential.
-`;
-            setTerms(template);
-            setAmount(currentProject.budget || '');
-
-            // Auto-create? Or wait for save? Let's auto-create draft.
-            const newContract = await api.contracts.create({
-                projectId: currentProject.id,
-                expertId: currentProject.selected_expert_id,
-                terms: template,
-                amount: currentProject.budget || 0
+            // Call AI to draft contract
+            const response = await api.ai.draftContract({
+                projectName: currentProject.title,
+                clientName: user.name, // Assuming context has client name
+                expertName: currentProject.expert_name || 'Expert', // You might need to fetch this if not in project
+                rate: currentProject.budget, // Or hourly rate if available
+                duration: currentProject.duration,
+                deliverables: currentProject.description
             });
-            setContract(newContract);
+
+            if (response && response.contract) {
+                setTerms(response.contract);
+                setAmount(currentProject.budget || '');
+
+                // Auto-create draft
+                const newContract = await api.contracts.create({
+                    projectId: currentProject.id,
+                    expertId: currentProject.selected_expert_id,
+                    terms: response.contract,
+                    amount: currentProject.budget || 0
+                });
+                setContract(newContract);
+            }
         } catch (error) {
             console.error("Failed to generate", error);
+            alert("AI Generation failed. Falling back to template.");
+            // Fallback template could go here
         } finally {
             setGenerating(false);
         }

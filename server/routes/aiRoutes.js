@@ -6,5 +6,6 @@ const { protect } = require('../middleware/authMiddleware'); // Ensure protected
 // AI Routes - Protected
 router.post('/match', protect, aiController.matchExperts);
 router.post('/draft-contract', protect, aiController.draftContract);
+router.post('/chat', protect, aiController.chat);
 
 module.exports = router;
