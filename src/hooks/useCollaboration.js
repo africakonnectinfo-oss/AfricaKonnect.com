@@ -289,6 +289,18 @@ export const useCollaboration = (projectId, user) => {
         }
     }, [projectId]);
 
+    const inviteUser = useCallback(async (email) => {
+        try {
+            // api.projects.inviteMember(projectId, email)
+            // We need to implement this in api lib as well if not exists
+            const res = await api.projects.inviteMember(projectId, email);
+            return res;
+        } catch (err) {
+            console.error("Invite failed", err);
+            throw err;
+        }
+    }, [projectId]);
+
     return {
         activeTab,
         setActiveTab,
@@ -302,7 +314,8 @@ export const useCollaboration = (projectId, user) => {
             updateTaskStatus,
             signContract,
             scheduleInterview,
-            createContract
+            createContract,
+            inviteUser
         }
     };
 };

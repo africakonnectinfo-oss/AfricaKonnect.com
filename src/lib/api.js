@@ -156,6 +156,11 @@ export const api = {
             headers: getHeaders(),
             body: JSON.stringify({ expertId }),
         }),
+        inviteMember: async (id, email, role = 'member') => apiRequest(`/projects/${id}/members`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ email, role }),
+        }),
         respond: async (id, status) => apiRequest(`/projects/${id}/invite`, {
             method: 'PUT',
             headers: getHeaders(),

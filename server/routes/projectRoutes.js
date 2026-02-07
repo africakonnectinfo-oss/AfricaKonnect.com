@@ -54,6 +54,12 @@ router.post('/:id/release', validateId, authorize('client'), paymentLimiter, rel
 router.get('/:id/transactions', validateId, getHistory);
 
 // Get expert invites
+// Get expert invites
 router.get('/expert/invites', authorize('expert'), getInvitedProjects);
+
+// Check Project Members
+const { addProjectMember, getMembers } = require('../controllers/projectController');
+router.post('/:id/members', validateId, addProjectMember);
+router.get('/:id/members', validateId, getMembers);
 
 module.exports = router;

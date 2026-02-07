@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import SEO from '../components/SEO';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,8 +33,22 @@ const ProjectHub = () => {
     });
 
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const { currentProject } = useProject();
+
+    // State for direct hire flow
+    const [expertToHire, setExpertToHire] = useState(null);
+
+    useEffect(() => {
+        if (location.state?.expertToHire) {
+            setExpertToHire(location.state.expertToHire);
+            setViewMode('wizard');
+            setCurrentStep(1); // Start at step 1 to create project first
+            // Clear state so it doesn't persist if we navigate away and back
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     // Fetch user projects on mount
     useEffect(() => {
@@ -99,7 +113,7 @@ const ProjectHub = () => {
     const renderStep = () => {
         switch (currentStep) {
             case 1: return <Step1Vault onNext={nextStep} />;
-            case 2: return <Step2Match onNext={nextStep} />;
+            case 2: return <Step2Match onNext={nextStep} expertToHire={expertToHire} />;
             case 3: return <Step3Interview onNext={nextStep} />;
             case 4: return <Step4Contract onNext={nextStep} />;
             default: return <Step1Vault onNext={nextStep} />;
@@ -136,42 +150,55 @@ const ProjectHub = () => {
 
                     {/* Stats Overview */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                        <Card className="p-6 border-l-4 border-l-primary relative overflow-hidden">
-                            <div className="absolute right-0 top-0 opacity-5 -translate-y-1/2 translate-x-1/4">
-                                <Activity size={120} />
+                        <Card className="p-6 bg-white border-none shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden relative group">
+                            <div className="absolute right-0 top-0 opacity-5 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
+                                <Activity size={150} />
                             </div>
                             <div className="relative">
-                                <p className="text-sm font-medium text-gray-500 mb-1">Active Projects</p>
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="text-gray-500 font-medium text-sm uppercase tracking-wide">Active Projects</span>
+                                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                                        <Activity size={20} />
+                                    </div>
+                                </div>
                                 <h3 className="text-3xl font-bold text-gray-900">{stats.activeCount}</h3>
-                                <div className="mt-4 flex items-center text-sm text-green-600">
-                                    <Activity size={16} className="mr-1" /> All systems operational
+                                <div className="mt-2 flex items-center text-xs text-green-600 font-medium bg-green-50 w-fit px-2 py-1 rounded-full">
+                                    <Activity size={12} className="mr-1" /> All systems operational
                                 </div>
                             </div>
                         </Card>
 
-                        <Card className="p-6 border-l-4 border-l-blue-500 relative overflow-hidden">
-                            <div className="absolute right-0 top-0 opacity-5 -translate-y-1/2 translate-x-1/4">
-                                <DollarSign size={120} />
+                        <Card className="p-6 bg-white border-none shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden relative group">
+                            <div className="absolute right-0 top-0 opacity-5 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
+                                <DollarSign size={150} />
                             </div>
                             <div className="relative">
-                                <p className="text-sm font-medium text-gray-500 mb-1">Total Investment</p>
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="text-gray-500 font-medium text-sm uppercase tracking-wide">Total Investment</span>
+                                    <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                                        <DollarSign size={20} />
+                                    </div>
+                                </div>
                                 <h3 className="text-3xl font-bold text-gray-900">${stats.totalSpent.toLocaleString()}</h3>
-                                <div className="mt-4 text-sm text-gray-500">
-                                    Across {clientProjects.length} projects
-                                </div>
+                                <p className="text-xs text-gray-400 mt-2">Across {clientProjects.length} projects</p>
                             </div>
                         </Card>
 
-                        <Card className="p-6 border-l-4 border-l-green-500 relative overflow-hidden">
-                            <div className="absolute right-0 top-0 opacity-5 -translate-y-1/2 translate-x-1/4">
-                                <FileText size={120} />
+                        <Card className="p-6 bg-gradient-to-br from-indigo-900 to-primary text-white border-none shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden relative group">
+                            <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
+                                <FileText size={150} />
                             </div>
                             <div className="relative">
-                                <p className="text-sm font-medium text-gray-500 mb-1">Completed</p>
-                                <h3 className="text-3xl font-bold text-gray-900">{stats.completedCount}</h3>
-                                <div className="mt-4 text-sm text-gray-500">
-                                    Lifetime project completions
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="text-white/80 font-medium text-sm uppercase tracking-wide">Completed</span>
+                                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white backdrop-blur-sm">
+                                        <Check size={20} />
+                                    </div>
                                 </div>
+                                <h3 className="text-3xl font-bold text-white mb-2">{stats.completedCount}</h3>
+                                <p className="text-xs text-white/80">
+                                    Lifetime project completions
+                                </p>
                             </div>
                         </Card>
                     </div>

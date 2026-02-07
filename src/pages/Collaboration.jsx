@@ -4,12 +4,13 @@ import SEO from '../components/SEO';
 import { useAuth } from '../contexts/AuthContext';
 import { useCollaboration } from '../hooks/useCollaboration';
 import { api } from '../lib/api';
+import { Step4Contract } from '../features/project-hub/Step4Contract';
 import {
     LayoutDashboard, MessageSquare, FolderOpen, CheckSquare,
     CreditCard, Settings, Bell, Search, Plus, Paperclip,
     Send, MoreVertical, CheckCircle2, Clock, FileText,
     Download, Play, Upload, MoreHorizontal, Video, Users2, Calendar, Sparkles,
-    ChevronLeft, Menu, X, Mic, Camera
+    ChevronLeft, Menu, X, Mic, Camera, FileSignature
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -32,7 +33,26 @@ const EmptyState = ({ icon: Icon, title, description, action }) => (
 
 // --- Tab Components ---
 
-const OverviewTab = ({ project, tasks, contracts = [] }) => {
+const OverviewTab = ({ project, tasks, contracts = [], onInvite }) => {
+    const [showInviteCallback, setShowInviteCallback] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviting, setInviting] = useState(false);
+
+    const handleInvite = async (e) => {
+        e.preventDefault();
+        if (!inviteEmail) return;
+        setInviting(true);
+        try {
+            await onInvite(inviteEmail);
+            setInviteEmail('');
+            setShowInviteCallback(false);
+        } catch (error) {
+            console.error("Invite failed", error);
+        } finally {
+            setInviting(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -42,12 +62,41 @@ const OverviewTab = ({ project, tasks, contracts = [] }) => {
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">{project.title}</h2>
                             <p className="text-gray-500">Project ID: #{project.id.substring(0, 8)}</p>
                         </div>
-                        <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${project.status === 'active' ? 'bg-green-100 text-green-700' :
+                        <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setShowInviteCallback(!showInviteCallback)}>
+                                <Plus size={16} className="mr-1" /> Add Member
+                            </Button>
+                            <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${project.status === 'active' ? 'bg-green-100 text-green-700' :
                                 project.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
-                            }`}>
-                            {project.status}
-                        </span>
+                                }`}>
+                                {project.status}
+                            </span>
+                        </div>
                     </div>
+
+                    {showInviteCallback && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mb-6 p-4 bg-white rounded-xl border border-blue-100 shadow-sm"
+                        >
+                            <h4 className="text-sm font-bold text-gray-900 mb-2">Invite Team Member</h4>
+                            <form onSubmit={handleInvite} className="flex gap-2">
+                                <input
+                                    type="email"
+                                    placeholder="Enter colleague's email..."
+                                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                    value={inviteEmail}
+                                    onChange={(e) => setInviteEmail(e.target.value)}
+                                    required
+                                />
+                                <Button type="submit" size="sm" disabled={inviting}>
+                                    {inviting ? 'Sending...' : 'Invite'}
+                                </Button>
+                            </form>
+                        </motion.div>
+                    )}
+
                     <p className="text-gray-600 leading-relaxed mb-8 text-lg">{project.description}</p>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -161,8 +210,8 @@ const MessagesTab = ({ messages, onSend, user }) => {
                         <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                             <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]`}>
                                 <div className={`px-5 py-3 rounded-2xl shadow-sm border ${isMe
-                                        ? 'bg-primary text-white rounded-br-sm border-primary'
-                                        : 'bg-white text-gray-800 rounded-bl-sm border-gray-100'
+                                    ? 'bg-primary text-white rounded-br-sm border-primary'
+                                    : 'bg-white text-gray-800 rounded-bl-sm border-gray-100'
                                     }`}>
                                     <p className="text-sm leading-relaxed">{msg.content}</p>
                                 </div>
@@ -356,9 +405,16 @@ const TasksTab = ({ tasks, onCreate, onUpdateStatus }) => {
 };
 
 // ... Include other tabs (Video, Contracts) with similar styling ...
-const VideoConferenceTab = ({ project, user }) => {
+const VideoConferenceTab = ({ project, user, onNotify }) => {
     const [inMeeting, setInMeeting] = useState(false);
     const roomName = `africakonnect-project-${project.id}`;
+
+    const handleJoin = () => {
+        setInMeeting(true);
+        if (onNotify) {
+            onNotify(`I've started a video meeting. Join me in the Meeting Room!`);
+        }
+    };
 
     if (inMeeting) {
         return (
@@ -392,9 +448,9 @@ const VideoConferenceTab = ({ project, user }) => {
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Team Video Room</h2>
                     <p className="text-gray-500">Connect with your team in real-time. HD video and screen sharing enabled.</p>
                 </div>
-                <div className="pt-4">
-                    <Button size="lg" className="w-full text-base py-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02] transition-all" onClick={() => setInMeeting(true)}>
-                        Join Meeting Room
+                <div className="pt-4 space-y-3">
+                    <Button size="lg" className="w-full text-base py-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02] transition-all" onClick={handleJoin}>
+                        Join Meeting Room & Notify Team
                     </Button>
                 </div>
             </Card>
@@ -446,6 +502,7 @@ export default function Collaboration() {
         { id: 'messages', label: 'Chat', icon: MessageSquare },
         { id: 'tasks', label: 'Tasks', icon: CheckSquare },
         { id: 'files', label: 'Files', icon: FolderOpen },
+        { id: 'contracts', label: 'Contract', icon: FileSignature },
         { id: 'video', label: 'Meeting', icon: Video },
     ];
 
@@ -473,8 +530,8 @@ export default function Collaboration() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === tab.id
-                                    ? 'bg-primary text-white shadow-md shadow-primary/20'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                ? 'bg-primary text-white shadow-md shadow-primary/20'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
                         >
                             <div className="flex items-center gap-3">
@@ -499,11 +556,20 @@ export default function Collaboration() {
                         transition={{ duration: 0.2 }}
                         className="h-full"
                     >
-                        {activeTab === 'overview' && <OverviewTab project={project} tasks={data.tasks} contracts={data.contracts} />}
+                        {activeTab === 'overview' && <OverviewTab project={project} tasks={data.tasks} contracts={data.contracts} onInvite={actions.inviteUser} />}
+                        {activeTab === 'contracts' && (
+                            <div className="h-full overflow-y-auto">
+                                <Step4Contract
+                                    project={project}
+                                    hideProceed={true}
+                                    onNext={() => { }} // No next action needed in Hub
+                                />
+                            </div>
+                        )}
                         {activeTab === 'messages' && <MessagesTab messages={data.messages} onSend={actions.sendMessage} user={user} />}
                         {activeTab === 'files' && <FilesTab files={data.files} onUpload={actions.uploadFile} />}
                         {activeTab === 'tasks' && <TasksTab tasks={data.tasks} onCreate={actions.createTask} onUpdateStatus={actions.updateTaskStatus} />}
-                        {activeTab === 'video' && <VideoConferenceTab project={project} user={user} />}
+                        {activeTab === 'video' && <VideoConferenceTab project={project} user={user} onNotify={(msg) => actions.sendMessage(msg)} />}
                     </motion.div>
                 </AnimatePresence>
             </main>

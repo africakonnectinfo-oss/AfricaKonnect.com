@@ -41,17 +41,23 @@ exports.sendMessage = async (req, res) => {
             content
         });
 
-        // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to(`project_${projectId}`).emit('receive_message', {
-                projectId,
-                message: {
-                    ...message,
-                    // Ensure the shape matches what frontend expects if needed
-                    sender: req.user.name // Add sender name convenience
+            // Frontend expects the message object directly
+            const messagePayload = {
+                ...message,
+                project_id: projectId, // Ensure snake_case if frontend expects it, or camelCase. JS model usually camelCase but DB snake_case. Let's provide both or standard. 
+                // DB returns snake_case usually if using pg, but sequelize/orm might return camel.
+                // Looking at `useCollaboration.js`: msg.project_id || msg.projectId
+                // So both work.
+                sender: {
+                    id: req.user.id,
+                    name: req.user.name,
+                    avatar_url: req.user.avatar_url
                 }
-            });
+            };
+
+            io.to(`project_${projectId}`).emit('receive_message', messagePayload);
             console.log(`Emitted message to project_${projectId}`);
         }
 

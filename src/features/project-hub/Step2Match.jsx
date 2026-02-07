@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { api } from '../../lib/api';
 import { useProject } from '../../contexts/ProjectContext';
 
-const Step2Match = ({ onNext }) => {
+const Step2Match = ({ onNext, expertToHire }) => {
     const { currentProject, inviteExpert } = useProject();
     const [loading, setLoading] = useState(true);
     const [statsLoading, setStatsLoading] = useState(true);
@@ -44,6 +44,18 @@ const Step2Match = ({ onNext }) => {
             console.error(error);
         } finally {
             setLoading(false);
+            if (expertToHire) {
+                // Determine if expertToHire is already in the list
+                setExperts(prev => {
+                    const exists = prev.find(e => e.id === expertToHire.id);
+                    if (!exists) {
+                        return [expertToHire, ...prev];
+                    }
+                    return prev;
+                });
+                setSelectedExpert(expertToHire.id);
+                // Optional: Auto-run AI match not needed since we have a specific hire
+            }
             setTimeout(() => setStatsLoading(false), 2000);
         }
     };

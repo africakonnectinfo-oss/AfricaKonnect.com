@@ -172,50 +172,57 @@ export default function ExpertDashboard() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-                    <Card className="p-6">
+                    <Card className="p-6 bg-white border-none shadow-lg hover:shadow-xl transition-shadow duration-300">
                         <div className="flex items-center justify-between mb-4">
-                            <span className="text-gray-500 font-medium text-sm">Total Earnings</span>
-                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                                <DollarSign size={16} />
+                            <span className="text-gray-500 font-medium text-sm uppercase tracking-wide">Total Earnings</span>
+                            <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                                <DollarSign size={20} />
                             </div>
                         </div>
-                        <h3 className="text-2xl font-bold text-gray-900">${stats.earnings.toLocaleString()}</h3>
-                        <p className="text-xs text-gray-400 mt-2">+12% from last month</p>
+                        <h3 className="text-3xl font-bold text-gray-900">${stats.earnings.toLocaleString()}</h3>
+                        <div className="mt-2 flex items-center text-xs text-green-600 font-medium bg-green-50 w-fit px-2 py-1 rounded-full">
+                            <ArrowUpRight size={12} className="mr-1" /> 12% increase
+                        </div>
                     </Card>
 
-                    <Card className="p-6">
+                    <Card className="p-6 bg-white border-none shadow-lg hover:shadow-xl transition-shadow duration-300">
                         <div className="flex items-center justify-between mb-4">
-                            <span className="text-gray-500 font-medium text-sm">Rating</span>
-                            <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
-                                <Star size={16} />
+                            <span className="text-gray-500 font-medium text-sm uppercase tracking-wide">Rating</span>
+                            <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600">
+                                <Star size={20} fill="currentColor" />
                             </div>
                         </div>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats.rating}</h3>
-                        <p className="text-xs text-gray-400 mt-2">Top Rated Plus</p>
+                        <h3 className="text-3xl font-bold text-gray-900">{stats.rating}</h3>
+                        <p className="text-xs text-gray-400 mt-2">Top Rated Plus status</p>
                     </Card>
 
-                    <Card className="p-6">
+                    <Card className="p-6 bg-white border-none shadow-lg hover:shadow-xl transition-shadow duration-300">
                         <div className="flex items-center justify-between mb-4">
-                            <span className="text-gray-500 font-medium text-sm">Active Projects</span>
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                                <Briefcase size={16} />
+                            <span className="text-gray-500 font-medium text-sm uppercase tracking-wide">Active Projects</span>
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                                <Briefcase size={20} />
                             </div>
                         </div>
-                        <h3 className="text-2xl font-bold text-gray-900">{activeProjects.length}</h3>
-                        <p className="text-xs text-gray-400 mt-2">Current workload</p>
+                        <h3 className="text-3xl font-bold text-gray-900">{activeProjects.length}</h3>
+                        <p className="text-xs text-gray-400 mt-2">Current active workload</p>
                     </Card>
 
-                    <Card className="p-6 bg-primary text-white">
-                        <div className="flex items-center justify-between mb-4">
-                            <span className="text-white/80 font-medium text-sm">Invitations</span>
-                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
-                                <Bell size={16} />
-                            </div>
+                    <Card className="p-6 bg-gradient-to-br from-primary to-blue-700 text-white border-none shadow-lg hover:shadow-xl transition-shadow duration-300 relative overflow-hidden">
+                        <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+                            <Bell size={100} />
                         </div>
-                        <h3 className="text-2xl font-bold text-white mb-2">{invitations.length}</h3>
-                        <p className="text-xs text-white/80">
-                            {invitations.length > 0 ? 'You have new invites!' : 'No pending invites'}
-                        </p>
+                        <div className="relative">
+                            <div className="flex items-center justify-between mb-4">
+                                <span className="text-white/90 font-medium text-sm uppercase tracking-wide">Invitations</span>
+                                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white backdrop-blur-sm">
+                                    <Bell size={20} />
+                                </div>
+                            </div>
+                            <h3 className="text-3xl font-bold text-white mb-2">{invitations.length}</h3>
+                            <p className="text-xs text-white/80">
+                                {invitations.length > 0 ? 'You have new opportunities!' : 'No pending invites'}
+                            </p>
+                        </div>
                     </Card>
                 </div>
 
@@ -235,17 +242,24 @@ export default function ExpertDashboard() {
                             ) : (
                                 <div className="space-y-4">
                                     {activeProjects.map(p => (
-                                        <Card key={p.id} className="p-6 hover:shadow-md transition-shadow group cursor-pointer" onClick={() => navigate('/collaboration', { state: { projectId: p.id } })}>
-                                            <div className="flex justify-between items-start">
+                                        <Card key={p.id} className="p-6 hover:shadow-lg transition-all duration-300 group cursor-pointer border-l-4 border-l-primary" onClick={() => navigate('/collaboration', { state: { projectId: p.id } })}>
+                                            <div className="flex justify-between items-center">
                                                 <div>
-                                                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors">{p.title}</h3>
-                                                    <p className="text-sm text-gray-500 mb-2">{p.client_name || 'Confidential Client'}</p>
-                                                    <div className="flex gap-4 text-xs text-gray-400">
-                                                        <span className="flex items-center"><Clock size={12} className="mr-1" /> Due {new Date(p.deadline || Date.now() + 86400000).toLocaleDateString()}</span>
+                                                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors mb-1">{p.title}</h3>
+                                                    <p className="text-sm text-gray-500 mb-3 flex items-center">
+                                                        <UserIcon size={14} className="mr-1" /> {p.client_name || 'Confidential Client'}
+                                                    </p>
+                                                    <div className="flex gap-4 text-xs text-gray-500">
+                                                        <span className="flex items-center bg-gray-100 px-2 py-1 rounded-full">
+                                                            <Clock size={12} className="mr-1" /> Due {new Date(p.deadline || Date.now() + 86400000).toLocaleDateString()}
+                                                        </span>
+                                                        <span className="flex items-center bg-green-50 text-green-700 px-2 py-1 rounded-full font-medium">
+                                                            <CheckCircle size={12} className="mr-1" /> Active
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <Button size="sm" variant="secondary" className="group-hover:bg-primary group-hover:text-white transition-colors">
-                                                    Enter <ChevronRight size={16} className="ml-1" />
+                                                <Button size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-white shadow-lg shadow-primary/30">
+                                                    Enter Workspace <ChevronRight size={16} className="ml-1" />
                                                 </Button>
                                             </div>
                                         </Card>

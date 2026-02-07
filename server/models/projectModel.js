@@ -209,6 +209,50 @@ const getProjectsByExpert = async (expertId) => {
     return result.rows;
 };
 
+// Add member to project
+const addMember = async (projectId, userId, role = 'member') => {
+    const text = `
+        INSERT INTO project_members (project_id, user_id, role)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (project_id, user_id) DO UPDATE SET role = $3
+        RETURNING *
+    `;
+    const result = await query(text, [projectId, userId, role]);
+    return result.rows[0];
+};
+
+// Remove member from project
+const removeMember = async (projectId, userId) => {
+    const text = `
+        DELETE FROM project_members
+        WHERE project_id = $1 AND user_id = $2
+        RETURNING *
+    `;
+    const result = await query(text, [projectId, userId]);
+    return result.rows[0];
+};
+
+// Get project members
+const getProjectMembers = async (projectId) => {
+    const text = `
+        SELECT pm.*, u.name, u.email, u.profile_image_url
+        FROM project_members pm
+        JOIN users u ON pm.user_id = u.id
+        WHERE pm.project_id = $1
+    `;
+    const result = await query(text, [projectId]);
+    return result.rows;
+};
+
+// Check if user is member
+const isMember = async (projectId, userId) => {
+    const text = `
+        SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2
+    `;
+    const result = await query(text, [projectId, userId]);
+    return result.rowCount > 0;
+};
+
 module.exports = {
     createProject,
     getProjectById,
@@ -220,5 +264,9 @@ module.exports = {
     getProjectsWithContracts,
     assignExpert,
     updateExpertStatus,
-    getProjectsByExpert
+    getProjectsByExpert,
+    addMember,
+    removeMember,
+    getProjectMembers,
+    isMember
 };

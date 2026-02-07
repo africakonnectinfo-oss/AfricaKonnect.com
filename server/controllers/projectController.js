@@ -61,7 +61,13 @@ exports.getProject = async (req, res) => {
             const isInvited = project.selected_expert_id === req.user.id;
 
             if (!isExpert && !isInvited) {
-                return res.status(403).json({ message: 'Not authorized to view this project' });
+                // Check if project member
+                const { isMember } = require('../models/projectModel');
+                const isProjectMember = await isMember(id, req.user.id);
+
+                if (!isProjectMember) {
+                    return res.status(403).json({ message: 'Not authorized to view this project' });
+                }
             }
         }
 
@@ -333,6 +339,64 @@ exports.getHistory = async (req, res) => {
         res.json(history);
     } catch (error) {
         console.error('Get history error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Add member to project
+exports.addProjectMember = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { email, role } = req.body;
+
+        const project = await getProjectById(id);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        // Check if requester is authorized (client or existing admin/member)
+        if (project.client_id !== req.user.id) {
+            // TODO: Allow admins/members with permission
+            return res.status(403).json({ message: 'Only project owner can add members' });
+        }
+
+        // Find user by email
+        const { getUserByEmail } = require('../models/userModel');
+        const userToAdd = await getUserByEmail(email);
+
+        if (!userToAdd) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const { addMember } = require('../models/projectModel');
+        const newMember = await addMember(id, userToAdd.id, role || 'member');
+
+        // Notify user
+        const { sendNotification } = require('../services/notificationService');
+        await sendNotification(
+            userToAdd.id,
+            'project_invite',
+            {
+                projectTitle: project.title,
+                actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/collaboration?projectId=${id}`
+            },
+            req.app.get('io')
+        );
+
+        res.status(201).json(newMember);
+    } catch (error) {
+        console.error('Add member error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get project members
+exports.getMembers = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { getProjectMembers } = require('../models/projectModel');
+        const members = await getProjectMembers(id);
+        res.json(members);
+    } catch (error) {
+        console.error('Get members error:', error);
         res.status(500).json({ message: error.message });
     }
 };

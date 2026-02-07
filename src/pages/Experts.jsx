@@ -4,7 +4,7 @@ import { Search, MapPin, Star, Filter, Verified, Briefcase, ExternalLink, Slider
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { SEO } from '../components/SEO';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Expert Card Component ---
@@ -112,6 +112,7 @@ const FilterSection = ({ title, children }) => (
 // --- Main Page ---
 
 export default function Experts() {
+    const navigate = useNavigate();
     const [experts, setExperts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -155,8 +156,9 @@ export default function Experts() {
     });
 
     const handleHire = (expert) => {
-        // Handle hire modal or navigation
-        console.log("Hire", expert);
+        // Navigate to Project Hub with expert pre-selected for hiring
+        // We'll pass the expert object in state so ProjectHub can initialize a draft contract or project
+        navigate('/project-hub', { state: { expertToHire: expert, view: 'wizard', step: 1 } });
     };
 
     return (

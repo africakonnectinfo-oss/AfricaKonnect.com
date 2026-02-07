@@ -22,6 +22,13 @@ exports.uploadFile = async (req, res) => {
             uploadedBy: req.user.name
         });
 
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`project_${projectId}`).emit('file_uploaded', file);
+            console.log(`Emitted file_uploaded to project_${projectId}`);
+        }
+
         res.status(201).json(file);
     } catch (error) {
         console.error('Upload file error:', error);

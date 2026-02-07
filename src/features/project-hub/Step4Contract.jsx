@@ -9,9 +9,12 @@ import { api } from '../../lib/api';
 import socketService from '../../lib/socket';
 import { useNavigate } from 'react-router-dom';
 
-const Step4Contract = ({ onNext }) => {
+const Step4Contract = ({ onNext, project, hideProceed }) => {
     const navigate = useNavigate();
-    const { currentProject } = useProject();
+    const { currentProject: contextProject } = useProject();
+    // Use passed project or fallback to context
+    const currentProject = project || contextProject;
+
     const { user } = useAuth();
     const [contract, setContract] = useState(null);
     const [isSigned, setIsSigned] = useState(false);
@@ -56,7 +59,7 @@ const Step4Contract = ({ onNext }) => {
             }
         };
 
-        if (isExpertAccepted) {
+        if (currentProject && (isExpertAccepted || currentProject.status === 'active')) {
             fetchContract();
         }
     }, [currentProject, isExpertAccepted]);
@@ -385,7 +388,7 @@ All work is confidential.
                                 )}
                             </Button>
 
-                            {isSigned && (
+                            {isSigned && !hideProceed && (
                                 <motion.div
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
