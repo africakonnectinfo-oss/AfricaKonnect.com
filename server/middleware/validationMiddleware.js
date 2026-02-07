@@ -152,6 +152,14 @@ const validateExpertProfile = [
         .optional()
         .isFloat({ min: 0 }).withMessage('Hourly rate must be a positive number')
         .toFloat(),
+    body('location')
+        .optional()
+        .trim()
+        .isLength({ max: 100 }).withMessage('Location must not exceed 100 characters')
+        .customSanitizer(sanitizeText),
+    body('certifications')
+        .optional()
+        .isArray().withMessage('Certifications must be an array'),
     body('availability')
         .optional()
         .isIn(['available', 'busy', 'unavailable']).withMessage('Invalid availability status'),

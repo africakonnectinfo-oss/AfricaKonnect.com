@@ -14,7 +14,7 @@ const {
     verifyPasswordResetToken,
     updateUser
 } = require('../models/userModel');
-const { createExpertProfile } = require('../models/expertModel');
+const { createExpertProfile, getExpertProfile } = require('../models/expertModel');
 const { sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
 const { logAuth, AUDIT_ACTIONS } = require('../middleware/auditLogger');
 const jwt = require('jsonwebtoken');
@@ -130,9 +130,11 @@ exports.registerUser = async (req, res) => {
                     });
                     console.log(`✅ Auto-created expert profile for ${user.email}`);
                 } catch (expertError) {
-                    console.error('Failed to auto-create expert profile:', expertError);
-                    // Don't fail the whole registration, just log it
+                    console.error('❌ Failed to auto-create expert profile:', expertError);
+                    // Don't fail the whole registration, but log it clearly
                 }
+            } else {
+                console.log(`👤 User registered as ${user.role}`);
             }
         } else {
             res.status(400).json({ message: 'Invalid user data' });
@@ -531,6 +533,9 @@ exports.updateUserProfile = async (req, res) => {
 /**
  * Get public user profile (Client or Expert basic info)
  */
+/**
+ * Get public user profile (Client or Expert basic info)
+ */
 exports.getPublicProfile = async (req, res) => {
     try {
         const { id } = req.params;
@@ -545,21 +550,48 @@ exports.getPublicProfile = async (req, res) => {
         }
 
         const user = result.rows[0];
+        let expertProfile = null;
 
-        // Sanitize return
+        // If user is an expert, fetch extended profile details
+        if (user.role === 'expert') {
+            try {
+                expertProfile = await getExpertProfile(user.id);
+            } catch (err) {
+                console.warn(`Could not fetch expert profile for user ${user.id}`, err);
+            }
+        }
+
+        // Base profile object
         const publicProfile = {
             id: user.id,
             name: user.name,
             role: user.role,
             isVerified: user.email_verified,
             joinedAt: user.created_at,
-            bio: user.bio,
+            bio: user.bio, // Default user bio
             location: user.location,
-            company: user.role === 'client' ? user.company : null, // Only clients usually have company
+            company: user.role === 'client' ? user.company : null,
             website: user.website,
-            title: user.title, // Expert title
+            title: user.title,
             profileImage: user.profile_image_url
         };
+
+        // Merge expert details if available
+        if (expertProfile) {
+            publicProfile.bio = expertProfile.bio || publicProfile.bio; // Prefer expert bio
+            publicProfile.title = expertProfile.title || publicProfile.title;
+            publicProfile.location = expertProfile.location || publicProfile.location;
+            publicProfile.hourlyRate = expertProfile.hourly_rate;
+            publicProfile.skills = expertProfile.skills || [];
+            publicProfile.certifications = expertProfile.certifications || [];
+            publicProfile.portfolio = expertProfile.portfolio_items || [];
+            publicProfile.rating = expertProfile.rating;
+            publicProfile.reviewCount = expertProfile.review_count;
+            publicProfile.vettingStatus = expertProfile.vetting_status;
+            publicProfile.availability = expertProfile.availability_calendar;
+            // Ensure profile image uses expert one if set, else user one
+            publicProfile.profileImage = expertProfile.profile_image_url || publicProfile.profileImage;
+        }
 
         res.json(publicProfile);
     } catch (error) {

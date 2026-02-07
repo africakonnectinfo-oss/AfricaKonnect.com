@@ -8,7 +8,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Expert Card Component ---
-const ExpertCard = ({ expert, onHire }) => {
+const ExpertCard = ({ expert, onHire, onMessage }) => {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -87,11 +87,9 @@ const ExpertCard = ({ expert, onHire }) => {
 
                 {/* Actions */}
                 <div className="mt-auto px-6 py-4 bg-gray-50/50 border-t border-gray-100 grid grid-cols-2 gap-3">
-                    <Link to={`/expert/${expert.user_id}`} className="w-full">
-                        <Button variant="outline" className="w-full bg-white hover:bg-gray-50 border-gray-200">
-                            View Profile
-                        </Button>
-                    </Link>
+                    <Button variant="outline" onClick={() => onMessage(expert)} className="w-full bg-white hover:bg-gray-50 border-gray-200">
+                        Message
+                    </Button>
                     <Button onClick={() => onHire(expert)} className="w-full shadow-sm shadow-primary/20">
                         Hire Now
                     </Button>
@@ -157,8 +155,34 @@ export default function Experts() {
 
     const handleHire = (expert) => {
         // Navigate to Project Hub with expert pre-selected for hiring
-        // We'll pass the expert object in state so ProjectHub can initialize a draft contract or project
         navigate('/project-hub', { state: { expertToHire: expert, view: 'wizard', step: 1 } });
+    };
+
+    const handleMessage = async (expert) => {
+        // Create inquiry project and navigate to collaboration
+        // This logic is duplicated from PublicProfile, could be centralized but fine for now
+        try {
+            const projectData = {
+                title: `Inquiry: ${expert.name}`,
+                description: `Discussion with ${expert.name} regarding potential collaboration.`,
+                status: 'draft'
+            };
+
+            const newProject = await api.projects.create(projectData);
+
+            try {
+                await api.projects.invite(newProject.id, expert.user_id);
+            } catch (inviteError) {
+                console.warn("Could not auto-add expert:", inviteError);
+            }
+
+            navigate(`/collaboration/${newProject.id}`);
+
+        } catch (err) {
+            console.error("Message setup failed", err);
+            // In a real app we'd show a toast here, assuming parent has toaster
+            alert("Could not start conversation: " + (err.message || "Unknown error"));
+        }
     };
 
     return (
@@ -244,7 +268,7 @@ export default function Experts() {
                         ) : filteredExperts.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {filteredExperts.map(expert => (
-                                    <ExpertCard key={expert.id} expert={expert} onHire={handleHire} />
+                                    <ExpertCard key={expert.id} expert={expert} onHire={handleHire} onMessage={handleMessage} />
                                 ))}
                             </div>
                         ) : (
