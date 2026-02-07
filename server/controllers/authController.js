@@ -85,8 +85,10 @@ exports.registerUser = async (req, res) => {
             // Generate verification token
             const { token: verificationToken } = await generateVerificationToken(user.id);
 
-            // Send verification email
-            await sendVerificationEmail(user, verificationToken);
+            // Send verification email (Async - don't await to prevent timeout)
+            sendVerificationEmail(user, verificationToken).catch(err =>
+                console.error('Failed to send verification email (background):', err)
+            );
 
             // Generate JWT tokens
             const token = generateToken(user.id, user.role);
