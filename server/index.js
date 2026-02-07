@@ -7,7 +7,7 @@ const { testConnection } = require('./database/db');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const { apiLimiter } = require('./middleware/rateLimitMiddleware');
 
-const dotenv = require('dotenv');
+
 
 // Try loading from server directory first, then root
 const serverEnvResult = dotenv.config({ path: path.join(__dirname, '.env') });

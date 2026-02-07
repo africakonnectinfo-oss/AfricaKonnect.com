@@ -119,14 +119,20 @@ Contractor is an independent contractor and not an employee of Client.`;
 
             setTerms(fallbackTerms);
             setAmount(currentProject.budget || '');
-            // Create draft with fallback
-            const newContract = await api.contracts.create({
-                projectId: currentProject.id,
-                expertId: currentProject.selected_expert_id,
-                terms: fallbackTerms,
-                amount: currentProject.budget || 0
-            });
-            setContract(newContract);
+
+            try {
+                // Create draft with fallback
+                const newContract = await api.contracts.create({
+                    projectId: currentProject.id,
+                    expertId: currentProject.selected_expert_id,
+                    terms: fallbackTerms,
+                    amount: parseFloat(currentProject.budget || 0)
+                });
+                setContract(newContract);
+            } catch (fallbackError) {
+                console.error("Fallback creation failed", fallbackError);
+                toast.error("Could not create contract. Please try again.", { id: toastId });
+            }
         } finally {
             setGenerating(false);
         }
