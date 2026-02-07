@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import SEO from '../components/SEO';
 import { useAuth } from '../contexts/AuthContext';
 import { useCollaboration } from '../hooks/useCollaboration';
@@ -7,10 +8,9 @@ import { api } from '../lib/api';
 import { Step4Contract } from '../features/project-hub/Step4Contract';
 import {
     LayoutDashboard, MessageSquare, FolderOpen, CheckSquare,
-    CreditCard, Settings, Bell, Search, Plus, Paperclip,
-    Send, MoreVertical, CheckCircle2, Clock, FileText,
-    Download, Play, Upload, MoreHorizontal, Video, Users2, Calendar, Sparkles,
-    ChevronLeft, Menu, X, Mic, Camera, FileSignature
+    Plus, Paperclip, Send, CheckCircle2, Clock, FileText,
+    Download, Play, Upload, Video, Users2, Sparkles,
+    ChevronLeft, X, FileSignature
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -44,10 +44,12 @@ const OverviewTab = ({ project, tasks, contracts = [], onInvite }) => {
         setInviting(true);
         try {
             await onInvite(inviteEmail);
+            toast.success(`Invitation sent to ${inviteEmail}`);
             setInviteEmail('');
             setShowInviteCallback(false);
         } catch (error) {
             console.error("Invite failed", error);
+            toast.error("Failed to send invitation");
         } finally {
             setInviting(false);
         }
@@ -258,19 +260,24 @@ const FilesTab = ({ files, onUpload }) => {
         const file = e.target.files[0];
         if (!file) return;
         setUploading(true);
+        const toastId = toast.loading('Uploading file...');
         try {
             await onUpload(file);
+            toast.success('File uploaded successfully', { id: toastId });
         } catch (error) {
-            alert("Upload failed");
+            console.error(error);
+            toast.error('Upload failed: ' + (error.message || 'Unknown error'), { id: toastId });
         } finally {
             setUploading(false);
         }
     };
 
     const handleDownload = (file) => {
-        // Logic similar to original handleDownloadFile
-        if (file.url) window.open(file.url, '_blank');
-        else alert("Preview not available");
+        if (file.url) {
+            window.open(file.url, '_blank');
+        } else {
+            toast.error("Preview not available for this file");
+        }
     };
 
     return (

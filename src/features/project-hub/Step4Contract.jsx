@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileSignature, ShieldCheck, Download, Check, Edit2, Save, Bot } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
@@ -68,13 +69,15 @@ const Step4Contract = ({ onNext, project, hideProceed }) => {
     const generateContract = async () => {
         if (!currentProject?.selected_expert_id) return;
         setGenerating(true);
+        const toastId = toast.loading('Generating contract...');
+
         try {
             // Call AI to draft contract
             const response = await api.ai.draftContract({
                 projectName: currentProject.title,
-                clientName: user.name, // Assuming context has client name
-                expertName: currentProject.expert_name || 'Expert', // You might need to fetch this if not in project
-                rate: currentProject.budget, // Or hourly rate if available
+                clientName: user.name,
+                expertName: currentProject.expert_name || 'Expert',
+                rate: currentProject.budget,
                 duration: currentProject.duration,
                 deliverables: currentProject.description
             });
@@ -83,7 +86,6 @@ const Step4Contract = ({ onNext, project, hideProceed }) => {
                 setTerms(response.contract);
                 setAmount(currentProject.budget || '');
 
-                // Auto-create draft
                 const newContract = await api.contracts.create({
                     projectId: currentProject.id,
                     expertId: currentProject.selected_expert_id,
@@ -91,11 +93,40 @@ const Step4Contract = ({ onNext, project, hideProceed }) => {
                     amount: currentProject.budget || 0
                 });
                 setContract(newContract);
+                toast.success('Contract generated with AI!', { id: toastId });
             }
         } catch (error) {
             console.error("Failed to generate", error);
-            alert("AI Generation failed. Falling back to template.");
-            // Fallback template could go here
+            toast.error("AI Generation failed. Using standard template.", { id: toastId });
+
+            // Fallback template
+            const fallbackTerms = `INDEPENDENT CONTRACTOR AGREEMENT
+
+This Agreement is entered into as of ${new Date().toLocaleDateString()} between ${user.name} ("Client") and ${currentProject.expert_name || 'Expert'} ("Contractor").
+
+1. SERVICES
+Contractor agrees to provide the following services:
+${currentProject.description || 'As described in project details.'}
+
+2. COMPENSATION
+Client agrees to pay Contractor a total of $${currentProject.budget || '0.00'}.
+
+3. TERM
+This Agreement shall commence on ${new Date().toLocaleDateString()} and continue until completion of the services.
+
+4. INDEPENDENT CONTRACTOR RELATIONSHIP
+Contractor is an independent contractor and not an employee of Client.`;
+
+            setTerms(fallbackTerms);
+            setAmount(currentProject.budget || '');
+            // Create draft with fallback
+            const newContract = await api.contracts.create({
+                projectId: currentProject.id,
+                expertId: currentProject.selected_expert_id,
+                terms: fallbackTerms,
+                amount: currentProject.budget || 0
+            });
+            setContract(newContract);
         } finally {
             setGenerating(false);
         }
@@ -120,6 +151,7 @@ const Step4Contract = ({ onNext, project, hideProceed }) => {
 
     const handleSign = async () => {
         if (!contract) return;
+        const toastId = toast.loading('Signing contract...');
         try {
             await api.contracts.sign(contract.id, {
                 ip: '127.0.0.1', // Mock IP
@@ -128,35 +160,18 @@ const Step4Contract = ({ onNext, project, hideProceed }) => {
             });
             setIsSigned(true);
             setShowConfetti(true);
+            toast.success('Contract signed successfully!', { id: toastId });
             setTimeout(() => setShowConfetti(false), 5000);
         } catch (error) {
             console.error("Failed to sign", error);
-            alert("Failed to sign contract");
+            toast.error("Failed to sign contract", { id: toastId });
         }
     };
 
     // ...
 
-    // Initial check for escrow
-    useEffect(() => {
-        const checkEscrow = async () => {
-            try {
-                // Check if escrow exists
-                const escrow = await api.payments.getEscrow(currentProject.id);
-                if (escrow && escrow.status === 'funded') {
-                    setEscrowFunded(true);
-                }
-            } catch (_) {
-                // Escrow might not exist yet, which is fine
-            }
-        };
-
-        if (currentProject?.id && isSigned) {
-            checkEscrow();
-        }
-    }, [currentProject?.id, isSigned]);
-
     const handleFundEscrow = async () => {
+        const toastId = toast.loading('Processing payment...');
         try {
             setFunding(true);
             // In a real app, this would redirect to Stripe/PayPal
@@ -165,12 +180,12 @@ const Step4Contract = ({ onNext, project, hideProceed }) => {
                 amount: amount || 0 // Default to contract amount
             });
             setEscrowFunded(true);
-            alert("Escrow Funded Successfully! Project is Active.");
+            toast.success("Escrow Funded Successfully! Project is Active.", { id: toastId });
             // Trigger project status update to 'active' if not already
-            onNext(); // Navigate to Collaboration
+            setTimeout(() => onNext(), 1500); // Delay slightly for user to see success
         } catch (error) {
             console.error("Funding failed", error);
-            alert("Payment failed: " + error.message);
+            toast.error("Payment failed: " + error.message, { id: toastId });
         } finally {
             setFunding(false);
         }

@@ -19,25 +19,23 @@ const setupSocket = (server) => {
     });
 
     io.on('connection', (socket) => {
-        console.log('New client connected:', socket.id);
+        // console.log('New client connected:', socket.id);
 
         socket.on('join_project', (projectId) => {
             socket.join(`project_${projectId}`);
-            console.log(`Socket ${socket.id} joined project_${projectId}`);
+            // console.log(`Socket ${socket.id} joined project_${projectId}`);
         });
 
         socket.on('leave_project', (projectId) => {
             socket.leave(`project_${projectId}`);
-            console.log(`Socket ${socket.id} left project_${projectId}`);
         });
 
         socket.on('join_user', (userId) => {
             socket.join(`user_${userId}`);
-            console.log(`Socket ${socket.id} joined user_${userId}`);
         });
 
         socket.on('disconnect', () => {
-            console.log('Client disconnected:', socket.id);
+            // console.log('Client disconnected:', socket.id);
         });
 
         // Typing Indicators

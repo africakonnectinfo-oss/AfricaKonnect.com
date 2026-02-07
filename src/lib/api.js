@@ -311,17 +311,26 @@ export const api = {
 
     // Files
     files: {
-        upload: async (data) => {
-            // Data is { projectId, name, type, size, data } or FormData
+        upload: async (data, projectId = null) => {
+            // Check if it's FormData (has binary)
             if (data instanceof FormData) {
-                // Determine URL based on endpoint availability, trying generic upload
-                return apiRequest(`/files/upload`, {
+                const token = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')).token : null;
+                const response = await fetch(`${API_URL}/files/upload`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }, // No content-type for FormData
-                    body: data
+                    headers: {
+                        'Authorization': `Bearer ${token}` // Let browser set Content-Type
+                    },
+                    body: data,
                 });
+
+                if (!response.ok) {
+                    const errData = await handleResponse(response).catch(() => ({}));
+                    throw new Error(errData.message || 'File upload failed');
+                }
+                return response.json();
             }
 
+            // JSON upload (metadata only or base64)
             return apiRequest(`/files/upload`, {
                 method: 'POST',
                 headers: getHeaders(),
@@ -329,6 +338,25 @@ export const api = {
             });
         },
         getByProject: async (projectId) => apiRequest(`/projects/${projectId}/files`, {
+            headers: getHeaders(),
+        }),
+        getFiles: async (projectId) => apiRequest(`/files/project/${projectId}`, {
+            headers: getHeaders(),
+        }),
+        uploadImage: async (fileData) => apiRequest('/files/upload', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(fileData),
+        }),
+        addVersion: async (fileId, data) => apiRequest(`/files/${fileId}/versions`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getVersions: async (fileId) => apiRequest(`/files/${fileId}/versions`, {
+            headers: getHeaders(),
+        }),
+        download: async (id) => apiRequest(`/files/${id}/download`, {
             headers: getHeaders(),
         }),
         delete: async (id) => apiRequest(`/files/${id}`, {
@@ -382,48 +410,6 @@ export const api = {
             method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify({ status }),
-        }),
-    },
-
-    // Files
-    files: {
-        getFiles: async (projectId) => apiRequest(`/files/project/${projectId}`, {
-            headers: getHeaders(),
-        }),
-        upload: async (projectId, formData) => {
-            const token = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')).token : null;
-            const response = await fetch(`${API_URL}/files`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData,
-            });
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'File upload failed');
-            }
-            return response.json();
-        },
-        uploadImage: async (fileData) => apiRequest('/files/upload', {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify(fileData),
-        }),
-        addVersion: async (fileId, data) => apiRequest(`/files/${fileId}/versions`, {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify(data),
-        }),
-        getVersions: async (fileId) => apiRequest(`/files/${fileId}/versions`, {
-            headers: getHeaders(),
-        }),
-        download: async (id) => apiRequest(`/files/${id}/download`, {
-            headers: getHeaders(),
-        }),
-        delete: async (id) => apiRequest(`/files/${id}`, {
-            method: 'DELETE',
-            headers: getHeaders(),
         }),
     },
 
