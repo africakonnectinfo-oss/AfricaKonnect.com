@@ -65,9 +65,69 @@ const updateInterviewStatus = async (id, status) => {
     return result.rows[0];
 };
 
+// Create interview for bid (links to project_interviews table)
+const createBidInterview = async (data) => {
+    const { projectId, expertId, bidId, scheduledTime, duration, meetingLink, meetingPlatform, clientNotes } = data;
+
+    const text = `
+        INSERT INTO project_interviews 
+        (project_id, expert_id, bid_id, scheduled_time, duration, meeting_link, meeting_platform, client_notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+    `;
+    const values = [projectId, expertId, bidId, scheduledTime, duration || 30, meetingLink, meetingPlatform, clientNotes];
+
+    const result = await query(text, values);
+    return result.rows[0];
+};
+
+// Get bid interviews by project
+const getBidInterviewsByProject = async (projectId) => {
+    const text = `
+        SELECT 
+            pi.*,
+            u.name as expert_name,
+            u.email as expert_email,
+            ep.profile_image_url as expert_image,
+            pb.bid_amount
+        FROM project_interviews pi
+        JOIN users u ON pi.expert_id = u.id
+        LEFT JOIN expert_profiles ep ON u.id = ep.user_id
+        LEFT JOIN project_bids pb ON pi.bid_id = pb.id
+        WHERE pi.project_id = $1
+        ORDER BY pi.scheduled_time ASC
+    `;
+    const result = await query(text, [projectId]);
+    return result.rows;
+};
+
+// Update bid interview
+const updateBidInterview = async (id, updateData) => {
+    const { scheduledTime, duration, meetingLink, status, outcome } = updateData;
+
+    const text = `
+        UPDATE project_interviews
+        SET 
+            scheduled_time = COALESCE($1, scheduled_time),
+            duration = COALESCE($2, duration),
+            meeting_link = COALESCE($3, meeting_link),
+            status = COALESCE($4, status),
+            outcome = COALESCE($5, outcome),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6
+        RETURNING *
+    `;
+    const values = [scheduledTime, duration, meetingLink, status, outcome, id];
+    const result = await query(text, values);
+    return result.rows[0];
+};
+
 module.exports = {
     createInterview,
     getInterviewsByProject,
     getInterviewsByUser,
-    updateInterviewStatus
+    updateInterviewStatus,
+    createBidInterview,
+    getBidInterviewsByProject,
+    updateBidInterview
 };

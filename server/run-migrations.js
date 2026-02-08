@@ -70,6 +70,42 @@ async function runMigrations() {
         await client.query(profileEnhancementsSql);
         console.log('✅ Profile enhancements applied successfully\n');
 
+        // Migration 5: Add Open Bidding to Projects
+        console.log('📝 Running migration: 001_add_open_bidding_to_projects.sql');
+        const openBiddingSql = fs.readFileSync(
+            path.join(__dirname, 'database/migrations/001_add_open_bidding_to_projects.sql'),
+            'utf8'
+        );
+        await client.query(openBiddingSql);
+        console.log('✅ Open bidding fields added to projects table\n');
+
+        // Migration 6: Create Project Bids Table
+        console.log('📝 Running migration: 002_create_project_bids_table.sql');
+        const projectBidsSql = fs.readFileSync(
+            path.join(__dirname, 'database/migrations/002_create_project_bids_table.sql'),
+            'utf8'
+        );
+        await client.query(projectBidsSql);
+        console.log('✅ Project bids table created successfully\n');
+
+        // Migration 7: Create Project Interviews Table
+        console.log('📝 Running migration: 003_create_project_interviews_table.sql');
+        const projectInterviewsSql = fs.readFileSync(
+            path.join(__dirname, 'database/migrations/003_create_project_interviews_table.sql'),
+            'utf8'
+        );
+        await client.query(projectInterviewsSql);
+        console.log('✅ Project interviews table created successfully\n');
+
+        // Migration 8: Create Project Interests Table
+        console.log('📝 Running migration: 004_create_project_interests_table.sql');
+        const projectInterestsSql = fs.readFileSync(
+            path.join(__dirname, 'database/migrations/004_create_project_interests_table.sql'),
+            'utf8'
+        );
+        await client.query(projectInterestsSql);
+        console.log('✅ Project interests table created successfully\n');
+
 
         console.log('\n🎉 All migrations completed successfully!');
 

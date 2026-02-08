@@ -166,6 +166,52 @@ export const api = {
             headers: getHeaders(),
             body: JSON.stringify({ status }),
         }),
+        // Marketplace
+        getMarketplace: async (params = {}) => {
+            const queryString = new URLSearchParams(params).toString();
+            return apiRequest(`/projects/marketplace?${queryString}`, {
+                headers: getHeaders(),
+            });
+        },
+        // Bidding
+        submitBid: async (projectId, bidData) => apiRequest(`/projects/${projectId}/bids`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(bidData),
+        }),
+        getBids: async (projectId, params = {}) => {
+            const queryString = new URLSearchParams(params).toString();
+            return apiRequest(`/projects/${projectId}/bids?${queryString}`, {
+                headers: getHeaders(),
+            });
+        },
+        acceptBid: async (projectId, bidId) => apiRequest(`/projects/${projectId}/bids/${bidId}/accept`, {
+            method: 'PUT',
+            headers: getHeaders(),
+        }),
+        rejectBid: async (projectId, bidId) => apiRequest(`/projects/${projectId}/bids/${bidId}/reject`, {
+            method: 'PUT',
+            headers: getHeaders(),
+        }),
+    },
+
+    // Bids
+    bids: {
+        getMyBids: async (params = {}) => {
+            const queryString = new URLSearchParams(params).toString();
+            return apiRequest(`/experts/my-bids?${queryString}`, {
+                headers: getHeaders(),
+            });
+        },
+        updateBid: async (bidId, bidData) => apiRequest(`/bids/${bidId}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(bidData),
+        }),
+        withdrawBid: async (bidId) => apiRequest(`/bids/${bidId}/withdraw`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
     },
 
     // Experts

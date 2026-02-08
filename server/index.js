@@ -90,6 +90,8 @@ app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/applications', require('./routes/applicationRoutes'));
 app.use('/api/interviews', require('./routes/interviewRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
+app.use('/api', require('./routes/bidRoutes')); // Bidding system routes
+
 
 // System Health Check Endpoint
 app.get('/api/health', async (req, res) => {

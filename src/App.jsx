@@ -15,6 +15,9 @@ import SignUp from './pages/SignUp';
 import Pricing from './pages/Pricing';
 import UserProfile from './pages/UserProfile';
 import PublicProfile from './pages/PublicProfile';
+// Bidding System Pages
+import ProjectMarketplace from './pages/ProjectMarketplace';
+import MyBids from './pages/MyBids';
 // Company Pages
 import AboutUs from './pages/AboutUs';
 import Careers from './pages/Careers';
@@ -92,6 +95,24 @@ function App() {
               element={
                 <PrivateRoute>
                   <PublicProfile />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Bidding System Routes */}
+            <Route
+              path="/marketplace"
+              element={
+                <PrivateRoute roles={['expert']}>
+                  <ProjectMarketplace />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/my-bids"
+              element={
+                <PrivateRoute roles={['expert']}>
+                  <MyBids />
                 </PrivateRoute>
               }
             />

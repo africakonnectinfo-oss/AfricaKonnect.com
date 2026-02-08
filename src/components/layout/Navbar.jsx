@@ -32,6 +32,8 @@ const Navbar = () => {
                 return [
                     ...baseLinks,
                     { name: 'Dashboard', path: '/expert-dashboard' },
+                    { name: 'Marketplace', path: '/marketplace' },
+                    { name: 'My Bids', path: '/my-bids' },
                     { name: 'Pricing', path: '/pricing' },
                 ];
             } else {

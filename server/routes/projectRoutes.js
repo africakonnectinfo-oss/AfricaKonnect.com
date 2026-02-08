@@ -13,6 +13,7 @@ const {
     updateState,
     getHistory: getProjectStateHistory
 } = require('../controllers/projectController');
+const { getMarketplace } = require('../controllers/marketplaceController');
 const { fundEscrow, releaseFunds, getHistory } = require('../controllers/transactionController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { checkProfileStatus } = require('../middleware/expertMiddleware');
@@ -21,6 +22,9 @@ const { paymentLimiter } = require('../middleware/rateLimitMiddleware');
 
 // All routes require authentication
 router.use(protect);
+
+// Marketplace route (experts only)
+router.get('/marketplace', authorize('expert'), getMarketplace);
 
 // Create project (clients only)
 router.post('/', authorize('client'), validateProject, createProject);
