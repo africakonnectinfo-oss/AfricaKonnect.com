@@ -6,7 +6,7 @@ const apiKey = process.env.AI_API_KEY;
 console.log("Initializing AI Controller (Gemini). API Key present:", !!apiKey);
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.0-flash" }) : null;
 
 const aiController = {
     // Match Experts
@@ -62,7 +62,7 @@ const aiController = {
             }
 
             // Use JSON mode for structured output
-            const jsonModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash", generationConfig: { responseMimeType: "application/json" } });
+            const jsonModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig: { responseMimeType: "application/json" } });
             const result = await jsonModel.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
