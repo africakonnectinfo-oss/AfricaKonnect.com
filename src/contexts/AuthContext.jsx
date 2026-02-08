@@ -202,7 +202,20 @@ export const AuthProvider = ({ children }) => {
                         data: base64Image,
                         name: file.name
                     });
+
+                    // Update user profile
                     await updateProfile({ profileImageUrl: url });
+
+                    // If expert, also update expert profile
+                    if (user?.role === 'expert') {
+                        try {
+                            await api.experts.updateProfile(user.id, { profileImageUrl: url });
+                        } catch (expertError) {
+                            console.log('Expert profile image update skipped:', expertError.message);
+                            // Don't fail if expert profile doesn't exist yet
+                        }
+                    }
+
                     resolve(url);
                 } catch (err) {
                     reject(err);

@@ -116,24 +116,37 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
         e.preventDefault();
         setLoading(true);
         try {
+            // Ensure proper field mapping for backend
             const profileData = {
-                ...formData,
-                hourlyRate: formData.hourly_rate,
-                profileImageUrl: profileImage
+                title: formData.title,
+                bio: formData.bio,
+                location: formData.location,
+                skills: formData.skills,
+                hourlyRate: parseFloat(formData.hourly_rate) || 0, // Ensure number type
+                profileImageUrl: profileImage || user?.profile_image_url,
+                certifications: formData.certifications
             };
 
+            console.log('Saving profile data:', profileData); // Debug log
+
             if (existingProfile) {
-                await api.experts.updateProfile(user.id, profileData);
+                const result = await api.experts.updateProfile(user.id, profileData);
+                console.log('Profile update result:', result); // Debug log
                 toast.success('Profile updated successfully!');
             } else {
-                await api.experts.createProfile(profileData);
+                const result = await api.experts.createProfile(profileData);
+                console.log('Profile create result:', result); // Debug log
                 toast.success('Profile created successfully!');
             }
 
             if (onComplete) onComplete();
         } catch (error) {
-            console.error("Failed to update profile", error);
-            toast.error('Failed to save profile. Please try again.');
+            console.error("Failed to save profile:", error);
+            console.error("Error details:", error.response?.data || error.message);
+
+            // Show specific error message if available
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to save profile. Please try again.';
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }

@@ -6,6 +6,8 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useFileUpload } from '../hooks/useFileUpload';
+import { api } from '../lib/api';
+import { toast } from 'sonner';
 import {
     User, Mail, Phone, MapPin, Building, Globe, Camera,
     Briefcase, Award, Save, X, Loader2, Check, ShieldCheck
@@ -21,7 +23,9 @@ const UserProfile = () => {
     // Initial state
     const [formData, setFormData] = useState({
         name: '', email: '', phone: '', location: '', bio: '',
-        company: '', website: '', skills: [], certifications: []
+        company: '', website: '', skills: [], certifications: [],
+        // Expert-specific fields
+        title: '', hourly_rate: ''
     });
 
     const [newSkill, setNewSkill] = useState('');
@@ -45,6 +49,9 @@ const UserProfile = () => {
                 website: profile.website || '',
                 skills: profile.skills || [],
                 certifications: profile.certifications || [],
+                // Expert-specific fields
+                title: profile.title || '',
+                hourly_rate: profile.hourly_rate || ''
             });
             if (profile.profile_image_url || user?.profile_image_url) {
                 setImagePreview(profile.profile_image_url || user.profile_image_url);
@@ -78,10 +85,42 @@ const UserProfile = () => {
     const handleSave = async () => {
         setSaving(true);
         try {
+            // Update user profile
             await updateProfile(formData);
+
+            // If expert, also update expert profile
+            if (isExpert) {
+                const expertData = {
+                    title: formData.title,
+                    bio: formData.bio,
+                    location: formData.location,
+                    skills: formData.skills,
+                    hourlyRate: parseFloat(formData.hourly_rate) || 0,
+                    profileImageUrl: imagePreview,
+                    certifications: formData.certifications
+                };
+
+                try {
+                    await api.experts.updateProfile(user.id, expertData);
+                    toast.success('Profile updated successfully!');
+                } catch (expertError) {
+                    // If profile doesn't exist, create it
+                    if (expertError.response?.status === 404) {
+                        await api.experts.createProfile(expertData);
+                        toast.success('Expert profile created successfully!');
+                    } else {
+                        throw expertError;
+                    }
+                }
+            } else {
+                toast.success('Profile updated successfully!');
+            }
+
             setEditing(false);
         } catch (error) {
-            alert('Error updating profile: ' + error.message);
+            console.error('Error updating profile:', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to update profile';
+            toast.error(errorMessage);
         } finally {
             setSaving(false);
         }
@@ -199,6 +238,41 @@ const UserProfile = () => {
                                 <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-2">
                                     <Briefcase size={20} className="text-primary" /> Professional Details
                                 </h3>
+
+                                {/* Expert-specific fields */}
+                                {isExpert && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Professional Title</label>
+                                            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ${!editing ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10'}`}>
+                                                <Briefcase size={18} className={`${!editing ? 'text-gray-400' : 'text-primary'}`} />
+                                                <input
+                                                    type="text"
+                                                    value={formData.title}
+                                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                                    disabled={!editing}
+                                                    placeholder="e.g. Senior Full Stack Developer"
+                                                    className="flex-1 bg-transparent border-none focus:ring-0 p-0 text-sm font-medium text-gray-900 placeholder:text-gray-400"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hourly Rate (USD)</label>
+                                            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ${!editing ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10'}`}>
+                                                <span className={`text-sm font-semibold ${!editing ? 'text-gray-400' : 'text-primary'}`}>$</span>
+                                                <input
+                                                    type="number"
+                                                    value={formData.hourly_rate}
+                                                    onChange={e => setFormData({ ...formData, hourly_rate: e.target.value })}
+                                                    disabled={!editing}
+                                                    placeholder="50"
+                                                    className="flex-1 bg-transparent border-none focus:ring-0 p-0 text-sm font-medium text-gray-900 placeholder:text-gray-400"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                     {!isExpert && <InputGroup icon={Building} label="Company" value={formData.company} onChange={val => setFormData({ ...formData, company: val })} disabled={!editing} />}
                                     <InputGroup icon={Globe} label="Website" value={formData.website} onChange={val => setFormData({ ...formData, website: val })} disabled={!editing} placeholder="https://" />
