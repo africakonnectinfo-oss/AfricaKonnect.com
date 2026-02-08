@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate } = require('../middleware/authMiddleware');
+const { protect } = require('../middleware/authMiddleware');
 const bidController = require('../controllers/bidController');
 const bidInterviewController = require('../controllers/bidInterviewController');
 
 // All routes require authentication
-router.use(authenticate);
+router.use(protect);
 
 // Expert routes - Submit and manage bids
 router.post('/projects/:projectId/bids', bidController.submitBid);
