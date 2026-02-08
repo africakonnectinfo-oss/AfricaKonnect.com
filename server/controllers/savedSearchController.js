@@ -9,7 +9,7 @@ const {
 const { getMarketplaceProjects } = require('../models/marketplaceModel');
 
 // Create a new saved search
-exports.createSavedSearch = async (req, res) => {
+const createSavedSearch = async (req, res) => {
     try {
         const { name, filters, notificationEnabled } = req.body;
 
@@ -31,7 +31,7 @@ exports.createSavedSearch = async (req, res) => {
 };
 
 // Get all saved searches for the current user
-exports.getSavedSearches = async (req, res) => {
+const getSavedSearches = async (req, res) => {
     try {
         const savedSearches = await getSavedSearchesByUser(req.user.id);
         res.json(savedSearches);
@@ -42,7 +42,7 @@ exports.getSavedSearches = async (req, res) => {
 };
 
 // Update a saved search
-exports.updateSavedSearch = async (req, res) => {
+const updateSavedSearch = async (req, res) => {
     try {
         const { id } = req.params;
         const savedSearch = await getSavedSearchById(id);
@@ -64,7 +64,7 @@ exports.updateSavedSearch = async (req, res) => {
 };
 
 // Delete a saved search
-exports.deleteSavedSearch = async (req, res) => {
+const deleteSavedSearch = async (req, res) => {
     try {
         const { id } = req.params;
         const savedSearch = await getSavedSearchById(id);
@@ -86,7 +86,7 @@ exports.deleteSavedSearch = async (req, res) => {
 };
 
 // Execute a saved search
-exports.executeSavedSearch = async (req, res) => {
+const executeSavedSearch = async (req, res) => {
     try {
         const { id } = req.params;
         const savedSearch = await getSavedSearchById(id);

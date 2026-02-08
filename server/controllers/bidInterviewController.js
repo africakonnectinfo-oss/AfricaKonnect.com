@@ -5,7 +5,7 @@ const { NOTIFICATION_TYPES, emitNotification } = require('../utils/biddingNotifi
 const { getIO } = require('../socket');
 
 // Schedule interview for a bid
-exports.scheduleInterview = async (req, res) => {
+const scheduleInterview = async (req, res) => {
     try {
         const { projectId, bidId } = req.params;
         const { scheduledTime, duration, meetingLink, meetingPlatform, clientNotes } = req.body;
@@ -52,7 +52,7 @@ exports.scheduleInterview = async (req, res) => {
 };
 
 // Get interviews for a project
-exports.getProjectInterviews = async (req, res) => {
+const getProjectInterviews = async (req, res) => {
     try {
         const { projectId } = req.params;
 
@@ -76,7 +76,7 @@ exports.getProjectInterviews = async (req, res) => {
 };
 
 // Update interview
-exports.updateInterview = async (req, res) => {
+const updateInterview = async (req, res) => {
     try {
         const { interviewId } = req.params;
         const { scheduledTime, duration, meetingLink, status, outcome } = req.body;
