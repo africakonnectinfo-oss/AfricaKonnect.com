@@ -1,7 +1,7 @@
 const { getMarketplaceProjects } = require('../models/marketplaceModel');
 
 // Get marketplace projects (open for bidding)
-exports.getMarketplace = async (req, res) => {
+const getMarketplace = async (req, res) => {
     try {
         // Only experts can access marketplace
         if (req.user.role !== 'expert') {
