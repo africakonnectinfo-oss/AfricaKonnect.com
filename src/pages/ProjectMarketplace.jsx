@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { api } from '../../lib/api';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import SEO from '../../components/SEO';
-import AdvancedSearchPanel from '../../components/bidding/AdvancedSearchPanel';
-import SavedSearches from '../../components/bidding/SavedSearches';
+import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import SEO from '../components/SEO';
+import AdvancedSearchPanel from '../components/bidding/AdvancedSearchPanel';
+import SavedSearches from '../components/bidding/SavedSearches';
 import {
     Briefcase, TrendingUp, ChevronRight, Users,
     DollarSign, Clock, MapPin, Calendar, Tag, Loader2
