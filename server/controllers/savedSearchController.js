@@ -1,10 +1,10 @@
 const {
-    createSavedSearch,
-    getSavedSearchesByUser,
-    getSavedSearchById,
-    updateSavedSearch,
-    deleteSavedSearch,
-    updateLastUsed
+    createSavedSearch: createSavedSearchModel,
+    getSavedSearchesByUser: getSavedSearchesByUserModel,
+    getSavedSearchById: getSavedSearchByIdModel,
+    updateSavedSearch: updateSavedSearchModel,
+    deleteSavedSearch: deleteSavedSearchModel,
+    updateLastUsed: updateLastUsedModel
 } = require('../models/savedSearchModel');
 const { getMarketplaceProjects } = require('../models/marketplaceModel');
 
@@ -17,7 +17,7 @@ const createSavedSearch = async (req, res) => {
             return res.status(400).json({ message: 'Name and filters are required' });
         }
 
-        const savedSearch = await createSavedSearch(req.user.id, {
+        const savedSearch = await createSavedSearchModel(req.user.id, {
             name,
             filters,
             notificationEnabled
@@ -33,7 +33,7 @@ const createSavedSearch = async (req, res) => {
 // Get all saved searches for the current user
 const getSavedSearches = async (req, res) => {
     try {
-        const savedSearches = await getSavedSearchesByUser(req.user.id);
+        const savedSearches = await getSavedSearchesByUserModel(req.user.id);
         res.json(savedSearches);
     } catch (error) {
         console.error('Get saved searches error:', error);
@@ -45,7 +45,7 @@ const getSavedSearches = async (req, res) => {
 const updateSavedSearch = async (req, res) => {
     try {
         const { id } = req.params;
-        const savedSearch = await getSavedSearchById(id);
+        const savedSearch = await getSavedSearchByIdModel(id);
 
         if (!savedSearch) {
             return res.status(404).json({ message: 'Saved search not found' });
@@ -55,7 +55,7 @@ const updateSavedSearch = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this saved search' });
         }
 
-        const updatedSearch = await updateSavedSearch(id, req.body);
+        const updatedSearch = await updateSavedSearchModel(id, req.body);
         res.json(updatedSearch);
     } catch (error) {
         console.error('Update saved search error:', error);
@@ -67,7 +67,7 @@ const updateSavedSearch = async (req, res) => {
 const deleteSavedSearch = async (req, res) => {
     try {
         const { id } = req.params;
-        const savedSearch = await getSavedSearchById(id);
+        const savedSearch = await getSavedSearchByIdModel(id);
 
         if (!savedSearch) {
             return res.status(404).json({ message: 'Saved search not found' });
@@ -77,7 +77,7 @@ const deleteSavedSearch = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to delete this saved search' });
         }
 
-        await deleteSavedSearch(id);
+        await deleteSavedSearchModel(id);
         res.json({ message: 'Saved search deleted successfully' });
     } catch (error) {
         console.error('Delete saved search error:', error);
@@ -89,7 +89,7 @@ const deleteSavedSearch = async (req, res) => {
 const executeSavedSearch = async (req, res) => {
     try {
         const { id } = req.params;
-        const savedSearch = await getSavedSearchById(id);
+        const savedSearch = await getSavedSearchByIdModel(id);
 
         if (!savedSearch) {
             return res.status(404).json({ message: 'Saved search not found' });
@@ -100,7 +100,7 @@ const executeSavedSearch = async (req, res) => {
         }
 
         // Update last used timestamp
-        await updateLastUsed(id);
+        await updateLastUsedModel(id);
 
         // Execute search using marketplace model
         const filters = savedSearch.filters;
