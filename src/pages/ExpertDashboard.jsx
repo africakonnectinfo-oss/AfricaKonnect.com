@@ -80,7 +80,22 @@ export default function ExpertDashboard() {
 
         fetchData();
     }, [user]);
-    // ... socket effect ...
+
+    useEffect(() => {
+        if (!socket || !user) return;
+
+        socket.emit('join_user', user.id);
+
+        const handleInvite = (newInvite) => {
+            setInvitations(prev => [newInvite, ...prev]);
+        };
+
+        socket.on('project_invite', handleInvite);
+
+        return () => {
+            socket.off('project_invite', handleInvite);
+        }
+    }, [socket, user]);
 
     const handleProfileComplete = () => {
         setShowProfileSetup(false);
@@ -89,7 +104,28 @@ export default function ExpertDashboard() {
         api.experts.getProfile(user.id).then(setProfile);
     };
 
-    // ... handleInvite ...
+    const handleAcceptInvite = async (invite) => {
+        try {
+            await api.projects.respondToInvite(invite.project_id || invite.id, 'accepted');
+            setInvitations(prev => prev.filter(i => i.id !== invite.id));
+            const projects = await api.projects.getInvitedProjects();
+            if (projects && projects.projects) {
+                const active = projects.projects.filter(p => p.expert_status === 'accepted');
+                setActiveProjects(active);
+            }
+        } catch (error) {
+            console.error("Failed to accept invite", error);
+        }
+    };
+
+    const handleDeclineInvite = async (invite) => {
+        try {
+            await api.projects.respondToInvite(invite.project_id || invite.id, 'rejected');
+            setInvitations(prev => prev.filter(i => i.id !== invite.id));
+        } catch (error) {
+            console.error("Failed to decline invite", error);
+        }
+    };
 
     if (loading) {
         return (

@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { api } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'sonner';
+import { Camera, Loader2 } from 'lucide-react';
 
 const ExpertProfile = ({ user, existingProfile, onComplete }) => {
+    const { uploadProfileImage } = useAuth();
     const [formData, setFormData] = useState({
         title: existingProfile?.title || '',
         bio: existingProfile?.bio || '',
@@ -23,6 +27,8 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
     const [newPortfolio, setNewPortfolio] = useState({ title: '', description: '', url: '', type: 'link' });
 
     const [loading, setLoading] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [profileImage, setProfileImage] = useState(existingProfile?.profile_image_url || user?.profile_image_url || '');
     const [activeTab, setActiveTab] = useState('basics'); // basics, skills, portfolio
 
     const handleChange = (field, value) => {
@@ -77,8 +83,31 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
             setPortfolioItems(res.portfolioItems);
         } catch (error) {
             console.error("Failed to remove portfolio", error);
+            toast.error('Failed to remove portfolio item.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Profile Image Upload
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploadingImage(true);
+        try {
+            // Create preview
+            const previewUrl = URL.createObjectURL(file);
+            setProfileImage(previewUrl);
+
+            // Upload to server
+            await uploadProfileImage(file);
+            toast.success('Profile picture updated!');
+        } catch (error) {
+            console.error('Failed to upload image', error);
+            toast.error('Failed to upload profile picture');
+        } finally {
+            setUploadingImage(false);
         }
     };
 
@@ -87,28 +116,24 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
         e.preventDefault();
         setLoading(true);
         try {
-            // Check if profile exists; if not create, else update
-            // Actually the parent Dashboard handles logic, but api endpoints differ? 
-            // expertController says createProfile checks for existing.
-            // But we can just use updateProfile if we know it exists, or create if not.
-            // Dashboard passes existingProfile null if not exists.
+            const profileData = {
+                ...formData,
+                hourlyRate: formData.hourly_rate,
+                profileImageUrl: profileImage
+            };
 
             if (existingProfile) {
-                await api.experts.updateProfile(user.id, {
-                    ...formData,
-                    hourlyRate: formData.hourly_rate // Map back to API field name
-                });
+                await api.experts.updateProfile(user.id, profileData);
+                toast.success('Profile updated successfully!');
             } else {
-                await api.experts.createProfile({
-                    ...formData,
-                    hourlyRate: formData.hourly_rate,
-                    profileImageUrl: user?.user_metadata?.avatar_url
-                });
+                await api.experts.createProfile(profileData);
+                toast.success('Profile created successfully!');
             }
 
             if (onComplete) onComplete();
         } catch (error) {
             console.error("Failed to update profile", error);
+            toast.error('Failed to save profile. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -140,6 +165,43 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
             <div className="p-8">
                 {activeTab === 'basics' && (
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Profile Picture Upload */}
+                        <div className="flex flex-col items-center mb-8">
+                            <div className="relative">
+                                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100">
+                                    {profileImage ? (
+                                        <img
+                                            src={profileImage}
+                                            alt="Profile"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                e.target.src = `https://ui-avatars.com/api/?name=${user?.name || 'Expert'}&background=0D8ABC&color=fff&size=128`;
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-4xl font-bold">
+                                            {user?.name?.charAt(0) || 'E'}
+                                        </div>
+                                    )}
+                                </div>
+                                <label className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-lg">
+                                    {uploadingImage ? (
+                                        <Loader2 size={20} className="animate-spin" />
+                                    ) : (
+                                        <Camera size={20} />
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleImageUpload}
+                                        disabled={uploadingImage}
+                                    />
+                                </label>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-3">Click the camera icon to upload a profile picture</p>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Professional Title</label>
