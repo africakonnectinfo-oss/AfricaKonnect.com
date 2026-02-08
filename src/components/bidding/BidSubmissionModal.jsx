@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card';
 import { X, DollarSign, Clock, FileText, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
+import BidTemplateSelector from './BidTemplateSelector';
 
 const BidSubmissionModal = ({ project, isOpen, onClose, onBidSubmitted }) => {
     const [formData, setFormData] = useState({
@@ -114,6 +115,24 @@ const BidSubmissionModal = ({ project, isOpen, onClose, onBidSubmitted }) => {
                             </p>
                         </div>
                     )}
+
+                    {/* Template Selector */}
+                    <BidTemplateSelector
+                        projectId={project.id}
+                        onSelectTemplate={(template) => {
+                            setFormData(prev => ({
+                                ...prev,
+                                coverLetter: template.cover_letter_template
+                                    .replace(/{{project_title}}/g, project.title)
+                                    .replace(/{{client_name}}/g, project.client_name || 'Client')
+                                    .replace(/{{budget_range}}/g, `$${project.min_budget || 0} - $${project.max_budget || 'Any'}`),
+                                proposedTimeline: template.proposed_timeline || prev.proposedTimeline,
+                                proposedDuration: template.proposed_duration || prev.proposedDuration,
+                                bidAmount: template.pricing_strategy === 'fixed' && template.pricing_value ? template.pricing_value : prev.bidAmount
+                            }));
+                            toast.success(`Template "${template.name}" applied`);
+                        }}
+                    />
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-6">

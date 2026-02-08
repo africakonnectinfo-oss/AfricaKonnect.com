@@ -1,15 +1,12 @@
-const OpenAI = require('openai');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const pool = require('../database/db');
 
-// Initialize OpenAI (DeepSeek Compatible)
-// Initialize OpenAI (DeepSeek Compatible)
+// Initialize Google Generative AI
 const apiKey = process.env.AI_API_KEY;
-console.log("Initializing AI Controller. API Key present:", !!apiKey);
+console.log("Initializing AI Controller (Gemini). API Key present:", !!apiKey);
 
-const openai = apiKey ? new OpenAI({
-    apiKey: apiKey,
-    baseURL: 'https://api.deepseek.com',
-}) : null;
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
 
 const aiController = {
     // Match Experts
@@ -18,7 +15,6 @@ const aiController = {
             const { projectDescription, requirements } = req.body;
 
             // 1. Fetch all vetted experts
-            // Join users and expert_profiles to get full details
             const expertsResult = await pool.query(
                 `SELECT u.id, u.name, ep.title, ep.skills, ep.bio, ep.hourly_rate 
                  FROM users u
@@ -33,7 +29,7 @@ const aiController = {
 
             // 2. Construct Prompt
             const prompt = `
-                You are an expert technical recruiter. 
+                You are an expert technical recruiter matching candidates to a project.
                 
                 PROJECT REQUIREMENTS:
                 ${projectDescription}
@@ -49,43 +45,47 @@ const aiController = {
             })))}
 
                 TASK:
-                Identify the top 3 matches. 
-                For each match, provide a compatibility score (0-100) and a concise reason.
+                Identify the top 3 matches based on skills and experience.
                 
-                RETURN FORMAT (JSON ONLY):
-                {
-                    "matches": [
-                        { "expert_id": "uuid", "score": 95, "reason": "..." }
-                    ]
-                }
+                OUTPUT FORMAT:
+                Return a JSON object with a "matches" array.
+                Each match should have:
+                - "expert_id": The ID of the expert
+                - "score": Compatibility score (0-100)
+                - "reason": A concise reason for the match
             `;
 
             // 3. Call AI
-            if (!openai) {
+            if (!model) {
                 console.warn("AI Match skipped: No API Key provided.");
-                // Return all experts as fallback matches
                 return res.json({ matches: experts.map(e => ({ ...e, score: 0, reason: "AI matching unavailable (No API Key)" })) });
             }
 
-            const completion = await openai.chat.completions.create({
-                messages: [{ role: "system", content: "You are a helpful assistant that outputs JSON." }, { role: "user", content: prompt }],
-                model: "deepseek-chat",
-                response_format: { type: "json_object" },
-            });
+            // Use JSON mode for structured output
+            const jsonModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash", generationConfig: { responseMimeType: "application/json" } });
+            const result = await jsonModel.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
 
-            const result = JSON.parse(completion.choices[0].message.content);
+            let parsedResult;
+            try {
+                const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+                parsedResult = JSON.parse(cleanedText);
+            } catch (e) {
+                console.error("Failed to parse AI JSON response:", text);
+                return res.status(500).json({ error: "AI response parsing failed" });
+            }
 
             // 4. Merge with expert details
-            const enrichedMatches = result.matches.map(match => {
+            const enrichedMatches = (parsedResult.matches || []).map(match => {
                 const expert = experts.find(e => e.id === match.expert_id);
-                return { ...expert, ...match };
-            });
+                return expert ? { ...expert, ...match } : null;
+            }).filter(Boolean);
 
             res.json({ matches: enrichedMatches });
 
         } catch (error) {
             console.error('AI Match Error:', error);
-            // Fallback: return empty matches if AI fails/key missing
             res.status(500).json({ error: 'Failed to perform AI match', details: error.message });
         }
     },
@@ -93,9 +93,9 @@ const aiController = {
     // Generate Chat Response
     chat: async (req, res) => {
         try {
-            const { message, context } = req.body; // context can include project details, user role, etc.
+            const { message, context } = req.body;
 
-            if (!openai) {
+            if (!model) {
                 return res.json({ reply: "I'm sorry, but I'm currently offline (API Key missing). Please try again later." });
             }
 
@@ -112,19 +112,14 @@ const aiController = {
                 RESPONSE GUIDELINES:
                 - Be helpful, professional, and concise.
                 - If asked about contracts, suggest using the "Draft Contract" feature.
-                - If asked about fees, mention the standard platform fee (e.g., 10%).
                 - Keep responses under 200 words unless detailed explanation is requested.
             `;
 
-            const completion = await openai.chat.completions.create({
-                messages: [
-                    { role: "system", content: "You are a helpful assistant for a freelance platform." },
-                    { role: "user", content: prompt }
-                ],
-                model: "deepseek-chat",
-            });
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
 
-            res.json({ reply: completion.choices[0].message.content });
+            res.json({ reply: text });
 
         } catch (error) {
             console.error('AI Chat Error:', error);
@@ -174,19 +169,18 @@ const aiController = {
                 Contractor is an independent contractor, not an employee.
                 
                 ---
-                *Generated by Africa Konnect AI*
+                *Generated by Africa Konnect AI (Gemini Powered)*
             `;
 
-            if (!openai) {
+            if (!model) {
                 return res.json({ contract: "Contract drafting unavailable (No AI API Key provided). Please contact support or draft manually." });
             }
 
-            const completion = await openai.chat.completions.create({
-                messages: [{ role: "system", content: "You are a legal assistant specializing in freelance contracts." }, { role: "user", content: prompt }],
-                model: "deepseek-chat",
-            });
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
 
-            res.json({ contract: completion.choices[0].message.content });
+            res.json({ contract: text });
 
         } catch (error) {
             console.error('AI Contract Error:', error);

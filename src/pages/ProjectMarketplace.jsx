@@ -5,10 +5,11 @@ import { api } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import SEO from '../../components/SEO';
+import AdvancedSearchPanel from '../../components/bidding/AdvancedSearchPanel';
+import SavedSearches from '../../components/bidding/SavedSearches';
 import {
-    Search, Filter, DollarSign, Clock, MapPin,
     Briefcase, TrendingUp, ChevronRight, Users,
-    Calendar, Tag, Loader2
+    DollarSign, Clock, MapPin, Calendar, Tag, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -18,14 +19,19 @@ const ProjectMarketplace = () => {
 
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState({
+        search: '',
         minBudget: '',
         maxBudget: '',
-        skills: [],
-        sortBy: 'recent' // 'recent', 'budget_high', 'budget_low', 'deadline'
+        skills: '',
+        minDuration: '',
+        maxDuration: '',
+        complexity: '',
+        postedAfter: '',
+        sortBy: 'recent'
     });
-    const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [viewMode, setViewMode] = useState('grid');
+    const [savedSearches, setSavedSearches] = useState([]);
 
     useEffect(() => {
         if (user?.role !== 'expert') {
@@ -34,34 +40,64 @@ const ProjectMarketplace = () => {
             return;
         }
         fetchMarketplaceProjects();
+        fetchSavedSearches();
     }, [user, navigate]);
+
+    useEffect(() => {
+        // Debounce search
+        const timer = setTimeout(() => {
+            fetchMarketplaceProjects();
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [filters]);
 
     const fetchMarketplaceProjects = async () => {
         setLoading(true);
         try {
-            // TODO: Update API endpoint to support marketplace filtering
-            const response = await api.get('/projects/marketplace', {
-                params: {
-                    search: searchTerm,
-                    minBudget: filters.minBudget,
-                    maxBudget: filters.maxBudget,
-                    skills: filters.skills.join(','),
-                    sortBy: filters.sortBy
-                }
-            });
-            setProjects(response.data.projects || []);
+            const response = await api.projects.getMarketplace(filters);
+            setProjects(response.projects || []);
         } catch (error) {
             console.error('Failed to fetch marketplace projects:', error);
             toast.error('Failed to load projects');
-            // For now, use mock data until backend endpoint is ready
             setProjects([]);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSearch = () => {
-        fetchMarketplaceProjects();
+    const fetchSavedSearches = async () => {
+        try {
+            const data = await api.savedSearches.list();
+            setSavedSearches(data);
+        } catch (error) {
+            console.error('Failed to load saved searches:', error);
+        }
+    };
+
+    const handleSaveSearch = async (name) => {
+        try {
+            const newSearch = await api.savedSearches.create({
+                name,
+                filters
+            });
+            setSavedSearches([newSearch, ...savedSearches]);
+            toast.success('Search saved successfully');
+        } catch (error) {
+            console.error('Failed to save search:', error);
+            toast.error('Failed to save search');
+        }
+    };
+
+    const handleApplySavedSearch = async (search) => {
+        setFilters(search.filters);
+        // Also update last used
+        try {
+            await api.savedSearches.execute(search.id);
+            // Update local list to reflect new last_used time
+            fetchSavedSearches();
+        } catch (error) {
+            console.error('Failed to execute saved search:', error);
+        }
     };
 
     const handleViewProject = (projectId) => {
@@ -72,11 +108,11 @@ const ProjectMarketplace = () => {
         <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleViewProject(project.id)}>
             <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{project.title}</h3>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-1">{project.title}</h3>
                     <p className="text-gray-600 text-sm line-clamp-2">{project.description}</p>
                 </div>
                 {project.bid_count > 0 && (
-                    <div className="ml-4 flex items-center gap-1 text-sm text-gray-500">
+                    <div className="ml-4 flex items-center gap-1 text-sm text-gray-500 whitespace-nowrap">
                         <Users size={16} />
                         <span>{project.bid_count} bids</span>
                     </div>
@@ -100,12 +136,12 @@ const ProjectMarketplace = () => {
                 <div className="flex items-center gap-2 text-gray-600">
                     <DollarSign size={16} className="text-green-600" />
                     <span className="font-semibold">
-                        ${project.min_budget?.toLocaleString()} - ${project.max_budget?.toLocaleString()}
+                        ${Number(project.min_budget).toLocaleString()} - ${Number(project.max_budget).toLocaleString()}
                     </span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                     <Clock size={16} className="text-blue-600" />
-                    <span>{project.duration || 'Flexible'}</span>
+                    <span>{project.duration || 'Flexible'} days</span>
                 </div>
                 {project.location && (
                     <div className="flex items-center gap-2 text-gray-600">
@@ -117,7 +153,7 @@ const ProjectMarketplace = () => {
                     <div className="flex items-center gap-2 text-gray-600">
                         <Calendar size={16} className="text-orange-600" />
                         <span className="text-xs">
-                            Deadline: {new Date(project.bidding_deadline).toLocaleDateString()}
+                            Due: {new Date(project.bidding_deadline).toLocaleDateString()}
                         </span>
                     </div>
                 )}
@@ -138,7 +174,7 @@ const ProjectMarketplace = () => {
         </Card>
     );
 
-    if (loading) {
+    if (loading && projects.length === 0) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <Loader2 className="animate-spin text-primary" size={48} />
@@ -151,82 +187,22 @@ const ProjectMarketplace = () => {
             <SEO title="Project Marketplace" />
 
             <div className="max-w-7xl mx-auto">
-                {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-4xl font-bold text-gray-900 mb-2">Project Marketplace</h1>
                     <p className="text-gray-600">Browse and bid on open projects from clients worldwide</p>
                 </div>
 
-                {/* Search and Filters */}
-                <Card className="p-6 mb-8">
-                    <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1 relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                            <input
-                                type="text"
-                                placeholder="Search projects by title, description, or skills..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                            />
-                        </div>
-                        <Button onClick={handleSearch} className="flex items-center gap-2">
-                            <Search size={20} />
-                            Search
-                        </Button>
-                    </div>
+                <SavedSearches onExecuteSearch={handleApplySavedSearch} />
+                <div className="mb-6"></div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Min Budget</label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                                <input
-                                    type="number"
-                                    placeholder="0"
-                                    value={filters.minBudget}
-                                    onChange={(e) => setFilters({ ...filters, minBudget: e.target.value })}
-                                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Max Budget</label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                                <input
-                                    type="number"
-                                    placeholder="Any"
-                                    value={filters.maxBudget}
-                                    onChange={(e) => setFilters({ ...filters, maxBudget: e.target.value })}
-                                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-                            <select
-                                value={filters.sortBy}
-                                onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                            >
-                                <option value="recent">Most Recent</option>
-                                <option value="budget_high">Highest Budget</option>
-                                <option value="budget_low">Lowest Budget</option>
-                                <option value="deadline">Deadline Soon</option>
-                            </select>
-                        </div>
-                        <div className="flex items-end">
-                            <Button variant="outline" className="w-full flex items-center justify-center gap-2">
-                                <Filter size={16} />
-                                More Filters
-                            </Button>
-                        </div>
-                    </div>
-                </Card>
+                <AdvancedSearchPanel
+                    filters={filters}
+                    onFilterChange={setFilters}
+                    onSaveSearch={handleSaveSearch}
+                    savedSearches={savedSearches}
+                    onApplySavedSearch={handleApplySavedSearch}
+                />
 
-                {/* Results Summary */}
                 <div className="flex items-center justify-between mb-6">
                     <p className="text-gray-600">
                         <span className="font-semibold text-gray-900">{projects.length}</span> projects available
@@ -247,19 +223,24 @@ const ProjectMarketplace = () => {
                     </div>
                 </div>
 
-                {/* Projects Grid */}
                 {projects.length === 0 ? (
                     <Card className="p-12 text-center">
                         <Briefcase className="mx-auto text-gray-400 mb-4" size={64} />
                         <h3 className="text-xl font-semibold text-gray-900 mb-2">No projects found</h3>
                         <p className="text-gray-600 mb-6">
-                            There are no open projects matching your criteria at the moment.
+                            Try adjusting your filters or search terms.
                         </p>
-                        <Button onClick={() => {
-                            setSearchTerm('');
-                            setFilters({ minBudget: '', maxBudget: '', skills: [], sortBy: 'recent' });
-                            fetchMarketplaceProjects();
-                        }}>
+                        <Button onClick={() => setFilters({
+                            search: '',
+                            minBudget: '',
+                            maxBudget: '',
+                            skills: '',
+                            minDuration: '',
+                            maxDuration: '',
+                            complexity: '',
+                            postedAfter: '',
+                            sortBy: 'recent'
+                        })}>
                             Clear Filters
                         </Button>
                     </Card>

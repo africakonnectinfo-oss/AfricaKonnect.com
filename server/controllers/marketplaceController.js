@@ -13,6 +13,10 @@ exports.getMarketplace = async (req, res) => {
             minBudget: req.query.minBudget,
             maxBudget: req.query.maxBudget,
             skills: req.query.skills,
+            minDuration: req.query.minDuration,
+            maxDuration: req.query.maxDuration,
+            complexity: req.query.complexity,
+            postedAfter: req.query.postedAfter,
             sortBy: req.query.sortBy || 'recent'
         };
 

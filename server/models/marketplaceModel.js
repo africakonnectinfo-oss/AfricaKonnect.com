@@ -42,14 +42,48 @@ const getMarketplaceProjects = async (filters = {}) => {
         paramCount++;
     }
 
-    // Skills filter
+    // Skills filter (Supports multiple skills)
     if (filters.skills) {
-        const skillsArray = filters.skills.split(',').filter(s => s.trim());
+        const skillsArray = Array.isArray(filters.skills)
+            ? filters.skills
+            : typeof filters.skills === 'string'
+                ? filters.skills.split(',').filter(s => s.trim())
+                : [];
+
         if (skillsArray.length > 0) {
+            // Using array overlap operator && to check if any required skill matches query skills
+            // You might want to use @> for "contains all" depending on requirement
             text += ` AND p.required_skills && $${paramCount}`;
             values.push(skillsArray);
             paramCount++;
         }
+    }
+
+    // Project Duration Range
+    if (filters.minDuration) {
+        text += ` AND p.duration >= $${paramCount}`;
+        values.push(parseInt(filters.minDuration));
+        paramCount++;
+    }
+
+    if (filters.maxDuration) {
+        text += ` AND p.duration <= $${paramCount}`;
+        values.push(parseInt(filters.maxDuration));
+        paramCount++;
+    }
+
+    // Complexity Level
+    if (filters.complexity) {
+        text += ` AND p.complexity = $${paramCount}`;
+        values.push(filters.complexity);
+        paramCount++;
+    }
+
+    // Posted Date Range
+    if (filters.postedAfter) {
+        text += ` AND p.created_at >= $${paramCount}`;
+        values.push(filters.postedAfter);
+        paramCount++;
     }
 
     // Check if bidding deadline hasn't passed
@@ -67,6 +101,9 @@ const getMarketplaceProjects = async (filters = {}) => {
             break;
         case 'deadline':
             text += ` ORDER BY p.bidding_deadline ASC NULLS LAST`;
+            break;
+        case 'created_asc':
+            text += ` ORDER BY p.created_at ASC`;
             break;
         case 'recent':
         default:

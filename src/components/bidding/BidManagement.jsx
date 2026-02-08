@@ -9,6 +9,7 @@ import {
     MessageSquare, Video
 } from 'lucide-react';
 import { toast } from 'sonner';
+import AutoScheduleModal from './AutoScheduleModal';
 
 const BidManagement = ({ projectId: propProjectId }) => {
     const { projectId: paramProjectId } = useParams();
@@ -70,6 +71,17 @@ const BidManagement = ({ projectId: propProjectId }) => {
             console.error('Failed to reject bid:', error);
             toast.error(error.response?.data?.message || 'Failed to reject bid');
         }
+    };
+
+    const [selectedBidForInterview, setSelectedBidForInterview] = useState(null);
+
+    const handleScheduleClick = (bid) => {
+        setSelectedBidForInterview(bid);
+    };
+
+    const handleInterviewScheduled = () => {
+        // Optionally refresh bids or show a success message
+        fetchProjectAndBids();
     };
 
     const BidCard = ({ bid }) => (
@@ -189,6 +201,14 @@ const BidManagement = ({ projectId: propProjectId }) => {
                     </Button>
                     <Button
                         variant="outline"
+                        className="flex items-center gap-2 text-blue-600 hover:bg-blue-50"
+                        onClick={() => handleScheduleClick(bid)}
+                    >
+                        <Video size={16} />
+                        Interview
+                    </Button>
+                    <Button
+                        variant="outline"
                         className="flex items-center gap-2 text-red-600 hover:bg-red-50"
                         onClick={() => handleRejectBid(bid.id)}
                     >
@@ -256,8 +276,8 @@ const BidManagement = ({ projectId: propProjectId }) => {
                         key={status}
                         onClick={() => setFilter(status)}
                         className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${filter === status
-                                ? 'bg-primary text-white'
-                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                            ? 'bg-primary text-white'
+                            : 'bg-white text-gray-600 hover:bg-gray-100'
                             }`}
                     >
                         {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -284,6 +304,15 @@ const BidManagement = ({ projectId: propProjectId }) => {
                     ))}
                 </div>
             )}
+
+            <AutoScheduleModal
+                isOpen={!!selectedBidForInterview}
+                onClose={() => setSelectedBidForInterview(null)}
+                expertId={selectedBidForInterview?.expert_id}
+                expertName={selectedBidForInterview?.expert_name}
+                projectId={projectId}
+                onScheduled={handleInterviewScheduled}
+            />
         </div>
     );
 };

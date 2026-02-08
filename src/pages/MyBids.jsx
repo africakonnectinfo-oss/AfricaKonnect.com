@@ -4,29 +4,34 @@ import { api } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import SEO from '../../components/SEO';
+import BidTemplateManager from '../../components/bidding/BidTemplateManager';
+import AvailabilityManager from '../../components/bidding/AvailabilityManager';
 import {
     Briefcase, DollarSign, Clock, Calendar,
     CheckCircle, XCircle, Loader2, AlertCircle,
-    ExternalLink, Trash2
+    ExternalLink, Trash2, FileText, List
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const MyBids = () => {
     const { user } = useAuth();
+    const [activeTab, setActiveTab] = useState('bids'); // 'bids' or 'templates'
     const [bids, setBids] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // 'all', 'pending', 'accepted', 'rejected'
 
     useEffect(() => {
-        fetchMyBids();
-    }, [filter]);
+        if (activeTab === 'bids') {
+            fetchMyBids();
+        }
+    }, [filter, activeTab]);
 
     const fetchMyBids = async () => {
         setLoading(true);
         try {
             const params = filter !== 'all' ? { status: filter } : {};
-            const response = await api.get('/experts/my-bids', { params });
-            setBids(response.data.bids || []);
+            const response = await api.bids.getMyBids(params);
+            setBids(response.bids || []);
         } catch (error) {
             console.error('Failed to fetch bids:', error);
             toast.error('Failed to load your bids');
@@ -39,7 +44,7 @@ const MyBids = () => {
         if (!confirm('Are you sure you want to withdraw this bid?')) return;
 
         try {
-            await api.delete(`/bids/${bidId}/withdraw`);
+            await api.bids.withdrawBid(bidId);
             toast.success('Bid withdrawn successfully');
             fetchMyBids();
         } catch (error) {
@@ -81,7 +86,7 @@ const MyBids = () => {
                     <DollarSign size={16} className="text-green-600" />
                     <div>
                         <p className="text-xs text-gray-500">Your Bid</p>
-                        <p className="font-semibold">${bid.bid_amount?.toLocaleString()}</p>
+                        <p className="font-semibold">${Number(bid.bid_amount).toLocaleString()}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
@@ -121,7 +126,7 @@ const MyBids = () => {
                     variant="outline"
                     size="sm"
                     className="flex-1 flex items-center justify-center gap-2"
-                    onClick={() => window.open(`/projects/${bid.project_id}`, '_blank')}
+                    onClick={() => window.open(`/marketplace/projects/${bid.project_id}`, '_blank')}
                 >
                     <ExternalLink size={16} />
                     View Project
@@ -150,62 +155,89 @@ const MyBids = () => {
         </Card>
     );
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="animate-spin text-primary" size={48} />
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen bg-gray-50/50 py-24 px-4 sm:px-6">
             <SEO title="My Bids" />
 
             <div className="max-w-6xl mx-auto">
-                {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">My Bids</h1>
-                    <p className="text-gray-600">Track and manage all your project bids</p>
-                </div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h1 className="text-4xl font-bold text-gray-900 mb-2">My Bids & Templates</h1>
+                        <p className="text-gray-600">Manage your project bids and proposal templates</p>
+                    </div>
 
-                {/* Filter Tabs */}
-                <div className="flex gap-2 mb-6 overflow-x-auto">
-                    {['all', 'pending', 'accepted', 'rejected'].map((status) => (
+                    <div className="bg-white p-1 rounded-lg border border-gray-200 inline-flex shadow-sm">
                         <button
-                            key={status}
-                            onClick={() => setFilter(status)}
-                            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${filter === status
-                                    ? 'bg-primary text-white'
-                                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                            onClick={() => setActiveTab('bids')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'bids'
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                            {status === 'all' && bids.length > 0 && ` (${bids.length})`}
+                            <List size={16} />
+                            Active Bids
                         </button>
-                    ))}
+                        <button
+                            onClick={() => setActiveTab('templates')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'templates'
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
+                            <FileText size={16} />
+                            Templates
+                        </button>
+                    </div>
                 </div>
 
-                {/* Bids List */}
-                {bids.length === 0 ? (
-                    <Card className="p-12 text-center">
-                        <Briefcase className="mx-auto text-gray-400 mb-4" size={64} />
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No bids found</h3>
-                        <p className="text-gray-600 mb-6">
-                            {filter === 'all'
-                                ? "You haven't submitted any bids yet."
-                                : `You don't have any ${filter} bids.`}
-                        </p>
-                        <Button onClick={() => window.location.href = '/marketplace'}>
-                            Browse Projects
-                        </Button>
-                    </Card>
+                {activeTab === 'bids' ? (
+                    <>
+                        {/* Filter Tabs */}
+                        <div className="flex gap-2 mb-6 overflow-x-auto">
+                            {['all', 'pending', 'accepted', 'rejected'].map((status) => (
+                                <button
+                                    key={status}
+                                    onClick={() => setFilter(status)}
+                                    className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${filter === status
+                                        ? 'bg-primary text-white'
+                                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                                    {status === 'all' && bids.length > 0 && ` (${bids.length})`}
+                                </button>
+                            ))}
+                        </div>
+
+                        {loading ? (
+                            <div className="min-h-[400px] flex items-center justify-center">
+                                <Loader2 className="animate-spin text-primary" size={48} />
+                            </div>
+                        ) : bids.length === 0 ? (
+                            <Card className="p-12 text-center">
+                                <Briefcase className="mx-auto text-gray-400 mb-4" size={64} />
+                                <h3 className="text-xl font-semibold text-gray-900 mb-2">No bids found</h3>
+                                <p className="text-gray-600 mb-6">
+                                    {filter === 'all'
+                                        ? "You haven't submitted any bids yet."
+                                        : `You don't have any ${filter} bids.`}
+                                </p>
+                                <Button onClick={() => window.location.href = '/marketplace'}>
+                                    Browse Projects
+                                </Button>
+                            </Card>
+                        ) : (
+                            <div className="space-y-4">
+                                {bids.map((bid) => (
+                                    <BidCard key={bid.id} bid={bid} />
+                                ))}
+                            </div>
+                        )}
+                    </>
+                ) : activeTab === 'templates' ? (
+                    <BidTemplateManager />
                 ) : (
-                    <div className="space-y-4">
-                        {bids.map((bid) => (
-                            <BidCard key={bid.id} bid={bid} />
-                        ))}
-                    </div>
+                    <AvailabilityManager />
                 )}
             </div>
         </div>

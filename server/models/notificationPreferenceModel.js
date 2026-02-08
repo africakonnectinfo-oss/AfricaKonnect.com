@@ -23,8 +23,11 @@ const getUserPreferences = async (userId) => {
  */
 const createDefaultPreferences = async (userId) => {
     const text = `
-        INSERT INTO notification_preferences (user_id)
-        VALUES ($1)
+        INSERT INTO notification_preferences (
+            user_id, project_matching, email_enabled, push_enabled, 
+            project_updates, messages, payments, marketing
+        )
+        VALUES ($1, true, true, true, true, true, true, true)
         RETURNING *
     `;
     const result = await query(text, [userId]);
@@ -36,8 +39,20 @@ const createDefaultPreferences = async (userId) => {
  */
 const updatePreferences = async (userId, preferences) => {
     const {
+        // Matching specific
+        project_matching,
+        match_threshold,
+        budget_min,
+        budget_max,
+        preferred_skills,
+        preferred_project_types,
+        notification_frequency,
+
+        // Channels
         email_enabled,
         push_enabled,
+
+        // General (Existing)
         project_updates,
         messages,
         payments,
@@ -47,26 +62,53 @@ const updatePreferences = async (userId, preferences) => {
     const text = `
         UPDATE notification_preferences
         SET 
-            email_enabled = COALESCE($2, email_enabled),
-            push_enabled = COALESCE($3, push_enabled),
-            project_updates = COALESCE($4, project_updates),
-            messages = COALESCE($5, messages),
-            payments = COALESCE($6, payments),
-            marketing = COALESCE($7, marketing),
+            -- Compulsary checks/coalesce for all fields to allow partial updates
+            project_matching = COALESCE($2, project_matching),
+            match_threshold = COALESCE($3, match_threshold),
+            budget_min = COALESCE($4, budget_min),
+            budget_max = COALESCE($5, budget_max),
+            preferred_skills = COALESCE($6, preferred_skills),
+            preferred_project_types = COALESCE($7, preferred_project_types),
+            notification_frequency = COALESCE($8, notification_frequency),
+            
+            email_enabled = COALESCE($9, email_enabled),
+            push_enabled = COALESCE($10, push_enabled),
+            
+            project_updates = COALESCE($11, project_updates),
+            messages = COALESCE($12, messages),
+            payments = COALESCE($13, payments),
+            marketing = COALESCE($14, marketing),
+            
             updated_at = CURRENT_TIMESTAMP
         WHERE user_id = $1
         RETURNING *
     `;
 
-    const result = await query(text, [
+    const values = [
         userId,
+        project_matching,
+        match_threshold,
+        budget_min,
+        budget_max,
+        preferred_skills,
+        preferred_project_types,
+        notification_frequency,
         email_enabled,
         push_enabled,
         project_updates,
         messages,
         payments,
         marketing
-    ]);
+    ];
+
+    const result = await query(text, values);
+
+    // Handle case where update is called before create
+    if (result.rows.length === 0) {
+        await createDefaultPreferences(userId);
+        // Recursive call to update after creation (careful with infinite loops, but here it's safe as createDefault works)
+        return updatePreferences(userId, preferences);
+    }
 
     return result.rows[0];
 };
@@ -81,7 +123,8 @@ const shouldNotify = async (userId, notificationType) => {
         'project_update': preferences.project_updates,
         'message': preferences.messages,
         'payment': preferences.payments,
-        'marketing': preferences.marketing
+        'marketing': preferences.marketing,
+        'project_match': preferences.project_matching
     };
 
     return typeMap[notificationType] !== false;

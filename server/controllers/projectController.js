@@ -6,6 +6,7 @@ const {
     updateProject,
     deleteProject
 } = require('../models/projectModel');
+const projectMatchingService = require('../services/projectMatchingService');
 
 // Create new project
 exports.createProject = async (req, res) => {
@@ -33,6 +34,14 @@ exports.createProject = async (req, res) => {
             deadline: req.body.deadline,
             duration: req.body.duration
         });
+
+        // Trigger background matching job
+        if (project.status === 'open' || project.status === 'published') {
+            const io = req.app.get('io');
+            projectMatchingService.processProjectMatches(project, io).catch(err =>
+                console.error('Background matching error:', err)
+            );
+        }
 
         res.status(201).json(project);
     } catch (error) {

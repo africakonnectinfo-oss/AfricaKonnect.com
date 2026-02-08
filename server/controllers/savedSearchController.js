@@ -1,0 +1,126 @@
+const {
+    createSavedSearch,
+    getSavedSearchesByUser,
+    getSavedSearchById,
+    updateSavedSearch,
+    deleteSavedSearch,
+    updateLastUsed
+} = require('../models/savedSearchModel');
+const { getMarketplaceProjects } = require('../models/marketplaceModel');
+
+// Create a new saved search
+exports.createSavedSearch = async (req, res) => {
+    try {
+        const { name, filters, notificationEnabled } = req.body;
+
+        if (!name || !filters) {
+            return res.status(400).json({ message: 'Name and filters are required' });
+        }
+
+        const savedSearch = await createSavedSearch(req.user.id, {
+            name,
+            filters,
+            notificationEnabled
+        });
+
+        res.status(201).json(savedSearch);
+    } catch (error) {
+        console.error('Create saved search error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get all saved searches for the current user
+exports.getSavedSearches = async (req, res) => {
+    try {
+        const savedSearches = await getSavedSearchesByUser(req.user.id);
+        res.json(savedSearches);
+    } catch (error) {
+        console.error('Get saved searches error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Update a saved search
+exports.updateSavedSearch = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const savedSearch = await getSavedSearchById(id);
+
+        if (!savedSearch) {
+            return res.status(404).json({ message: 'Saved search not found' });
+        }
+
+        if (savedSearch.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to update this saved search' });
+        }
+
+        const updatedSearch = await updateSavedSearch(id, req.body);
+        res.json(updatedSearch);
+    } catch (error) {
+        console.error('Update saved search error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Delete a saved search
+exports.deleteSavedSearch = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const savedSearch = await getSavedSearchById(id);
+
+        if (!savedSearch) {
+            return res.status(404).json({ message: 'Saved search not found' });
+        }
+
+        if (savedSearch.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to delete this saved search' });
+        }
+
+        await deleteSavedSearch(id);
+        res.json({ message: 'Saved search deleted successfully' });
+    } catch (error) {
+        console.error('Delete saved search error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Execute a saved search
+exports.executeSavedSearch = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const savedSearch = await getSavedSearchById(id);
+
+        if (!savedSearch) {
+            return res.status(404).json({ message: 'Saved search not found' });
+        }
+
+        if (savedSearch.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to execute this saved search' });
+        }
+
+        // Update last used timestamp
+        await updateLastUsed(id);
+
+        // Execute search using marketplace model
+        const filters = savedSearch.filters;
+        const projects = await getMarketplaceProjects(filters);
+
+        res.json({
+            count: projects.length,
+            projects,
+            filters
+        });
+    } catch (error) {
+        console.error('Execute saved search error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = {
+    createSavedSearch,
+    getSavedSearches,
+    updateSavedSearch,
+    deleteSavedSearch,
+    executeSavedSearch
+};

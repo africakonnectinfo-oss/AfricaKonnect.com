@@ -195,6 +195,83 @@ export const api = {
         }),
     },
 
+    savedSearches: {
+        create: async (data) => apiRequest('/saved-searches', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        list: async () => apiRequest('/saved-searches', {
+            headers: getHeaders(),
+        }),
+        update: async (id, data) => apiRequest(`/saved-searches/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        delete: async (id) => apiRequest(`/saved-searches/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
+        execute: async (id) => apiRequest(`/saved-searches/${id}/execute`, {
+            method: 'POST',
+            headers: getHeaders(),
+        }),
+    },
+
+    bidTemplates: {
+        create: async (data) => apiRequest('/bid-templates', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        list: async () => apiRequest('/bid-templates', {
+            headers: getHeaders(),
+        }),
+        update: async (id, data) => apiRequest(`/bid-templates/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        delete: async (id) => apiRequest(`/bid-templates/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
+        apply: async (id, projectId) => apiRequest(`/bid-templates/${id}/apply/${projectId}`, {
+            method: 'POST',
+            headers: getHeaders(),
+        }),
+    },
+
+    availability: {
+        set: async (data) => apiRequest('/availability', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+        getMine: async () => apiRequest('/availability', {
+            headers: getHeaders(),
+        }),
+        getByExpert: async (expertId) => apiRequest(`/availability/${expertId}`, {
+            headers: getHeaders(),
+        }),
+        delete: async (id) => apiRequest(`/availability/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        }),
+    },
+
+    notificationPreferences: {
+        get: async () => apiRequest('/notification-preferences', {
+            headers: getHeaders(),
+        }),
+        update: async (data) => apiRequest('/notification-preferences', {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data),
+        }),
+    },
+
     // Bids
     bids: {
         getMyBids: async (params = {}) => {

@@ -79,16 +79,25 @@ const NotificationCenter = () => {
         };
 
         const handleNotification = (data) => {
-            // data from sendNotification service: { id, type, message, data: {...} }
             fetchNotifications();
-            toast(data.type?.replace('_', ' ').toUpperCase() || 'NOTIFICATION', {
-                description: data.message,
-                // Add action if link/url exists in data.data
-                action: data.data?.actionUrl ? {
-                    label: 'Go',
-                    onClick: () => window.location.href = data.data.actionUrl
-                } : undefined
-            });
+
+            if (data.type === 'project_match') {
+                toast.success('New Project Match!', {
+                    description: data.message,
+                    action: {
+                        label: 'View Project',
+                        onClick: () => window.location.href = data.data?.actionUrl || `/projects/${data.data?.projectId}`
+                    }
+                });
+            } else {
+                toast(data.type?.replace('_', ' ').toUpperCase() || 'NOTIFICATION', {
+                    description: data.message,
+                    action: data.data?.actionUrl ? {
+                        label: 'Go',
+                        onClick: () => window.location.href = data.data.actionUrl
+                    } : undefined
+                });
+            }
         };
 
         socket.on('project_invite', handleRefresh);
