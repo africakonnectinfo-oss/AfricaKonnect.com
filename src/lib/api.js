@@ -125,6 +125,9 @@ export const api = {
         getById: async (id) => apiRequest(`/projects/${id}`, {
             headers: getHeaders(),
         }),
+        getOne: async (id) => apiRequest(`/projects/${id}`, {
+            headers: getHeaders(),
+        }),
         getInvitedProjects: async () => apiRequest('/projects/expert/invites', {
             headers: getHeaders(),
         }),
@@ -166,8 +169,19 @@ export const api = {
             headers: getHeaders(),
             body: JSON.stringify({ status }),
         }),
+        respondToInvite: async (id, status) => apiRequest(`/projects/${id}/invite`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ status }),
+        }),
         // Marketplace
         getMarketplace: async (params = {}) => {
+            const queryString = new URLSearchParams(params).toString();
+            return apiRequest(`/projects/marketplace?${queryString}`, {
+                headers: getHeaders(),
+            });
+        },
+        getOpen: async (params = {}) => {
             const queryString = new URLSearchParams(params).toString();
             return apiRequest(`/projects/marketplace?${queryString}`, {
                 headers: getHeaders(),
@@ -299,6 +313,9 @@ export const api = {
                 headers: getHeaders(),
             });
         },
+        getInvitations: async () => apiRequest('/projects/expert/invites', {
+            headers: getHeaders(),
+        }),
         createProfile: async (data) => apiRequest('/experts/profile', {
             method: 'POST',
             headers: getHeaders(),

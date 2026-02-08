@@ -52,18 +52,15 @@ export default function ExpertDashboard() {
                 }
 
                 // Fetch dashboard data
-                const [invites, projects, open] = await Promise.all([
-                    api.experts.getInvitations(),
+                const [invitedRes, openRes] = await Promise.all([
                     api.projects.getInvitedProjects(),
                     api.projects.getOpen()
                 ]);
 
-                if (invites) setInvitations(invites);
-                if (projects && projects.projects) {
-                    const active = projects.projects.filter(p => p.expert_status === 'accepted');
-                    setActiveProjects(active);
-                }
-                if (open) setOpenProjects(open);
+                const allInvites = invitedRes.projects || [];
+                setInvitations(allInvites.filter(p => p.expert_status === 'pending'));
+                setActiveProjects(allInvites.filter(p => p.expert_status === 'accepted' || p.status === 'active'));
+                setOpenProjects(openRes.projects || []);
 
                 setStats({
                     earnings: profileData?.total_earnings || 0,
@@ -101,18 +98,18 @@ export default function ExpertDashboard() {
         setShowProfileSetup(false);
         setIsEditingProfile(false);
         // refresh profile
-        api.experts.getProfile(user.id).then(setProfile);
+        api.experts.getProfile(user.id)
+            .then(setProfile)
+            .catch(err => console.error("Failed to refresh profile", err));
     };
 
     const handleAcceptInvite = async (invite) => {
         try {
             await api.projects.respondToInvite(invite.project_id || invite.id, 'accepted');
             setInvitations(prev => prev.filter(i => i.id !== invite.id));
-            const projects = await api.projects.getInvitedProjects();
-            if (projects && projects.projects) {
-                const active = projects.projects.filter(p => p.expert_status === 'accepted');
-                setActiveProjects(active);
-            }
+            const invitedRes = await api.projects.getInvitedProjects();
+            const projects = invitedRes.projects || [];
+            setActiveProjects(projects.filter(p => p.expert_status === 'accepted' || p.status === 'active'));
         } catch (error) {
             console.error("Failed to accept invite", error);
         }

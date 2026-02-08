@@ -182,9 +182,7 @@ Contractor is an independent contractor and not an employee of Client.`;
             setFunding(true);
             // In a real app, this would redirect to Stripe/PayPal
             // Here we verify intent and mock the transaction
-            await api.payments.initEscrow(currentProject.id, {
-                amount: amount || 0 // Default to contract amount
-            });
+            await api.payments.initEscrow(currentProject.id, amount || 0);
             setEscrowFunded(true);
             toast.success("Escrow Funded Successfully! Project is Active.", { id: toastId });
             // Trigger project status update to 'active' if not already

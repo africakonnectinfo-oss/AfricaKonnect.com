@@ -213,8 +213,8 @@ export const useCollaboration = (projectId, user) => {
             const formData = new FormData();
             formData.append('file', fileData);
 
-            // api.files.upload expects projectId and formData
-            const res = await api.files.upload(projectId, formData);
+            // api.files.upload expects data (FormData) and then projectId
+            const res = await api.files.upload(formData, projectId);
 
             setFiles(prev => [...prev, res]);
             return res;

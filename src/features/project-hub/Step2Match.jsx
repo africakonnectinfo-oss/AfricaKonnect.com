@@ -212,9 +212,13 @@ const Step2Match = ({ onNext, expertToHire }) => {
                     variant="ghost"
                     onClick={async () => {
                         if (confirm("Make this project public for all experts to see?")) {
-                            await api.projects.update(currentProject.id, { status: 'open' });
-                            alert("Project is now live in the marketplace!");
-                            // Optionally stay here or go to dashboard
+                            try {
+                                await api.projects.update(currentProject.id, { status: 'open' });
+                                alert("Project is now live in the marketplace!");
+                            } catch (error) {
+                                console.error("Failed to post project", error);
+                                alert("Failed to post project: " + error.message);
+                            }
                         }
                     }}
                 >

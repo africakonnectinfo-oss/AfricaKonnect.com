@@ -161,7 +161,7 @@ export const ProjectProvider = ({ children }) => {
             const [tasks, files, messagesRes] = await Promise.all([
                 api.tasks.getByProject(projectId),
                 api.files.getByProject(projectId),
-                api.messages.getByProject(projectId)
+                api.messages.getMessages(projectId)
             ]);
 
             const messages = messagesRes.messages.map(m => ({
@@ -236,12 +236,11 @@ export const ProjectProvider = ({ children }) => {
         try {
             // Upload to backend
             const uploaded = await api.files.upload({
-                projectId,
                 name: fileData.name,
                 type: fileData.type,
                 size: fileData.size,
                 data: fileData.data // base64
-            });
+            }, projectId);
 
             // Update local state
             const project = projects.find(p => p.id === projectId);
@@ -278,10 +277,7 @@ export const ProjectProvider = ({ children }) => {
     const addMessage = async (projectId, message) => {
         try {
             // Send to backend
-            const sent = await api.messages.send({
-                projectId,
-                content: message.text
-            });
+            const sent = await api.messages.send(projectId, message.text);
 
             // Backend emits socket event, so we might not need to manually update state 
             // if socket listener is fast enough. But for immediate feedback:
@@ -304,10 +300,7 @@ export const ProjectProvider = ({ children }) => {
 
     const addTask = async (projectId, task) => {
         try {
-            const newTask = await api.tasks.create({
-                projectId,
-                ...task
-            });
+            const newTask = await api.tasks.create(projectId, task);
 
             const project = projects.find(p => p.id === projectId);
             if (project) {

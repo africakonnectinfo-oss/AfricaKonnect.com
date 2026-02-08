@@ -489,9 +489,12 @@ export default function Collaboration() {
             // ... existing load logic
             if (projectId) {
                 try {
-                    const p = await api.projects.getOne(projectId);
+                    const p = await api.projects.getById(projectId);
                     setProject(p);
-                } catch (e) { console.error(e); }
+                } catch (e) {
+                    console.error(e);
+                    toast.error("Failed to load project details");
+                }
             } else {
                 const p = await api.projects.getMine();
                 if (p?.projects?.length > 0) setProject(p.projects[0]);
