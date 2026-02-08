@@ -126,9 +126,9 @@ export default function Experts() {
         const fetchExperts = async () => {
             setLoading(true);
             try {
-                // In a real app, pass filters to API
-                const data = await api.experts.getAll();
-                // Client-side fillering for demo since API might not handle all filters yet
+                // Explicitly request all experts regardless of vetting status
+                const data = await api.experts.getAll({ vettingStatus: 'all' });
+                // Client-side filtering for demo since API might not handle all filters yet
                 if (data && data.experts) {
                     setExperts(data.experts);
                 }

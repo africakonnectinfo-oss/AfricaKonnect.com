@@ -12,8 +12,8 @@ const FeaturedExperts = () => {
     useEffect(() => {
         const fetchFeatured = async () => {
             try {
-                // Fetch 3 verified experts
-                const data = await api.experts.getAll({ limit: 3 });
+                // Fetch all experts (limit to 3 for featured section)
+                const data = await api.experts.getAll({ vettingStatus: 'all', limit: 3 });
                 if (data && data.experts) {
                     setExperts(data.experts);
                 }
