@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { api } from '../../lib/api';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import SEO from '../../components/SEO';
-import BidTemplateManager from '../../components/bidding/BidTemplateManager';
-import AvailabilityManager from '../../components/bidding/AvailabilityManager';
+import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import SEO from '../components/SEO';
+import BidTemplateManager from '../components/bidding/BidTemplateManager';
+import AvailabilityManager from '../components/bidding/AvailabilityManager';
 import {
     Briefcase, DollarSign, Clock, Calendar,
     CheckCircle, XCircle, Loader2, AlertCircle,
