@@ -597,23 +597,61 @@ export const api = {
         })
     },
 
-    // AI Features (DeepSeek)
+    // AI Features (Puter.js Integration)
     ai: {
-        draftContract: (data) => apiRequest('/ai/draft-contract', {
-            method: 'POST',
-            body: JSON.stringify(data),
-            headers: getHeaders(),
-        }),
-        chat: (message, context) => apiRequest('/ai/chat', {
-            method: 'POST',
-            body: JSON.stringify({ message, context }),
-            headers: getHeaders(),
-        }),
-        matchExperts: (data) => apiRequest('/ai/match', {
-            method: 'POST',
-            body: JSON.stringify(data),
-            headers: getHeaders(),
-        })
+        draftContract: async (data) => {
+            if (window.puter) {
+                const prompt = `Draft a formal freelance independent contractor agreement for a project called "${data.projectName}" on the Africa Konnect platform.
+Client: ${data.clientName}
+Contractor (Expert): ${data.expertName || 'Expert'}
+Budget: $${data.rate}
+Duration: ${data.duration}
+Deliverables: ${data.deliverables}
+
+Return ONLY the contract text.`;
+                const response = await window.puter.ai.chat(prompt);
+                const reply = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
+                return { contract: reply };
+            }
+            return apiRequest('/ai/draft-contract', {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: getHeaders(),
+            });
+        },
+        chat: async (message, context) => {
+            if (window.puter) {
+                const systemPrompt = context ? `Context: ${JSON.stringify(context)}` : '';
+                const response = await window.puter.ai.chat(message, { system_prompt: systemPrompt });
+                const reply = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
+                return { reply };
+            }
+            return apiRequest('/ai/chat', {
+                method: 'POST',
+                body: JSON.stringify({ message, context }),
+                headers: getHeaders(),
+            });
+        },
+        matchExperts: async (data, availableExperts = []) => {
+            if (window.puter && availableExperts.length > 0) {
+                const expertBriefs = availableExperts.map(e => `ID: ${e.id}, Name: ${e.name}, Title: ${e.title}, Bio: ${e.bio}`).join('\n\n');
+                const prompt = `Analyze this project: ${data.projectDescription}. Requirements: ${data.requirements || 'N/A'}. 
+Available Experts: ${expertBriefs}. 
+Select top matches. Return ONLY a JSON array: [{"id": "...", "reason": "...", "score": 90}, ...]`;
+
+                const response = await window.puter.ai.chat(prompt);
+                const content = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
+                const jsonMatch = content.match(/\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    return { matches: JSON.parse(jsonMatch[0]) };
+                }
+            }
+            return apiRequest('/ai/match', {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: getHeaders(),
+            });
+        }
     },
 
     // Applications

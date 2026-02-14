@@ -57,8 +57,8 @@ const aiController = {
 
             // 3. Call AI
             if (!model) {
-                console.warn("AI Match skipped: No API Key provided.");
-                return res.json({ matches: experts.map(e => ({ ...e, score: 0, reason: "AI matching unavailable (No API Key)" })) });
+                console.warn("AI Match skipped: No API Key provided (Backend). Fallback implemented.");
+                return res.json({ matches: experts.map(e => ({ ...e, score: 0, reason: "AI features have upgraded. Please refresh browser for Puter AI." })) });
             }
 
             // Use JSON mode for structured output
@@ -96,7 +96,7 @@ const aiController = {
             const { message, context } = req.body;
 
             if (!model) {
-                return res.json({ reply: "I'm sorry, but I'm currently offline (API Key missing). Please try again later." });
+                return res.json({ reply: "AI features have been upgraded. Please refresh your browser to use Puter AI (offline support)." });
             }
 
             const prompt = `
