@@ -56,24 +56,32 @@ export const AIAssistant = ({ context: propContext }) => {
         setIsTyping(true);
 
         try {
-            const response = await api.ai.chat(userMsg.content, {
-                userRole: user?.role,
-                userName: user?.name,
-                platform: "Africa Konnect - Connecting African Tech Talent with Global Opportunities",
-                currentTimestamp: new Date().toISOString(),
-                ...activeContext
+            if (!window.puter) {
+                throw new Error("Puter.js not loaded");
+            }
+
+            const systemPrompt = `You are the Africa Konnect AI assistant. 
+Africa Konnect connects global businesses with top African tech talent (software engineers, data scientists, etc.).
+User: ${user?.name || 'Guest'} (${user?.role || 'User'})
+Current Page: ${activeContext.page}
+Path: ${activeContext.path}
+Current Time: ${new Date().toISOString()}
+
+Be professional, helpful, and concise. Assist with platform navigation, finding experts, and general project inquiries.`;
+
+            const response = await window.puter.ai.chat(userMsg.content, {
+                system_prompt: systemPrompt
             });
 
-            if (response && response.reply) {
-                setMessages(prev => [...prev, { role: 'assistant', content: response.reply }]);
-            } else {
-                setMessages(prev => [...prev, { role: 'assistant', content: "I'm having trouble connecting right now. Please try again." }]);
-            }
+            // Puter.js v2 chat returns a string or an object with message
+            const reply = typeof response === 'string' ? response : (response?.message?.content || response?.reply || "I'm having trouble responding. Please try again.");
+
+            setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
         } catch (error) {
             console.error("AI Chat failed", error);
-            const errorMsg = error.message?.includes("API Key")
-                ? "I'm currently offline due to a configuration issue (API Key). Please contact support."
-                : "Sorry, I encountered an error. Please try again.";
+            const errorMsg = error.message?.includes("not loaded")
+                ? "Puter AI is currently initializing. Please refresh or wait a moment."
+                : "Sorry, I encountered an error using Puter AI. Please try again.";
             setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
         } finally {
             setIsTyping(false);
@@ -142,8 +150,8 @@ export const AIAssistant = ({ context: propContext }) => {
                                 >
                                     <div
                                         className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user'
-                                                ? 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-br-sm'
-                                                : 'bg-white text-gray-700 border border-gray-100 rounded-bl-sm'
+                                            ? 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-br-sm'
+                                            : 'bg-white text-gray-700 border border-gray-100 rounded-bl-sm'
                                             }`}
                                     >
                                         {msg.content}
@@ -181,8 +189,8 @@ export const AIAssistant = ({ context: propContext }) => {
                                 </button>
                             </div>
                             <div className="text-center mt-2 flex justify-center gap-4 text-[10px] text-gray-400">
-                                <span>Powered by DeepSeek</span>
-                                <span>v1.0.2</span>
+                                <span>Powered by Puter.js</span>
+                                <span>v2.0.0</span>
                             </div>
                         </form>
                     </motion.div>

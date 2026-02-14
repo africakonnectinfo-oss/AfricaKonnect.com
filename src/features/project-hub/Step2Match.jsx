@@ -61,24 +61,66 @@ const Step2Match = ({ onNext, expertToHire }) => {
     };
 
     const runAIMatch = async () => {
-        if (!currentProject) return;
+        if (!currentProject || !experts.length) return;
         setIsMatching(true);
         try {
-            const result = await api.ai.match({
-                projectDescription: currentProject.description,
-                requirements: currentProject.requirements || '', // Assuming requirements field exists or just use desc
-            });
+            if (!window.puter) {
+                throw new Error("Puter.js not loaded");
+            }
 
-            if (result.matches && result.matches.length > 0) {
-                setExperts(result.matches);
-                setActiveTab('matches');
-                alert(`AI found ${result.matches.length} perfect matches!`);
+            const expertBriefs = experts.map(e => `ID: ${e.id}, Name: ${e.name}, Title: ${e.title}, Bio: ${e.bio}, Skills: ${e.skills || ''}`).join('\n\n');
+
+            const prompt = `You are an AI matching engine for Africa Konnect.
+Project Description: ${currentProject.description}
+Project Requirements: ${currentProject.requirements || 'N/A'}
+
+Available Experts:
+${expertBriefs}
+
+Analyze the project and available experts. Select the top 3-5 best matches.
+For each match, provide:
+1. The Expert ID
+2. A short "Reason for Match" (1-2 sentences)
+3. A match score (0-100)
+
+Return the result as a JSON array of objects with keys "id", "reason", and "score". 
+Example: [{"id": "123", "reason": "Expert in React and Node.js...", "score": 95}, ...]
+Return ONLY the JSON array.`;
+
+            const response = await window.puter.ai.chat(prompt);
+            const content = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
+
+            // Extract JSON from response (in case it contains markdown code blocks)
+            const jsonMatch = content.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                const matchedResults = JSON.parse(jsonMatch[0]);
+
+                // Merge matched results with existing expert data
+                const matchedExperts = matchedResults.map(match => {
+                    const fullExpert = experts.find(e => e.id === match.id);
+                    if (fullExpert) {
+                        return {
+                            ...fullExpert,
+                            reason: match.reason,
+                            score: match.score
+                        };
+                    }
+                    return null;
+                }).filter(Boolean);
+
+                if (matchedExperts.length > 0) {
+                    setExperts(matchedExperts);
+                    setActiveTab('matches');
+                    toast.success(`AI found ${matchedExperts.length} perfect matches!`);
+                } else {
+                    toast.error("AI couldn't find specific matches among the provided experts.");
+                }
             } else {
-                alert("AI couldn't find specific matches, showing all experts.");
+                throw new Error("Could not parse AI response");
             }
         } catch (error) {
             console.error("AI Match failed", error);
-            alert("AI Match failed. Please try again.");
+            toast.error("AI Match failed. Falling back to default list.");
         } finally {
             setIsMatching(false);
         }
