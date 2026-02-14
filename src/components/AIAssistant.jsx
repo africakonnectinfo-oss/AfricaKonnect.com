@@ -56,33 +56,35 @@ export const AIAssistant = ({ context: propContext }) => {
         setIsTyping(true);
 
         try {
-            if (!window.puter) {
-                throw new Error("Puter.js not loaded");
-            }
+            // Start with an empty assistant message
+            const assistantMsg = { role: 'assistant', content: '' };
+            setMessages(prev => [...prev, assistantMsg]);
 
-            const systemPrompt = `You are the Africa Konnect AI assistant. 
-Africa Konnect connects global businesses with top African tech talent (software engineers, data scientists, etc.).
-User: ${user?.name || 'Guest'} (${user?.role || 'User'})
-Current Page: ${activeContext.page}
-Path: ${activeContext.path}
-Current Time: ${new Date().toISOString()}
-
-Be professional, helpful, and concise. Assist with platform navigation, finding experts, and general project inquiries.`;
-
-            const response = await window.puter.ai.chat(userMsg.content, {
-                system_prompt: systemPrompt
+            await api.ai.chatStream(userMsg.content, activeContext, (chunk) => {
+                setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMsg = newMessages[newMessages.length - 1];
+                    if (lastMsg && lastMsg.role === 'assistant') {
+                        lastMsg.content += chunk;
+                    }
+                    return newMessages;
+                });
             });
-
-            // Puter.js v2 chat returns a string or an object with message
-            const reply = typeof response === 'string' ? response : (response?.message?.content || response?.reply || "I'm having trouble responding. Please try again.");
-
-            setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
         } catch (error) {
             console.error("AI Chat failed", error);
             const errorMsg = error.message?.includes("not loaded")
                 ? "Puter AI is currently initializing. Please refresh or wait a moment."
                 : "Sorry, I encountered an error using Puter AI. Please try again.";
-            setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
+
+            setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMsg = newMessages[lastMsg.length - 1];
+                if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content === '') {
+                    lastMsg.content = errorMsg;
+                    return newMessages;
+                }
+                return [...prev, { role: 'assistant', content: errorMsg }];
+            });
         } finally {
             setIsTyping(false);
         }

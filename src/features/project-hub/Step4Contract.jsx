@@ -69,40 +69,34 @@ const Step4Contract = ({ onNext, project, hideProceed }) => {
     const generateContract = async () => {
         if (!currentProject?.selected_expert_id) return;
         setGenerating(true);
-        const toastId = toast.loading('Generating contract...');
+        const toastId = toast.loading('Initiating AI draft...');
+        setTerms(''); // Clear current terms to show generation
 
         try {
-            if (!window.puter) {
-                throw new Error("Puter.js not loaded");
-            }
+            const data = {
+                projectName: currentProject.title,
+                clientName: user.name,
+                expertName: currentProject.expert_name || 'Expert',
+                rate: currentProject.budget,
+                duration: currentProject.duration,
+                deliverables: currentProject.description
+            };
 
-            const prompt = `Draft a formal freelance independent contractor agreement for a project called "${currentProject.title}" on the Africa Konnect platform.
-Client: ${user.name}
-Contractor (Expert): ${currentProject.expert_name || 'Expert'}
-Project Details: ${currentProject.description}
-Budget: $${currentProject.budget}
-Expected Duration: ${currentProject.duration}
+            const result = await api.ai.draftContract(data, (chunk) => {
+                setTerms(prev => prev + chunk);
+            });
 
-The contract should include sections for Services, Compensation, Term, Intellectual Property, and Independent Contractor Relationship. 
-Return ONLY the contract text.`;
-
-            const response = await window.puter.ai.chat(prompt);
-
-            // Puter.js v2 chat returns a string or an object with message
-            const contractText = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
-
-            if (contractText) {
-                setTerms(contractText);
+            if (result.contract) {
                 setAmount(currentProject.budget || '');
 
                 const newContract = await api.contracts.create({
                     projectId: currentProject.id,
                     expertId: currentProject.selected_expert_id,
-                    terms: contractText,
+                    terms: result.contract,
                     amount: parseFloat(currentProject.budget || 0)
                 });
                 setContract(newContract);
-                toast.success('Contract generated with Puter AI!', { id: toastId });
+                toast.success('Contract drafted in real-time!', { id: toastId });
             }
         } catch (error) {
             console.error("Failed to generate", error);

@@ -599,7 +599,7 @@ export const api = {
 
     // AI Features (Puter.js Integration)
     ai: {
-        draftContract: async (data) => {
+        draftContract: async (data, onChunk) => {
             if (window.puter) {
                 const prompt = `Draft a formal freelance independent contractor agreement for a project called "${data.projectName}" on the Africa Konnect platform.
 Client: ${data.clientName}
@@ -609,7 +609,18 @@ Duration: ${data.duration}
 Deliverables: ${data.deliverables}
 
 Return ONLY the contract text.`;
-                const response = await window.puter.ai.chat(prompt);
+                const response = await window.puter.ai.chat(prompt, { stream: !!onChunk });
+
+                if (onChunk && response[Symbol.asyncIterator]) {
+                    let fullText = '';
+                    for await (const chunk of response) {
+                        const text = typeof chunk === 'string' ? chunk : (chunk?.text || chunk?.message?.content || '');
+                        fullText += text;
+                        onChunk(text);
+                    }
+                    return { contract: fullText };
+                }
+
                 const reply = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
                 return { contract: reply };
             }
@@ -631,6 +642,25 @@ Return ONLY the contract text.`;
                 body: JSON.stringify({ message, context }),
                 headers: getHeaders(),
             });
+        },
+        chatStream: async (message, context, onChunk) => {
+            if (window.puter) {
+                const systemPrompt = context ? `Context: ${JSON.stringify(context)}` : '';
+                const response = await window.puter.ai.chat(message, {
+                    system_prompt: systemPrompt,
+                    stream: true
+                });
+
+                let fullText = '';
+                for await (const chunk of response) {
+                    const text = typeof chunk === 'string' ? chunk : (chunk?.text || chunk?.message?.content || '');
+                    fullText += text;
+                    if (onChunk) onChunk(text);
+                }
+                return { reply: fullText };
+            }
+            // Fallback to non-streaming if Puter is missing
+            return api.ai.chat(message, context);
         },
         matchExperts: async (data, availableExperts = []) => {
             if (window.puter && availableExperts.length > 0) {

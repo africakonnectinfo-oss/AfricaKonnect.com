@@ -64,39 +64,17 @@ const Step2Match = ({ onNext, expertToHire }) => {
         if (!currentProject || !experts.length) return;
         setIsMatching(true);
         try {
-            if (!window.puter) {
-                throw new Error("Puter.js not loaded");
-            }
+            const result = await api.ai.matchExperts(
+                {
+                    projectDescription: currentProject.description,
+                    requirements: currentProject.requirements
+                },
+                experts
+            );
 
-            const expertBriefs = experts.map(e => `ID: ${e.id}, Name: ${e.name}, Title: ${e.title}, Bio: ${e.bio}, Skills: ${e.skills || ''}`).join('\n\n');
-
-            const prompt = `You are an AI matching engine for Africa Konnect.
-Project Description: ${currentProject.description}
-Project Requirements: ${currentProject.requirements || 'N/A'}
-
-Available Experts:
-${expertBriefs}
-
-Analyze the project and available experts. Select the top 3-5 best matches.
-For each match, provide:
-1. The Expert ID
-2. A short "Reason for Match" (1-2 sentences)
-3. A match score (0-100)
-
-Return the result as a JSON array of objects with keys "id", "reason", and "score". 
-Example: [{"id": "123", "reason": "Expert in React and Node.js...", "score": 95}, ...]
-Return ONLY the JSON array.`;
-
-            const response = await window.puter.ai.chat(prompt);
-            const content = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
-
-            // Extract JSON from response (in case it contains markdown code blocks)
-            const jsonMatch = content.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-                const matchedResults = JSON.parse(jsonMatch[0]);
-
+            if (result.matches && result.matches.length > 0) {
                 // Merge matched results with existing expert data
-                const matchedExperts = matchedResults.map(match => {
+                const matchedExperts = result.matches.map(match => {
                     const fullExpert = experts.find(e => e.id === match.id);
                     if (fullExpert) {
                         return {
