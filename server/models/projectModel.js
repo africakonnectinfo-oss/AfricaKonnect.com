@@ -253,6 +253,18 @@ const isMember = async (projectId, userId) => {
     return result.rowCount > 0;
 };
 
+// Find existing inquiry between client and expert
+const findExistingInquiry = async (clientId, expertId) => {
+    const text = `
+        SELECT * FROM projects
+        WHERE client_id = $1 AND selected_expert_id = $2 AND status = 'draft'
+        ORDER BY created_at DESC
+        LIMIT 1
+    `;
+    const result = await query(text, [clientId, expertId]);
+    return result.rows[0];
+};
+
 module.exports = {
     createProject,
     getProjectById,
@@ -268,5 +280,6 @@ module.exports = {
     addMember,
     removeMember,
     getProjectMembers,
-    isMember
+    isMember,
+    findExistingInquiry
 };

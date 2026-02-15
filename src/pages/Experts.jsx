@@ -7,6 +7,8 @@ import { SEO } from '../components/SEO';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { useSocket } from '../hooks/useSocket';
+
 // --- Expert Card Component ---
 const ExpertCard = ({ expert, onHire, onMessage }) => {
     return (
@@ -111,6 +113,7 @@ const FilterSection = ({ title, children }) => (
 
 export default function Experts() {
     const navigate = useNavigate();
+    const socket = useSocket();
     const [experts, setExperts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -122,24 +125,43 @@ export default function Experts() {
     });
     const [showFilters, setShowFilters] = useState(false); // Mobile filter toggle
 
-    useEffect(() => {
-        const fetchExperts = async () => {
-            setLoading(true);
-            try {
-                // Explicitly request all experts regardless of vetting status
-                const data = await api.experts.getAll({ vettingStatus: 'all' });
-                // Client-side filtering for demo since API might not handle all filters yet
-                if (data && data.experts) {
-                    setExperts(data.experts);
-                }
-            } catch (error) {
-                console.error("Failed to load experts", error);
-            } finally {
-                setLoading(false);
+    const fetchExperts = async (silent = false) => {
+        if (!silent) setLoading(true);
+        try {
+            // Explicitly request all experts regardless of vetting status
+            const data = await api.experts.getAll({ vettingStatus: 'all' });
+            if (data && data.experts) {
+                setExperts(data.experts);
             }
-        };
+        } catch (error) {
+            console.error("Failed to load experts", error);
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchExperts();
     }, []);
+
+    // Real-time listener for new experts
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewExpert = (newExpert) => {
+            console.log("Real-time expert joined:", newExpert);
+            // Refresh the list to get full data and maintain sorting/filtering
+            fetchExperts(true);
+            // Optional: Showing a small toast
+            // toast.info(`${newExpert.name} just joined as an expert!`);
+        };
+
+        socket.on('new_expert', handleNewExpert);
+
+        return () => {
+            socket.off('new_expert', handleNewExpert);
+        };
+    }, [socket]);
 
     // Derived filtered list
     const filteredExperts = experts.filter(expert => {
@@ -159,29 +181,24 @@ export default function Experts() {
     };
 
     const handleMessage = async (expert) => {
-        // Create inquiry project and navigate to collaboration
-        // This logic is duplicated from PublicProfile, could be centralized but fine for now
+        if (!user) {
+            toast.error('Please log in to message experts');
+            navigate('/login');
+            return;
+        }
+
+        if (user.role !== 'client') {
+            toast.error('Only clients can message experts');
+            return;
+        }
+
         try {
-            const projectData = {
-                title: `Inquiry: ${expert.name}`,
-                description: `Discussion with ${expert.name} regarding potential collaboration.`,
-                status: 'draft'
-            };
-
-            const newProject = await api.projects.create(projectData);
-
-            try {
-                await api.projects.invite(newProject.id, expert.user_id);
-            } catch (inviteError) {
-                console.warn("Could not auto-add expert:", inviteError);
-            }
-
-            navigate(`/collaboration/${newProject.id}`);
-
-        } catch (err) {
-            console.error("Message setup failed", err);
-            // In a real app we'd show a toast here, assuming parent has toaster
-            alert("Could not start conversation: " + (err.message || "Unknown error"));
+            const project = await api.projects.getOrCreateInquiry(expert.id);
+            toast.success('Opening conversation...');
+            navigate(`/collaboration/${project.id}`);
+        } catch (error) {
+            console.error('Failed to start conversation:', error);
+            toast.error('Failed to start conversation');
         }
     };
 

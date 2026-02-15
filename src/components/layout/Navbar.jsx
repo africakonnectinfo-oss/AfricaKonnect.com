@@ -159,130 +159,24 @@ const Navbar = () => {
                                                         initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                                         animate={{ opacity: 1, scale: 1, y: 0 }}
                                                         exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                        transition={{ duration: 0.15 }}
-                                                        className="absolute right-0 top-full mt-3 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 origin-top-right"
+                                                        transition={{ duration: 0.2, ease: "easeOut" }}
+                                                        className="absolute right-0 top-full mt-4 w-80 bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white/20 overflow-hidden z-50 origin-top-right ring-1 ring-black/5"
                                                     >
-                                                        {/* Enhanced Header with Profile Info */}
-                                                        <div className="relative bg-gradient-to-br from-primary/5 via-blue-50/50 to-purple-50/30 px-5 py-4 border-b border-gray-100">
-                                                            <div className="flex items-start gap-3">
-                                                                {/* Larger Profile Image in Dropdown */}
-                                                                <div className="relative flex-shrink-0">
-                                                                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-blue-600 p-[2px]">
-                                                                        <div className="w-full h-full rounded-full overflow-hidden bg-white">
-                                                                            {(profile?.profile_image_url || user?.profile_image_url) ? (
-                                                                                <img
-                                                                                    src={profile?.profile_image_url || user?.profile_image_url}
-                                                                                    alt="Profile"
-                                                                                    className="w-full h-full object-cover"
-                                                                                    onError={(e) => {
-                                                                                        e.target.style.display = 'none';
-                                                                                        e.target.nextSibling.style.display = 'flex';
-                                                                                    }}
-                                                                                />
-                                                                            ) : null}
-                                                                            <div
-                                                                                className="w-full h-full bg-gradient-to-br from-primary/20 to-blue-600/20 flex items-center justify-center"
-                                                                                style={{ display: (profile?.profile_image_url || user?.profile_image_url) ? 'none' : 'flex' }}
-                                                                            >
-                                                                                <span className="text-primary font-bold text-2xl">
-                                                                                    {(profile?.name || user?.name || user?.email)?.charAt(0).toUpperCase()}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-                                                                </div>
-
-                                                                {/* User Details */}
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="text-base font-bold text-gray-900 truncate">
-                                                                        {profile?.name || user?.name || 'User'}
-                                                                    </p>
-                                                                    <p className="text-xs text-gray-500 truncate mb-1.5">{user?.email}</p>
-                                                                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/80 backdrop-blur-sm rounded-full border border-gray-200/50">
-                                                                        <div className={`w-1.5 h-1.5 rounded-full ${isExpert ? 'bg-primary' : 'bg-blue-600'}`}></div>
-                                                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-700">
-                                                                            {isExpert ? 'Expert Account' : 'Client Account'}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Quick Stats for Experts */}
-                                                            {isExpert && profile && (
-                                                                <div className="mt-3 pt-3 border-t border-gray-200/50 grid grid-cols-3 gap-2">
-                                                                    <div className="text-center">
-                                                                        <p className="text-xs font-bold text-gray-900">{profile.completed_projects || 0}</p>
-                                                                        <p className="text-[10px] text-gray-500">Projects</p>
-                                                                    </div>
-                                                                    <div className="text-center">
-                                                                        <p className="text-xs font-bold text-gray-900">{profile.rating || '5.0'}</p>
-                                                                        <p className="text-[10px] text-gray-500">Rating</p>
-                                                                    </div>
-                                                                    <div className="text-center">
-                                                                        <p className="text-xs font-bold text-gray-900">{profile.profile_completeness || 0}%</p>
-                                                                        <p className="text-[10px] text-gray-500">Complete</p>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        {/* Menu Items */}
-                                                        <div className="p-2">
-                                                            {/* Profile & Settings Section */}
-                                                            <div className="mb-1">
-                                                                <Link
-                                                                    to="/profile"
-                                                                    onClick={() => setShowUserMenu(false)}
-                                                                    className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 rounded-xl hover:bg-primary/5 hover:text-primary transition-all group"
-                                                                >
-                                                                    <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
-                                                                        <User size={16} className="text-gray-600 group-hover:text-primary" />
-                                                                    </div>
-                                                                    <span>View Profile</span>
-                                                                </Link>
-                                                                <Link
-                                                                    to="/profile"
-                                                                    onClick={() => setShowUserMenu(false)}
-                                                                    className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 rounded-xl hover:bg-primary/5 hover:text-primary transition-all group"
-                                                                >
-                                                                    <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
-                                                                        <Settings size={16} className="text-gray-600 group-hover:text-primary" />
-                                                                    </div>
-                                                                    <span>Settings</span>
-                                                                </Link>
-                                                            </div>
-
-                                                            {/* Dashboard Section */}
-                                                            {isExpert && (
-                                                                <>
-                                                                    <div className="my-2 border-t border-gray-100"></div>
-                                                                    <Link
-                                                                        to="/expert-dashboard"
-                                                                        onClick={() => setShowUserMenu(false)}
-                                                                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 rounded-xl hover:bg-primary/5 hover:text-primary transition-all group"
-                                                                    >
-                                                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/10 to-blue-600/10 group-hover:from-primary/20 group-hover:to-blue-600/20 flex items-center justify-center transition-all">
-                                                                            <div className="w-2 h-2 rounded-full bg-primary"></div>
-                                                                        </div>
-                                                                        <span>Dashboard</span>
-                                                                    </Link>
-                                                                </>
-                                                            )}
-
-                                                            {/* Sign Out */}
-                                                            <div className="mt-2 pt-2 border-t border-gray-100">
-                                                                <button
-                                                                    onClick={handleLogout}
-                                                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 rounded-xl hover:bg-red-50 transition-all group"
-                                                                >
-                                                                    <div className="w-8 h-8 rounded-lg bg-red-50 group-hover:bg-red-100 flex items-center justify-center transition-colors">
-                                                                        <LogOut size={16} className="text-red-600" />
-                                                                    </div>
-                                                                    <span>Sign Out</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
+                                                        {isExpert ? (
+                                                            <ExpertDropdown
+                                                                profile={profile}
+                                                                user={user}
+                                                                signOut={handleLogout}
+                                                                closeMenu={() => setShowUserMenu(false)}
+                                                            />
+                                                        ) : (
+                                                            <ClientDropdown
+                                                                profile={profile}
+                                                                user={user}
+                                                                signOut={handleLogout}
+                                                                closeMenu={() => setShowUserMenu(false)}
+                                                            />
+                                                        )}
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
@@ -372,6 +266,238 @@ const Navbar = () => {
                 </AnimatePresence>
             </nav>
         </header>
+    );
+};
+
+// --- Sub-components (Internal to this file or could be moved) ---
+
+const DropdownHeader = ({ profile, user, isExpert }) => (
+    <div className="relative bg-gradient-to-br from-primary/5 via-blue-50/50 to-purple-50/30 px-6 py-5 border-b border-gray-100">
+        <div className="flex items-center gap-4">
+            <div className="relative flex-shrink-0">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-blue-600 p-[2px] shadow-lg shadow-primary/20">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-white">
+                        {(profile?.profile_image_url || user?.profile_image_url) ? (
+                            <img
+                                src={profile?.profile_image_url || user?.profile_image_url}
+                                alt="Profile"
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-blue-600/20 flex items-center justify-center">
+                                <span className="text-primary font-bold text-2xl">
+                                    {(profile?.name || user?.name || user?.email)?.charAt(0).toUpperCase()}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="absolute bottom-0 right-0 w-4.5 h-4.5 bg-green-500 border-[3px] border-white rounded-full"></div>
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-lg font-bold text-gray-900 truncate leading-tight">
+                    {profile?.name || user?.name || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 truncate mb-2">{user?.email}</p>
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border ${isExpert ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-blue-50 border-blue-100 text-blue-700'} font-bold text-[10px] uppercase tracking-wider`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isExpert ? 'bg-primary' : 'bg-blue-600'} animate-pulse`}></div>
+                    {isExpert ? 'Expert' : 'Client'}
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+const DropdownLink = ({ to, icon: Icon, label, onClick, variant = "default" }) => (
+    <Link
+        to={to}
+        onClick={onClick}
+        className={cn(
+            "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-200 group mb-1",
+            variant === "danger"
+                ? "text-red-600 hover:bg-red-50"
+                : "text-gray-700 hover:bg-primary/5 hover:text-primary"
+        )}
+    >
+        <div className={cn(
+            "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200",
+            variant === "danger"
+                ? "bg-red-50 group-hover:bg-red-100 shadow-sm"
+                : "bg-gray-50 group-hover:bg-primary/10 group-hover:shadow-sm"
+        )}>
+            <Icon size={18} className={variant === "danger" ? "text-red-500" : "text-gray-600 group-hover:text-primary"} />
+        </div>
+        <span className="flex-1">{label}</span>
+        <ChevronRight size={14} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+    </Link>
+);
+
+const ExpertDropdown = ({ profile, user, signOut, closeMenu }) => (
+    <>
+        <DropdownHeader profile={profile} user={user} isExpert={true} />
+
+        <div className="px-5 py-4 border-b border-gray-100">
+            <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Performance</span>
+                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                    {profile?.profile_completeness || 0}% Complete
+                </span>
+            </div>
+            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden mb-4">
+                <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${profile?.profile_completeness || 0}%` }}
+                    transition={{ duration: 0.5 }}
+                    className="h-full bg-gradient-to-r from-primary to-blue-600"
+                />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 text-center">
+                    <p className="text-xs text-gray-500 mb-0.5">Rating</p>
+                    <p className="text-sm font-bold text-gray-900">⭐ {profile?.rating || '5.0'}</p>
+                </div>
+                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 text-center">
+                    <p className="text-xs text-gray-500 mb-0.5">Earnings</p>
+                    <p className="text-sm font-bold text-gray-900">${profile?.total_earnings || '0.00'}</p>
+                </div>
+            </div>
+        </div>
+
+        <div className="p-3">
+            <DropdownLink to="/expert-dashboard" icon={Settings} label="Dashboard" onClick={closeMenu} />
+            <DropdownLink to="/marketplace" icon={User} label="Browse Projects" onClick={closeMenu} />
+            <DropdownLink to="/my-bids" icon={ChevronRight} label="My Proposals" onClick={closeMenu} />
+            <div className="my-2 border-t border-gray-100 mx-2"></div>
+            <DropdownLink to="/profile" icon={User} label="My Profile" onClick={closeMenu} />
+            <DropdownLink to="/profile" icon={Settings} label="Settings" onClick={closeMenu} />
+            <div className="my-2 border-t border-gray-100 mx-2"></div>
+            <button onClick={signOut} className="w-full text-left">
+                <DropdownLink to="/" icon={LogOut} label="Log Out" variant="danger" />
+            </button>
+        </div>
+    </>
+);
+
+const ClientDropdown = ({ profile, user, signOut, closeMenu }) => (
+    <>
+        <DropdownHeader profile={profile} user={user} isExpert={false} />
+
+        <div className="px-5 py-4 border-b border-gray-100">
+            <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Workspace</span>
+                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">Verified Client</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50 text-center">
+                    <p className="text-xs text-gray-500 mb-0.5">Active Projects</p>
+                    <p className="text-sm font-bold text-gray-900">{profile?.active_projects || 0}</p>
+                </div>
+                <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50 text-center">
+                    <p className="text-xs text-gray-500 mb-0.5">Total Spend</p>
+                    <p className="text-sm font-bold text-gray-900">${profile?.total_spend || '0'}</p>
+                </div>
+            </div>
+        </div>
+
+        <div className="p-3">
+            <DropdownLink to="/project-hub" icon={Settings} label="Project Hub" onClick={closeMenu} />
+            <DropdownLink to="/collaboration" icon={User} label="Collaborations" onClick={closeMenu} />
+            <div className="my-2 border-t border-gray-100 mx-2"></div>
+            <DropdownLink to="/profile" icon={User} label="My Profile" onClick={closeMenu} />
+            <DropdownLink to="/profile" icon={Settings} label="Workspace Settings" onClick={closeMenu} />
+            <div className="my-2 border-t border-gray-100 mx-2"></div>
+            <button onClick={signOut} className="w-full text-left">
+                <DropdownLink to="/" icon={LogOut} label="Log Out" variant="danger" />
+            </button>
+        </div>
+    </>
+);
+                                        </div >
+                                    </>
+                                ) : (
+    <Link to="/signup">
+        <Button size="sm">Get Started</Button>
+    </Link>
+)}
+                            </div >
+    <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="md:hidden p-2 text-gray-600 hover:text-primary transition-colors"
+    >
+        {isOpen ? <X size={24} /> : <Menu size={24} />}
+    </button>
+                        </div >
+                    </div >
+                </div >
+
+    {/* Mobile Navigation */ }
+    < AnimatePresence >
+    { isOpen && (
+        <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-white border-b border-gray-100 overflow-hidden"
+        >
+            <div className="px-4 py-6 space-y-4">
+                {navLinks.map((link) => (
+                    <Link
+                        key={link.path}
+                        to={link.path}
+                        onClick={() => setIsOpen(false)}
+                        className={cn(
+                            "block text-base font-medium py-2 border-b border-gray-50 last:border-0",
+                            isActive(link.path) ? "text-primary" : "text-gray-600"
+                        )}
+                    >
+                        <div className="flex items-center justify-between">
+                            {link.name}
+                            <ChevronRight size={16} className="text-gray-400" />
+                        </div>
+                    </Link>
+                ))}
+                <div className="pt-4 space-y-2">
+                    {user ? (
+                        <>
+                            <div className="p-3 bg-gray-50 rounded-lg mb-2">
+                                <p className="text-sm font-medium text-gray-900">
+                                    {profile?.name || user.email?.split('@')[0]}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {isExpert ? 'Expert Account' : 'Client Account'}
+                                </p>
+                            </div>
+                            <Link to="/profile" onClick={() => setIsOpen(false)}>
+                                <Button variant="secondary" className="w-full" size="lg">
+                                    <Settings size={16} className="mr-2" />
+                                    Edit Profile
+                                </Button>
+                            </Link>
+                            <Button
+                                onClick={() => {
+                                    handleLogout();
+                                    setIsOpen(false);
+                                }}
+                                variant="secondary"
+                                className="w-full"
+                                size="lg"
+                            >
+                                <LogOut size={16} className="mr-2" />
+                                Logout
+                            </Button>
+                        </>
+                    ) : (
+                        <Link to="/signup" onClick={() => setIsOpen(false)}>
+                            <Button className="w-full" size="lg">Get Started</Button>
+                        </Link>
+                    )}
+                </div>
+            </div>
+        </motion.div>
+    )}
+                </AnimatePresence >
+            </nav >
+        </header >
     );
 };
 

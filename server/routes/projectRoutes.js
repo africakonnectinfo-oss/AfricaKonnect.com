@@ -11,7 +11,8 @@ const {
     respondToInvite,
     getInvitedProjects,
     updateState,
-    getHistory: getProjectStateHistory
+    getHistory: getProjectStateHistory,
+    getOrCreateInquiry
 } = require('../controllers/projectController');
 const { getMarketplace } = require('../controllers/marketplaceController');
 const { fundEscrow, releaseFunds, getHistory } = require('../controllers/transactionController');
@@ -28,6 +29,7 @@ router.get('/marketplace', authorize('expert'), getMarketplace);
 
 // Create project (clients only)
 router.post('/', authorize('client'), validateProject, createProject);
+router.post('/inquiry', authorize('client'), getOrCreateInquiry);
 
 // Get all projects (with filters)
 router.get('/', getAllProjects);

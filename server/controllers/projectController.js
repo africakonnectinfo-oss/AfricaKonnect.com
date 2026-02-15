@@ -410,3 +410,47 @@ exports.getMembers = async (req, res) => {
     }
 };
 
+// Get or create inquiry (direct message project)
+exports.getOrCreateInquiry = async (req, res) => {
+    try {
+        const { expertId } = req.body;
+        const clientId = req.user.id;
+
+        if (req.user.role !== 'client') {
+            return res.status(403).json({ message: 'Only clients can initiate inquiries' });
+        }
+
+        const { findExistingInquiry, createProject, assignExpert, addMember } = require('../models/projectModel');
+        const { getUserById } = require('../models/userModel');
+
+        // 1. Check for existing inquiry
+        let project = await findExistingInquiry(clientId, expertId);
+
+        if (project) {
+            return res.json(project);
+        }
+
+        // 2. Create new inquiry project
+        const expert = await getUserById(expertId);
+        if (!expert) {
+            return res.status(404).json({ message: 'Expert not found' });
+        }
+
+        project = await createProject({
+            clientId,
+            title: `Inquiry: ${expert.name}`,
+            description: `Direct conversation between ${req.user.name} and ${expert.name}.`,
+            status: 'draft'
+        });
+
+        // 3. Assign expert and add as member
+        await assignExpert(project.id, expertId);
+        await addMember(project.id, expertId, 'expert');
+        await addMember(project.id, clientId, 'client');
+
+        res.status(201).json(project);
+    } catch (error) {
+        console.error('Inquiry creation error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};

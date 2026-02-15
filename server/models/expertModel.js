@@ -15,11 +15,19 @@ const createExpertProfile = async (profileData) => {
 
     const text = `
         INSERT INTO expert_profiles 
-        (user_id, title, bio, location, skills, hourly_rate, profile_image_url, certifications, vetting_status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'verified')
+        (user_id, title, bio, location, skills, hourly_rate, profile_image_url, certifications, vetting_status, country, city, company, services, documents)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'verified', $9, $10, $11, $12, $13)
         RETURNING *
     `;
-    const values = [userId, title, bio, location, skills, hourlyRate, profileImageUrl, JSON.stringify(certifications)];
+    const values = [
+        userId, title, bio, location, skills, hourlyRate, profileImageUrl,
+        JSON.stringify(certifications),
+        profileData.country || null,
+        profileData.city || null,
+        profileData.company || null,
+        profileData.services ? JSON.stringify(profileData.services) : JSON.stringify([]),
+        profileData.documents ? JSON.stringify(profileData.documents) : JSON.stringify([])
+    ];
 
     try {
         const result = await query(text, values);
@@ -65,7 +73,12 @@ const updateExpertProfile = async (userId, profileData) => {
         skills,
         hourlyRate,
         profileImageUrl,
-        certifications
+        certifications,
+        country,
+        city,
+        company,
+        services,
+        documents
     } = profileData;
 
     const text = `
@@ -77,11 +90,23 @@ const updateExpertProfile = async (userId, profileData) => {
             skills = COALESCE($4, skills),
             hourly_rate = COALESCE($5, hourly_rate),
             profile_image_url = COALESCE($6, profile_image_url),
-            certifications = COALESCE($7, certifications)
-        WHERE user_id = $8
+            certifications = COALESCE($7, certifications),
+            country = COALESCE($8, country),
+            city = COALESCE($9, city),
+            company = COALESCE($10, company),
+            services = COALESCE($11, services),
+            documents = COALESCE($12, documents)
+        WHERE user_id = $13
         RETURNING *
     `;
-    const values = [title, bio, location, skills, hourlyRate, profileImageUrl, certifications ? JSON.stringify(certifications) : null, userId];
+    const values = [
+        title, bio, location, skills, hourlyRate, profileImageUrl,
+        certifications ? JSON.stringify(certifications) : null,
+        country, city, company,
+        services ? JSON.stringify(services) : null,
+        documents ? JSON.stringify(documents) : null,
+        userId
+    ];
     const result = await query(text, values);
     return result.rows[0];
 };
@@ -185,17 +210,20 @@ const getExpertCountByStatus = async () => {
  */
 const calculateProfileCompleteness = (profile) => {
     const fields = {
-        title: 10,
-        bio: 15,
-        location: 10,
-        skills: 15,
-        skill_categories: 10,
+        title: 8,
+        bio: 12,
+        location: 5,
+        country: 5,
+        city: 5,
+        skills: 10,
+        skill_categories: 5,
         hourly_rate: 10,
         rate_min: 5,
         rate_max: 5,
         profile_image_url: 10,
         portfolio_items: 10,
-        availability_calendar: 10
+        availability_calendar: 10,
+        documents: 10
     };
 
     let completeness = 0;

@@ -44,38 +44,28 @@ const PublicProfile = () => {
     };
 
     const handleMessage = async () => {
-        if (!currentUser) {
-            navigate('/signin', { state: { returnUrl: `/expert/${id}` } });
+        if (!currentUser) { // Changed from `user` to `currentUser` to match component's state
+            toast.error('Please log in to message experts');
+            navigate('/signin'); // Changed from `/login` to `/signin` to match existing app routes
             return;
         }
 
+        if (currentUser.role !== 'client') { // Changed from `user` to `currentUser`
+            toast.error('Only clients can message experts');
+            return;
+        }
+
+        setMessaging(true); // Use `setMessaging` state for this action
         try {
-            setMessaging(true);
-            // check if there is existing draft project or create new one
-            // specific "Inquiry" logic: create a draft project to hold the conversation
-            const projectData = {
-                title: `Inquiry: ${profile.name}`,
-                description: `Discussion with ${profile.name} regarding potential collaboration.`,
-                status: 'draft',
-                // We might need to handle assignment logic on backend if we want them added immediately
-                // For now, we create project then user can Invite or we assume this flow adds them
-            };
+            // Use the new inquiry endpoint
+            const project = await api.projects.getOrCreateInquiry(profile.id);
 
-            const newProject = await api.projects.create(projectData);
+            toast.success('Opening conversation...');
+            navigate(`/collaboration/${project.id}`);
 
-            // Invite the expert to this project immediately
-            try {
-                await api.projects.invite(newProject.id, profile.id);
-            } catch (inviteError) {
-                console.warn("Could not auto-add expert (might need to be done in Hub):", inviteError);
-            }
-
-            toast.success("Conversation started!");
-            navigate(`/collaboration/${newProject.id}`);
-
-        } catch (err) {
-            console.error("Message setup failed", err);
-            toast.error("Could not start conversation. Please try again.");
+        } catch (error) {
+            console.error("Failed to start conversation:", error);
+            toast.error("Failed to start conversation. Please try again.");
         } finally {
             setMessaging(false);
         }

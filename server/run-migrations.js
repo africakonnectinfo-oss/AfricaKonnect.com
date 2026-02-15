@@ -8,16 +8,21 @@ console.log('DB Config:', {
     user: process.env.DB_USER
 });
 
-const pool = new Pool({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
+const pool = process.env.DATABASE_URL
+    ? new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+    })
+    : new Pool({
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        database: process.env.DB_NAME,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        ssl: {
+            rejectUnauthorized: false
+        }
+    });
 
 async function runMigrations() {
     const client = await pool.connect();
@@ -42,15 +47,6 @@ async function runMigrations() {
         );
         await client.query(passwordResetSql);
         console.log('✅ Password reset fields added successfully\n');
-
-        // Verify tables
-        console.log('🔍 Verifying migrations...');
-        const auditLogsCheck = await client.query(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'audit_logs'
-            );
-        `);
 
         // Migration 3: Audit Fixes (Timeline & Digital Signatures)
         console.log('📝 Running migration: 005_audit_fixes.sql');
@@ -105,6 +101,15 @@ async function runMigrations() {
         );
         await client.query(projectInterestsSql);
         console.log('✅ Project interests table created successfully\n');
+
+        // Migration 9: Add Profile Details (Country, City, Documents, etc.)
+        console.log('📝 Running migration: 005_add_profile_details.sql');
+        const profileDetailsSql = fs.readFileSync(
+            path.join(__dirname, 'database/migrations/005_add_profile_details.sql'),
+            'utf8'
+        );
+        await client.query(profileDetailsSql);
+        console.log('✅ Profile details fields added successfully\n');
 
 
         console.log('\n🎉 All migrations completed successfully!');

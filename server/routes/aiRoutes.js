@@ -7,6 +7,7 @@ const { protect } = require('../middleware/authMiddleware'); // Ensure protected
 router.post('/match', protect, aiController.matchExperts);
 router.post('/draft-contract', protect, aiController.draftContract);
 router.post('/chat', protect, aiController.chat);
+router.post('/chat-stream', protect, aiController.chatStream);
 router.post('/generate-project', protect, aiController.generateProjectDetails);
 router.post('/generate-proposal', protect, aiController.generateProposal);
 router.post('/generate-interview', protect, aiController.generateInterviewQuestions);

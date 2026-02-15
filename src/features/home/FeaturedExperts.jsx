@@ -5,27 +5,43 @@ import { Button } from '../../components/ui/Button';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 
+import { useSocket } from '../../hooks/useSocket';
+
 const FeaturedExperts = () => {
+    const socket = useSocket();
     const [experts, setExperts] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchFeatured = async () => {
-            try {
-                // Fetch all experts (limit to 3 for featured section)
-                const data = await api.experts.getAll({ vettingStatus: 'all', limit: 3 });
-                if (data && data.experts) {
-                    setExperts(data.experts);
-                }
-            } catch (error) {
-                console.error('Failed to fetch featured experts:', error);
-            } finally {
-                setLoading(false);
+    const fetchFeatured = async (silent = false) => {
+        if (!silent) setLoading(true);
+        try {
+            // Fetch all experts (limit to 3 for featured section)
+            const data = await api.experts.getAll({ vettingStatus: 'all', limit: 3 });
+            if (data && data.experts) {
+                setExperts(data.experts);
             }
-        };
+        } catch (error) {
+            console.error('Failed to fetch featured experts:', error);
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchFeatured();
     }, []);
+
+    // Real-time listener
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewExpert = () => {
+            fetchFeatured(true);
+        };
+
+        socket.on('new_expert', handleNewExpert);
+        return () => socket.off('new_expert', handleNewExpert);
+    }, [socket]);
 
     const LoadingSkeleton = () => (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

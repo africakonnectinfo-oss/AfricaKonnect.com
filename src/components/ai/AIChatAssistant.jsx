@@ -30,16 +30,28 @@ const AIChatAssistant = () => {
         setInput('');
         setIsLoading(true);
 
+        const aiMsgIndex = messages.length + 1;
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
         try {
             const context = {
                 currentPath: window.location.pathname,
-                // Add more context if needed (e.g. current project if in hub)
             };
-            const res = await api.ai.chat(input, context);
-            setMessages(prev => [...prev, { role: 'assistant', content: res.reply }]);
+
+            await api.ai.chatStream(input, context, (chunk) => {
+                setMessages(prev => {
+                    const newMessages = [...prev];
+                    newMessages[aiMsgIndex].content += chunk;
+                    return newMessages;
+                });
+            });
         } catch (error) {
             console.error(error);
-            setMessages(prev => [...prev, { role: 'assistant', content: "I'm sorry, I'm having trouble connecting right now. Please try again later." }]);
+            setMessages(prev => {
+                const newMessages = [...prev];
+                newMessages[aiMsgIndex].content = "I'm sorry, I'm having trouble connecting right now. Please try again later.";
+                return newMessages;
+            });
         } finally {
             setIsLoading(false);
         }
@@ -89,8 +101,8 @@ const AIChatAssistant = () => {
                                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
                                             <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm border ${msg.role === 'user'
-                                                    ? 'bg-primary text-white rounded-br-none border-primary'
-                                                    : 'bg-white text-gray-800 rounded-bl-none border-gray-100'
+                                                ? 'bg-primary text-white rounded-br-none border-primary'
+                                                : 'bg-white text-gray-800 rounded-bl-none border-gray-100'
                                                 }`}>
                                                 {msg.content}
                                             </div>

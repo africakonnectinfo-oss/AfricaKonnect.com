@@ -129,6 +129,21 @@ exports.registerUser = async (req, res) => {
                         certifications: []
                     });
                     console.log(`✅ Auto-created expert profile for ${user.email}`);
+
+                    // Emit event to notify clients about the new expert
+                    const io = req.app.get('io');
+                    if (io) {
+                        io.emit('new_expert', {
+                            id: user.id,
+                            name: user.name,
+                            role: user.role,
+                            title: 'New Expert',
+                            location: 'Remote',
+                            profile_image_url: null,
+                            rating: null,
+                            review_count: 0
+                        });
+                    }
                 } catch (expertError) {
                     console.error('❌ Failed to auto-create expert profile:', expertError);
                     // Don't fail the whole registration, but log it clearly

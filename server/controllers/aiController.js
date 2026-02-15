@@ -100,7 +100,7 @@ const aiController = {
         }
     },
 
-    // Generate Chat Response
+    // Generate Chat Response (Blocking)
     chat: async (req, res) => {
         try {
             const { message, context } = req.body;
@@ -111,16 +111,26 @@ const aiController = {
             }
 
             const systemPrompt = `
-                You are the Africa Konnect AI Assistant.
-                Your goal is to help users (Clients and Experts) navigate the platform, draft contracts, and collaborate effectively.
+                You are the Africa Konnect AI Assistant, a premium AI expert dedicated to helping users thrive on Africa's leading expert platform.
+                
+                YOUR IDENTITY:
+                - Helpful, professional, and culturally aware.
+                - Expert in freelancing, project management, and collaboration.
+                
+                YOUR GOALS:
+                1. Help Clients define project requirements and find the best experts.
+                2. Help Experts draft winning proposals and manage their workflow.
+                3. Answer general platform questions (pricing, escrow, how it works).
+                4. Assist with legal document drafting (contracts/NDAs).
                 
                 CONTEXT:
-                ${context ? JSON.stringify(context) : 'No specific context provided.'}
+                Current Page: ${context?.currentPath || 'Unknown'}
+                User Context: ${context ? JSON.stringify(context) : 'General Inquiry'}
 
-                RESPONSE GUIDELINES:
-                - Be helpful, professional, and concise.
-                - If asked about contracts, suggest using the "Draft Contract" feature.
-                - Keep responses under 200 words unless detailed explanation is requested.
+                GUIDELINES:
+                - If asked about contracts, suggest the "Draft Contract" tool.
+                - Keep responses concise (under 150 words) unless detail is asked.
+                - Use markdown for lists and bold text.
             `;
 
             const msg = await anthropic.messages.create({
@@ -134,96 +144,112 @@ const aiController = {
 
         } catch (error) {
             console.error('AI Chat Claude Error:', error);
-            // Return specific error message if available from Anthropic
-            const message = error.message || 'Failed to generate AI response';
-            res.status(500).json({ error: message });
+            res.status(500).json({ error: error.message || 'Failed to generate AI response' });
         }
     },
 
-    // Draft Contract
+    // Streaming Chat Response (Real-time)
+    chatStream: async (req, res) => {
+        try {
+            const { message, context } = req.body;
+
+            const anthropic = getAnthropicClient();
+            if (!anthropic) {
+                return res.write(`data: ${JSON.stringify({ error: "No API Key" })}\n\n`);
+            }
+
+            // Set headers for SSE
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+
+            const systemPrompt = `You are the Africa Konnect AI Assistant. Respond professionally and helpfully to the user's request regarding the platform. Current Page: ${context?.currentPath || 'General'}`;
+
+            const stream = await anthropic.messages.create({
+                model: CLAUDE_MODEL,
+                max_tokens: 1024,
+                system: systemPrompt,
+                messages: [{ role: "user", content: message }],
+                stream: true,
+            });
+
+            for await (const event of stream) {
+                if (event.type === 'content_block_delta') {
+                    res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+                }
+            }
+
+            res.write('data: [DONE]\n\n');
+            res.end();
+
+        } catch (error) {
+            console.error('AI Stream Error:', error);
+            res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+            res.end();
+        }
+    },
+
+    // Draft Contract (Refined for Perfection)
     draftContract: async (req, res) => {
         try {
             const { projectName, clientName, expertName, rate, deliverables, duration } = req.body;
 
             const prompt = `
-                Draft a professional freelance service agreement for the Africa Konnect platform.
+                Draft a professional, legally-sound independent contractor agreement for a freelance engagement on Africa Konnect.
                 
-                DETAILS:
-                - Project: ${projectName}
+                PROJECT DETAILS:
+                - Project Name: ${projectName}
                 - Client: ${clientName}
-                - Expert/Freelancer: ${expertName}
-                - Rate: $${rate}/hr
-                - Duration: ${duration || 'To be determined'}
-                - Key Deliverables: ${deliverables || 'As agreed upon in project milestones'}
+                - Expert: ${expertName}
+                - Payment Rate: $${rate}/hr
+                - Estimated Duration: ${duration || 'TBD'}
+                - Key Deliverables: ${deliverables || 'Specific services as defined in project milestones'}
 
-                FORMAT:
-                Markdown.
-                
-                STRUCTURE:
-                # Independent Contractor Agreement
-                
-                ## 1. Parties
-                This agreement is between **${clientName}** (Client) and **${expertName}** (Contractor).
-                
-                ## 2. Services
-                Contractor agrees to provide the following services:
-                ${deliverables ? deliverables : '- Professional services as requested by Client related to ' + projectName}
-                
-                ## 3. Compensation
-                Client agrees to pay Contractor at the rate of **$${rate}/hr**.
-                
-                ## 4. Term
-                This agreement shall commence on ${new Date().toLocaleDateString()} and continue until completed or terminated.
-                
-                ## 5. Confidentiality
-                Contractor acknowledges that they may have access to proprietary information and agrees to keep it confidential.
-                
-                ## 6. Independent Contractor Status
-                Contractor is an independent contractor, not an employee.
-                
-                ---
-                *Generated by Africa Konnect AI (Claude Powered)*
+                REQUIREMENTS:
+                1. Professional, standard contract language.
+                2. Explicit sections for Parties, Services, Compensation, Intellectual Property, and Confidentiality.
+                3. Clear Markdown formatting with H1, H2, and Bullet points.
+                4. Tone: Serious and authoritative.
             `;
 
             const anthropic = getAnthropicClient();
-            if (!anthropic) {
-                return res.json({ contract: "Contract drafting unavailable (No AI API Key provided)." });
-            }
+            if (!anthropic) return res.json({ contract: "Contract drafting unavailable (No API Key)." });
 
             const msg = await anthropic.messages.create({
                 model: CLAUDE_MODEL,
-                max_tokens: 2048,
+                max_tokens: 2500,
                 messages: [{ role: "user", content: prompt }],
             });
 
             res.json({ contract: msg.content[0].text });
 
         } catch (error) {
-            console.error('AI Contract Claude Error:', error);
-            res.status(500).json({ error: error.message || 'Failed to draft contract' });
+            console.error('AI Contract Error:', error);
+            res.status(500).json({ error: error.message });
         }
     },
 
-    // 1. AI Project Generator
+    // 1. AI Project Generator (Refined for Accuracy)
     generateProjectDetails: async (req, res) => {
         try {
             const { idea } = req.body;
-            if (!idea) return res.status(400).json({ error: "No project idea provided" });
+            if (!idea) return res.status(400).json({ error: "No idea provided" });
 
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ error: "AI features require an Anthropic API Key." });
+            if (!anthropic) return res.json({ error: "AI disabled" });
 
             const prompt = `
-                Turn this project idea into a structured project plan:
+                Task: Act as a Senior Project Architect. Transform a raw project idea into a professional project brief for the Africa Konnect platform.
+                
                 IDEA: ${idea}
 
-                OUTPUT FORMAT (JSON ONLY):
+                OUTPUT REQUIREMENTS (STRICT JSON ONLY):
                 {
-                    "title": "Concise Project Title",
-                    "description": "Professional 2-3 sentence project overview",
-                    "techStack": ["Tech1", "Tech2", "Tech3"],
-                    "estimated_budget": 5000,
-                    "estimated_duration": "1_3_months"
+                    "title": "A compelling, professional project name",
+                    "description": "A high-quality 3-sentence summary highlighting the value proposition and core goals.",
+                    "techStack": ["Primary Tech", "Secondary Tech", "Supporting Tools"],
+                    "estimated_budget": 2000,
+                    "estimated_duration": "4_12_weeks"
                 }
             `;
 
@@ -239,40 +265,49 @@ const aiController = {
 
             res.json(parsedResult);
         } catch (error) {
-            console.error('AI Generate Project Error:', error);
+            console.error('AI Project Gen Error:', error);
             res.status(500).json({ error: error.message });
         }
     },
 
-    // 2. AI Proposal Generator
+    // 2. AI Proposal Generator (Refined for Success)
     generateProposal: async (req, res) => {
         try {
             const { project, expert } = req.body;
 
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ error: "AI features require an Anthropic API Key." });
+            if (!anthropic) return res.json({ error: "AI disabled" });
 
             const prompt = `
-                Draft a winning project proposal for this expert based on the project description.
+                Task: Draft a high-converting, professional project proposal for an expert on Africa Konnect.
                 
-                PROJECT: ${project.title} - ${project.description}
-                EXPERT: ${expert.name} - ${expert.title}. Skills: ${expert.skills}. Bio: ${expert.bio}
+                PROJECT CONTEXT:
+                Title: ${project.title}
+                Description: ${project.description}
 
-                TASK:
-                Write a professional, persuasive cover letter (markdown). 
-                Focus on how the expert's skills solve the project's specific needs.
-                Keep it under 300 words.
+                EXPERT PROFILE:
+                Name: ${expert.name}
+                Title: ${expert.title}
+                Skills: ${expert.skills}
+                Bio: ${expert.bio}
+
+                PROPOSAL REQUIREMENTS:
+                1. Professional and respectful tone.
+                2. Highlight specific skills that match the project's needs.
+                3. Propose a clear value proposition.
+                4. Length: Under 250 words.
+                5. Format: Markdown.
             `;
 
             const msg = await anthropic.messages.create({
                 model: CLAUDE_MODEL,
-                max_tokens: 1024,
+                max_tokens: 1500,
                 messages: [{ role: "user", content: prompt }],
             });
 
             res.json({ proposal: msg.content[0].text });
         } catch (error) {
-            console.error('AI Generate Proposal Error:', error);
+            console.error('AI Proposal Gen Error:', error);
             res.status(500).json({ error: error.message });
         }
     },
@@ -283,60 +318,67 @@ const aiController = {
             const { project, expert } = req.body;
 
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ error: "AI features require an Anthropic API Key." });
+            if (!anthropic) return res.json({ error: "AI disabled" });
 
             const prompt = `
-                Generate 5-7 tailored technical/behavioral interview questions for a client to ask a candidate for this specific project.
+                Generate a list of 5 deeply technical and 2 behavioral interview questions for this specific project and candidate.
                 
                 PROJECT: ${project.title} - ${project.description}
-                CANDIDATE: ${expert.name} - ${expert.title}. Skills: ${expert.skills}
+                CANDIDATE: ${expert.name} - ${expert.title} (${expert.skills})
 
-                OUTPUT FORMAT:
-                Markdown list of questions with brief explanation of what each question evaluates.
+                STRUCTURE:
+                1. Question
+                2. Evaluation Criteria: What should the client look for in the answer?
+                Format as a clean Markdown list.
             `;
 
             const msg = await anthropic.messages.create({
                 model: CLAUDE_MODEL,
-                max_tokens: 1024,
+                max_tokens: 1500,
                 messages: [{ role: "user", content: prompt }],
             });
 
             res.json({ questions: msg.content[0].text });
         } catch (error) {
-            console.error('AI Generate Interview Error:', error);
+            console.error('AI Interview Gen Error:', error);
             res.status(500).json({ error: error.message });
         }
     },
 
-    // 4. AI Collaboration AI
+    // 4. AI Collaboration AI (Refined for Real-time action)
     getCollaborationSuggestions: async (req, res) => {
         try {
             const { project } = req.body;
 
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ error: "AI features require an Anthropic API Key." });
+            if (!anthropic) return res.json({ error: "AI disabled" });
 
             const prompt = `
-                Suggest a roadmap for this project including key milestones and initial tasks.
+                As a Project Manager, suggest a 4-milestone roadmap and 5 initial urgent tasks for this project.
                 
                 PROJECT: ${project.title} - ${project.description}
 
-                OUTPUT FORMAT (JSON ONLY):
+                OUTPUT FORMAT (STRICT JSON ONLY):
                 {
                     "milestones": [
-                        {"title": "Setup", "description": "Initial environment setup"},
-                        {"title": "MVP", "description": "Release of core features"}
+                        {"title": "Planning & Discovery", "description": "Defining requirements and architecture."},
+                        {"title": "Core Development Phase 1", "description": "Building foundational features."},
+                        {"title": "Core Development Phase 2", "description": "Building advanced features and integrations."},
+                        {"title": "Testing & Deployment", "description": "Quality assurance and production launch."}
                     ],
                     "tasks": [
-                        {"title": "Design Mockups", "priority": "high"},
-                        {"title": "API Backend", "priority": "medium"}
+                        {"title": "Finalize Requirements Document", "priority": "high"},
+                        {"title": "Setup Development Environment", "priority": "high"},
+                        {"title": "Design Database Schema", "priority": "medium"},
+                        {"title": "Build Authentication System", "priority": "high"},
+                        {"title": "Create Project Roadmap in Hub", "priority": "medium"}
                     ]
                 }
             `;
 
             const msg = await anthropic.messages.create({
                 model: CLAUDE_MODEL,
-                max_tokens: 1024,
+                max_tokens: 1500,
                 messages: [{ role: "user", content: prompt }],
             });
 
@@ -346,7 +388,7 @@ const aiController = {
 
             res.json(parsedResult);
         } catch (error) {
-            console.error('AI Collaboration Suggestions Error:', error);
+            console.error('AI Collab Suggestions Error:', error);
             res.status(500).json({ error: error.message });
         }
     }

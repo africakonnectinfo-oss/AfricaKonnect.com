@@ -116,6 +116,11 @@ export const api = {
             headers: getHeaders(),
             body: JSON.stringify(data),
         }),
+        getOrCreateInquiry: async (expertId) => apiRequest('/projects/inquiry', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ expertId }),
+        }),
         getAll: async (params = {}) => {
             const queryString = new URLSearchParams(params).toString();
             return apiRequest(`/projects?${queryString}`, {
@@ -620,16 +625,46 @@ export const api = {
             });
         },
         chatStream: async (message, context, onChunk) => {
-            // Currently our backend chat doesn't support streaming easy via fetch wrapper, 
-            // so we fallback to standard chat for consistency.
-            const res = await api.ai.chat(message, context);
-            if (onChunk && res.reply) {
-                onChunk(res.reply);
+            const user = JSON.parse(localStorage.getItem('userInfo'));
+            const response = await fetch(`${API_URL}/ai/chat-stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user?.token}`
+                },
+                body: JSON.stringify({ message, context }),
+            });
+
+            if (!response.ok) throw new Error('Failed to start AI stream');
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep partial line in buffer
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.slice(6).trim();
+                        if (dataStr === '[DONE]') continue;
+                        try {
+                            const data = JSON.parse(dataStr);
+                            if (data.text) onChunk(data.text);
+                            if (data.error) throw new Error(data.error);
+                        } catch (e) {
+                            console.warn("Stream parse error:", e);
+                        }
+                    }
+                }
             }
-            return res;
         },
         matchExperts: async (data) => {
-            // Prefer Backend for Anthropic Claude integration
             return apiRequest('/ai/match', {
                 method: 'POST',
                 body: JSON.stringify(data),
@@ -661,13 +696,6 @@ export const api = {
             return apiRequest('/ai/collaboration-help', {
                 method: 'POST',
                 body: JSON.stringify({ project }),
-                headers: getHeaders(),
-            });
-        },
-        chat: async (message, context) => {
-            return apiRequest('/ai/chat', {
-                method: 'POST',
-                body: JSON.stringify({ message, context }),
                 headers: getHeaders(),
             });
         }
