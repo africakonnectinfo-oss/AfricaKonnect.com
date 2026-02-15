@@ -69,7 +69,14 @@ exports.uploadImage = async (req, res) => {
         fs.writeFileSync(filePath, buffer);
 
         // Return URL (relative to server root, served via static middleware)
-        const url = `${process.env.API_URL || 'http://localhost:5000'}/uploads/${filename}`;
+        // Return URL (relative to server root, served via static middleware)
+        // Use production URL if in production mode, otherwise localhost
+        const baseUrl = process.env.API_URL ||
+            (process.env.NODE_ENV === 'production'
+                ? 'https://africa-konnect-api.onrender.com'
+                : 'http://localhost:5000');
+
+        const url = `${baseUrl}/uploads/${filename}`;
 
         res.json({ url });
     } catch (error) {
