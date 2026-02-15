@@ -44,7 +44,9 @@ const findUserById = async (id) => {
 
 // Update user
 const updateUser = async (id, userData) => {
-    const { name, email, profileImageUrl, company, country, city } = userData;
+    const { name, email, profileImageUrl, profile_image_url, company, country, city } = userData;
+    const imageToUpdate = profileImageUrl || profile_image_url;
+
     const text = `
         UPDATE users 
         SET name = COALESCE($1, name), 
@@ -52,11 +54,12 @@ const updateUser = async (id, userData) => {
             profile_image_url = COALESCE($3, profile_image_url),
             company = COALESCE($4, company),
             country = COALESCE($5, country),
-            city = COALESCE($6, city)
+            city = COALESCE($6, city),
+            updated_at = NOW()
         WHERE id = $7
         RETURNING id, name, email, role, profile_image_url, company, country, city, created_at, updated_at
     `;
-    const values = [name, email, profileImageUrl, company, country, city, id];
+    const values = [name, email, imageToUpdate, company, country, city, id];
     const result = await query(text, values);
     return result.rows[0];
 };

@@ -23,9 +23,14 @@ export const AuthProvider = ({ children }) => {
                 try {
                     const profileData = await api.experts.getProfile(userData.id);
                     setProfile(profileData);
-                } catch (_) {
+                } catch (error) {
                     console.log('No expert profile found yet');
+                    // For experts without a profile yet, use user data
+                    setProfile(userData);
                 }
+            } else {
+                // For clients, use the user data as profile
+                setProfile(userData);
             }
         } catch (error) {
             console.error('Error loading profile:', error);
@@ -169,23 +174,33 @@ export const AuthProvider = ({ children }) => {
 
     const updateProfile = async (updates) => {
         try {
-            if (updates.name || updates.email || updates.profileImageUrl) {
+            // Update user table if basic fields changed
+            if (updates.name || updates.email || updates.profileImageUrl || updates.profile_image_url) {
                 const updatedUser = await api.auth.updateProfile({
                     name: updates.name || user.name,
                     email: updates.email || user.email,
-                    profileImageUrl: updates.profileImageUrl || user.profile_image_url
+                    profile_image_url: updates.profileImageUrl || updates.profile_image_url || user.profile_image_url
                 });
+
+                // Merge updated fields into user object
                 const newUser = { ...user, ...updatedUser.user };
                 setUser(newUser);
                 localStorage.setItem('userInfo', JSON.stringify(newUser));
             }
 
+            // Update expert profile if user is an expert
             if (user?.role === 'expert') {
                 const updated = await api.experts.updateProfile(user.id, updates);
                 setProfile(updated);
                 return { profile: updated, error: null };
+            } else {
+                // For clients, update the profile state with user data
+                const refreshedUser = await api.auth.getProfile();
+                setUser(refreshedUser);
+                setProfile(refreshedUser);
+                localStorage.setItem('userInfo', JSON.stringify(refreshedUser));
+                return { profile: refreshedUser, error: null };
             }
-            return { profile: updates, error: null };
         } catch (error) {
             console.error(error);
             return { profile: null, error };
@@ -203,17 +218,33 @@ export const AuthProvider = ({ children }) => {
                         name: file.name
                     });
 
-                    // Update user profile
-                    await updateProfile({ profileImageUrl: url });
+                    // Update user profile with correct field name
+                    await updateProfile({ profile_image_url: url });
 
                     // If expert, also update expert profile
                     if (user?.role === 'expert') {
                         try {
-                            await api.experts.updateProfile(user.id, { profileImageUrl: url });
+                            await api.experts.updateProfile(user.id, { profile_image_url: url });
                         } catch (expertError) {
                             console.log('Expert profile image update skipped:', expertError.message);
-                            // Don't fail if expert profile doesn't exist yet
                         }
+                    }
+
+                    // Refresh user and profile state to ensure navbar updates
+                    const refreshedUser = await api.auth.getProfile();
+                    setUser(refreshedUser);
+                    localStorage.setItem('userInfo', JSON.stringify(refreshedUser));
+
+                    // Reload profile based on role
+                    if (refreshedUser.role === 'expert') {
+                        try {
+                            const refreshedProfile = await api.experts.getProfile(refreshedUser.id);
+                            setProfile(refreshedProfile);
+                        } catch {
+                            setProfile(refreshedUser);
+                        }
+                    } else {
+                        setProfile(refreshedUser);
                     }
 
                     resolve(url);
