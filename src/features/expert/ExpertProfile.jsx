@@ -127,15 +127,12 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
                 certifications: formData.certifications
             };
 
-            console.log('Saving profile data:', profileData); // Debug log
 
             if (existingProfile) {
                 const result = await api.experts.updateProfile(user.id, profileData);
-                console.log('Profile update result:', result); // Debug log
                 toast.success('Profile updated successfully!');
             } else {
                 const result = await api.experts.createProfile(profileData);
-                console.log('Profile create result:', result); // Debug log
                 toast.success('Profile created successfully!');
             }
 

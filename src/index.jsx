@@ -25,7 +25,6 @@ if (!authUrl) {
     </div>
   );
 } else {
-  console.log('DEBUG: authUrl present', authUrl);
   // authClient log removed to avoid TDZ if client is not ready
 
   ReactDOM.createRoot(document.getElementById('root')).render(

@@ -37,7 +37,7 @@ const Step2Match = ({ onNext, expertToHire }) => {
                         setApplicants(appsData.applications);
                     }
                 } catch (e) {
-                    console.log("No applications or error fetching", e);
+                    console.error("No applications or error fetching", e);
                 }
             }
         } catch (error) {
