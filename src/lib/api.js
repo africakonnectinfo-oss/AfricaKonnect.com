@@ -11,6 +11,37 @@ const getHeaders = () => {
     return headers;
 };
 
+// Handle API responses
+const handleResponse = async (response) => {
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType && contentType.includes('application/json');
+
+    const data = isJson ? await response.json() : await response.text();
+
+    if (!response.ok) {
+        // Handle 401 errors (authentication failures)
+        if (response.status === 401) {
+            // Clear invalid token
+            localStorage.removeItem('userInfo');
+
+            // Only redirect to login if we're not already on a public page
+            const publicPaths = ['/', '/signup', '/signin', '/experts', '/about', '/how-it-works', '/pricing'];
+            const currentPath = window.location.pathname;
+
+            if (!publicPaths.includes(currentPath) && !currentPath.startsWith('/expert/')) {
+                window.location.href = '/signin';
+            }
+        }
+
+        const error = new Error(data.message || `HTTP error! status: ${response.status}`);
+        error.status = response.status;
+        error.data = data;
+        throw error;
+    }
+
+    return data;
+};
+
 // Debug Helper
 const debugLog = (type, ...args) => {
     if (import.meta.env.DEV && localStorage.getItem('DEBUG') === 'true') {
@@ -738,6 +769,22 @@ const handleResponse = async (response) => {
     }
 
     if (!response.ok) {
+        // Handle 401 errors (authentication failures)
+        if (response.status === 401) {
+            // Clear invalid token
+            localStorage.removeItem('userInfo');
+
+            // Only redirect to login if we're not already on a public page
+            const publicPaths = ['/', '/signup', '/signin', '/experts', '/about', '/how-it-works', '/pricing'];
+            const currentPath = window.location.pathname;
+
+            // Silently handle 401 on public pages
+            if (!publicPaths.includes(currentPath) && !currentPath.startsWith('/expert/')) {
+                console.warn('Authentication required. Redirecting to sign in...');
+                window.location.href = '/signin';
+            }
+        }
+
         const errorMessage = data.message || data.error || `Error ${response.status}: ${response.statusText}`;
         if (import.meta.env.DEV) {
             console.error("API Response Error:", errorMessage);
