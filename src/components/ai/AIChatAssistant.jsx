@@ -46,10 +46,15 @@ const AIChatAssistant = () => {
                 });
             });
         } catch (error) {
-            console.error(error);
+            console.error('AI Chat Error:', error);
             setMessages(prev => {
                 const newMessages = [...prev];
-                newMessages[aiMsgIndex].content = "I'm sorry, I'm having trouble connecting right now. Please try again later.";
+                // Show specific error message if available, otherwise generic
+                const errorMessage = error.message && error.message.length < 100
+                    ? `Error: ${error.message}`
+                    : "I'm sorry, I'm having trouble connecting right now. Please try again later.";
+
+                newMessages[aiMsgIndex].content = errorMessage;
                 return newMessages;
             });
         } finally {
