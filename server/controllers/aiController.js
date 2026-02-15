@@ -1,12 +1,12 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const Anthropic = require("@anthropic-ai/sdk");
 const pool = require('../database/db');
 
-// Initialize Google Generative AI
-const apiKey = process.env.AI_API_KEY;
-console.log("Initializing AI Controller (Gemini). API Key present:", !!apiKey);
+// Initialize Anthropic AI
+const apiKey = process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY;
+console.log("Initializing AI Controller (Anthropic Claude). API Key present:", !!apiKey);
 
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.0-flash" }) : null;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
+const CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
 
 const aiController = {
     // Match Experts
@@ -48,28 +48,32 @@ const aiController = {
                 Identify the top 3 matches based on skills and experience.
                 
                 OUTPUT FORMAT:
-                Return a JSON object with a "matches" array.
+                Return ONLY a JSON object with a "matches" array.
                 Each match should have:
-                - "expert_id": The ID of the expert
+                - "expert_id": The ID of the expert (UUID)
                 - "score": Compatibility score (0-100)
                 - "reason": A concise reason for the match
             `;
 
             // 3. Call AI
-            if (!model) {
-                console.warn("AI Match skipped: No API Key provided (Backend). Fallback implemented.");
-                return res.json({ matches: experts.map(e => ({ ...e, score: 0, reason: "AI features have upgraded. Please refresh browser for Puter AI." })) });
+            if (!anthropic) {
+                console.warn("AI Match skipped: No Anthropic API Key provided.");
+                return res.json({ matches: experts.map(e => ({ ...e, score: 0, reason: "AI features require an Anthropic API Key." })) });
             }
 
-            // Use JSON mode for structured output
-            const jsonModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig: { responseMimeType: "application/json" } });
-            const result = await jsonModel.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
+            const msg = await anthropic.messages.create({
+                model: CLAUDE_MODEL,
+                max_tokens: 1024,
+                messages: [{ role: "user", content: prompt }],
+            });
+
+            const text = msg.content[0].text;
 
             let parsedResult;
             try {
-                const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+                // Find JSON block if Claude adds preamble
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                const cleanedText = jsonMatch ? jsonMatch[0] : text;
                 parsedResult = JSON.parse(cleanedText);
             } catch (e) {
                 console.error("Failed to parse AI JSON response:", text);
@@ -95,19 +99,16 @@ const aiController = {
         try {
             const { message, context } = req.body;
 
-            if (!model) {
-                return res.json({ reply: "AI features have been upgraded. Please refresh your browser to use Puter AI (offline support)." });
+            if (!anthropic) {
+                return res.json({ reply: "AI features require an Anthropic API Key." });
             }
 
-            const prompt = `
+            const systemPrompt = `
                 You are the Africa Konnect AI Assistant.
                 Your goal is to help users (Clients and Experts) navigate the platform, draft contracts, and collaborate effectively.
                 
                 CONTEXT:
                 ${context ? JSON.stringify(context) : 'No specific context provided.'}
-
-                USER MESSAGE:
-                ${message}
 
                 RESPONSE GUIDELINES:
                 - Be helpful, professional, and concise.
@@ -115,11 +116,14 @@ const aiController = {
                 - Keep responses under 200 words unless detailed explanation is requested.
             `;
 
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
+            const msg = await anthropic.messages.create({
+                model: CLAUDE_MODEL,
+                max_tokens: 1024,
+                system: systemPrompt,
+                messages: [{ role: "user", content: message }],
+            });
 
-            res.json({ reply: text });
+            res.json({ reply: msg.content[0].text });
 
         } catch (error) {
             console.error('AI Chat Error:', error);
@@ -169,18 +173,20 @@ const aiController = {
                 Contractor is an independent contractor, not an employee.
                 
                 ---
-                *Generated by Africa Konnect AI (Gemini Powered)*
+                *Generated by Africa Konnect AI (Claude Powered)*
             `;
 
-            if (!model) {
-                return res.json({ contract: "Contract drafting unavailable (No AI API Key provided). Please contact support or draft manually." });
+            if (!anthropic) {
+                return res.json({ contract: "Contract drafting unavailable (No AI API Key provided)." });
             }
 
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
+            const msg = await anthropic.messages.create({
+                model: CLAUDE_MODEL,
+                max_tokens: 2048,
+                messages: [{ role: "user", content: prompt }],
+            });
 
-            res.json({ contract: text });
+            res.json({ contract: msg.content[0].text });
 
         } catch (error) {
             console.error('AI Contract Error:', error);
