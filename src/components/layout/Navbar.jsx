@@ -412,92 +412,193 @@ const ClientDropdown = ({ profile, user, signOut, closeMenu }) => (
         </div>
     </>
 );
-                                        </div >
-                                    </>
-                                ) : (
-    <Link to="/signup">
-        <Button size="sm">Get Started</Button>
-    </Link>
-)}
-                            </div >
-    <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden p-2 text-gray-600 hover:text-primary transition-colors"
-    >
-        {isOpen ? <X size={24} /> : <Menu size={24} />}
-    </button>
-                        </div >
+
+const Navbar = () => {
+    const { user, signOut } = useAuth();
+    const [isOpen, setIsOpen] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownRef = useRef(null);
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        const loadProfile = async () => {
+            if (!user) return;
+            try {
+                if (user.role === 'expert') {
+                    const data = await api.experts.getProfile();
+                    setProfile(data);
+                } else {
+                    setProfile(user);
+                }
+            } catch (error) {
+                console.error('Failed to load profile:', error);
+            }
+        };
+        loadProfile();
+    }, [user]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setShowDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const closeMenu = () => {
+        setShowDropdown(false);
+        setIsOpen(false);
+    };
+
+    return (
+        <nav className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center h-16">
+                    <Link to="/" className="flex items-center gap-2 group">
+                        <div className="h-10 w-10 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+                            <span className="text-white font-bold text-xl">AK</span>
+                        </div>
+                        <span className="text-xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+                            Africa Konnect
+                        </span>
+                    </Link>
+
+                    <div className="hidden md:flex items-center gap-8">
+                        <Link to="/experts" className="text-gray-600 hover:text-primary transition-colors font-medium">
+                            Find Experts
+                        </Link>
+                        <Link to="/about" className="text-gray-600 hover:text-primary transition-colors font-medium">
+                            About
+                        </Link>
+                        <Link to="/how-it-works" className="text-gray-600 hover:text-primary transition-colors font-medium">
+                            How It Works
+                        </Link>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        {user ? (
+                            <div className="relative" ref={dropdownRef}>
+                                <button
+                                    onClick={() => setShowDropdown(!showDropdown)}
+                                    className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-gray-50 transition-all duration-200 group"
+                                >
+                                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white font-bold shadow-sm group-hover:shadow-md transition-all">
+                                        {user.name?.charAt(0) || 'U'}
+                                    </div>
+                                    <div className="hidden md:block text-left">
+                                        <p className="text-sm font-bold text-gray-900">{user.name}</p>
+                                        <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                                    </div>
+                                    <ChevronDown
+                                        size={16}
+                                        className={`text-gray-400 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''
+                                            }`}
+                                    />
+                                </button>
+
+                                <AnimatePresence>
+                                    {showDropdown && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -10 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+                                        >
+                                            {user.role === 'expert' ? (
+                                                <ExpertDropdown profile={profile} user={user} signOut={signOut} closeMenu={closeMenu} />
+                                            ) : (
+                                                <ClientDropdown profile={profile} user={user} signOut={signOut} closeMenu={closeMenu} />
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        ) : (
+                            <Link to="/signup">
+                                <Button size="sm">Get Started</Button>
+                            </Link>
+                        )}
+
+                        <button
+                            onClick={() => setIsOpen(!isOpen)}
+                            className="md:hidden p-2 text-gray-600 hover:text-primary transition-colors"
+                        >
+                            {isOpen ? <X size={24} /> : <Menu size={24} />}
+                        </button>
                     </div >
                 </div >
+            </div >
 
-    {/* Mobile Navigation */ }
-    < AnimatePresence >
-    { isOpen && (
-        <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-b border-gray-100 overflow-hidden"
-        >
-            <div className="px-4 py-6 space-y-4">
-                {navLinks.map((link) => (
-                    <Link
-                        key={link.path}
-                        to={link.path}
-                        onClick={() => setIsOpen(false)}
-                        className={cn(
-                            "block text-base font-medium py-2 border-b border-gray-50 last:border-0",
-                            isActive(link.path) ? "text-primary" : "text-gray-600"
-                        )}
+            {/* Mobile Navigation */}
+            < AnimatePresence >
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="md:hidden bg-white border-b border-gray-100 overflow-hidden"
                     >
-                        <div className="flex items-center justify-between">
-                            {link.name}
-                            <ChevronRight size={16} className="text-gray-400" />
-                        </div>
-                    </Link>
-                ))}
-                <div className="pt-4 space-y-2">
-                    {user ? (
-                        <>
-                            <div className="p-3 bg-gray-50 rounded-lg mb-2">
-                                <p className="text-sm font-medium text-gray-900">
-                                    {profile?.name || user.email?.split('@')[0]}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                    {isExpert ? 'Expert Account' : 'Client Account'}
-                                </p>
+                        <div className="px-4 py-6 space-y-4">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.path}
+                                    to={link.path}
+                                    onClick={() => setIsOpen(false)}
+                                    className={cn(
+                                        "block text-base font-medium py-2 border-b border-gray-50 last:border-0",
+                                        isActive(link.path) ? "text-primary" : "text-gray-600"
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        {link.name}
+                                        <ChevronRight size={16} className="text-gray-400" />
+                                    </div>
+                                </Link>
+                            ))}
+                            <div className="pt-4 space-y-2">
+                                {user ? (
+                                    <>
+                                        <div className="p-3 bg-gray-50 rounded-lg mb-2">
+                                            <p className="text-sm font-medium text-gray-900">
+                                                {profile?.name || user.email?.split('@')[0]}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {isExpert ? 'Expert Account' : 'Client Account'}
+                                            </p>
+                                        </div>
+                                        <Link to="/profile" onClick={() => setIsOpen(false)}>
+                                            <Button variant="secondary" className="w-full" size="lg">
+                                                <Settings size={16} className="mr-2" />
+                                                Edit Profile
+                                            </Button>
+                                        </Link>
+                                        <Button
+                                            onClick={() => {
+                                                handleLogout();
+                                                setIsOpen(false);
+                                            }}
+                                            variant="secondary"
+                                            className="w-full"
+                                            size="lg"
+                                        >
+                                            <LogOut size={16} className="mr-2" />
+                                            Logout
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Link to="/signup" onClick={() => setIsOpen(false)}>
+                                        <Button className="w-full" size="lg">Get Started</Button>
+                                    </Link>
+                                )}
                             </div>
-                            <Link to="/profile" onClick={() => setIsOpen(false)}>
-                                <Button variant="secondary" className="w-full" size="lg">
-                                    <Settings size={16} className="mr-2" />
-                                    Edit Profile
-                                </Button>
-                            </Link>
-                            <Button
-                                onClick={() => {
-                                    handleLogout();
-                                    setIsOpen(false);
-                                }}
-                                variant="secondary"
-                                className="w-full"
-                                size="lg"
-                            >
-                                <LogOut size={16} className="mr-2" />
-                                Logout
-                            </Button>
-                        </>
-                    ) : (
-                        <Link to="/signup" onClick={() => setIsOpen(false)}>
-                            <Button className="w-full" size="lg">Get Started</Button>
-                        </Link>
-                    )}
-                </div>
-            </div>
-        </motion.div>
-    )}
-                </AnimatePresence >
-            </nav >
-        </header >
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </nav>
     );
 };
 
