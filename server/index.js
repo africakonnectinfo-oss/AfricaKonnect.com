@@ -1,19 +1,18 @@
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-const helmet = require('helmet');
 const dotenv = require('dotenv');
-const { testConnection } = require('./database/db');
-const { notFound, errorHandler } = require('./middleware/errorMiddleware');
-const { apiLimiter } = require('./middleware/rateLimitMiddleware');
+const path = require('path');
 
-
-
-// Try loading from server directory first, then root
+// Initialize environment variables ASAP (before other imports)
 const serverEnvResult = dotenv.config({ path: path.join(__dirname, '.env') });
 if (serverEnvResult.error) {
     dotenv.config({ path: path.join(__dirname, '../.env') });
 }
+
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const { testConnection } = require('./database/db');
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const { apiLimiter } = require('./middleware/rateLimitMiddleware');
 
 const http = require('http');
 const setupSocket = require('./socket');

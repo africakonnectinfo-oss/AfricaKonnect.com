@@ -1,5 +1,5 @@
-const aiController = require('./controllers/aiController');
 require('dotenv').config();
+const aiController = require('./controllers/aiController');
 
 const testHelper = async () => {
     try {
