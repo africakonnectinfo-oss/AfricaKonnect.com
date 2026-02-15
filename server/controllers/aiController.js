@@ -133,8 +133,10 @@ const aiController = {
             res.json({ reply: msg.content[0].text });
 
         } catch (error) {
-            console.error('AI Chat Error:', error);
-            res.status(500).json({ error: 'Failed to generate response' });
+            console.error('AI Chat Claude Error:', error);
+            // Return specific error message if available from Anthropic
+            const message = error.message || 'Failed to generate AI response';
+            res.status(500).json({ error: message });
         }
     },
 
@@ -197,8 +199,8 @@ const aiController = {
             res.json({ contract: msg.content[0].text });
 
         } catch (error) {
-            console.error('AI Contract Error:', error);
-            res.status(500).json({ error: 'Failed to draft contract' });
+            console.error('AI Contract Claude Error:', error);
+            res.status(500).json({ error: error.message || 'Failed to draft contract' });
         }
     }
 };

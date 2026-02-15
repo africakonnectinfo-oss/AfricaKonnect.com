@@ -72,9 +72,13 @@ export const AIAssistant = ({ context: propContext }) => {
             });
         } catch (error) {
             console.error("AI Chat failed", error);
-            const errorMsg = error.message?.includes("not loaded")
-                ? "Claude AI is currently initializing. Please refresh or wait a moment."
-                : "Sorry, I encountered an error using Claude AI. Please try again.";
+            let errorMsg = error.message || "Sorry, I encountered an error using Claude AI. Please try again.";
+
+            if (errorMsg.includes("not loaded")) {
+                errorMsg = "Claude AI is currently initializing. Please refresh or wait a moment.";
+            } else if (errorMsg.includes("Not authorized")) {
+                errorMsg = "Please log in to use the AI assistant.";
+            }
 
             setMessages(prev => {
                 const newMessages = [...prev];

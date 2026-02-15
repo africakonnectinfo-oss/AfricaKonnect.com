@@ -675,7 +675,7 @@ const handleResponse = async (response) => {
     }
 
     if (!response.ok) {
-        const errorMessage = data.message || `Error ${response.status}: ${response.statusText}`;
+        const errorMessage = data.message || data.error || `Error ${response.status}: ${response.statusText}`;
         if (import.meta.env.DEV) {
             console.error("API Response Error:", errorMessage);
         }
