@@ -202,6 +202,153 @@ const aiController = {
             console.error('AI Contract Claude Error:', error);
             res.status(500).json({ error: error.message || 'Failed to draft contract' });
         }
+    },
+
+    // 1. AI Project Generator
+    generateProjectDetails: async (req, res) => {
+        try {
+            const { idea } = req.body;
+            if (!idea) return res.status(400).json({ error: "No project idea provided" });
+
+            const anthropic = getAnthropicClient();
+            if (!anthropic) return res.json({ error: "AI features require an Anthropic API Key." });
+
+            const prompt = `
+                Turn this project idea into a structured project plan:
+                IDEA: ${idea}
+
+                OUTPUT FORMAT (JSON ONLY):
+                {
+                    "title": "Concise Project Title",
+                    "description": "Professional 2-3 sentence project overview",
+                    "techStack": ["Tech1", "Tech2", "Tech3"],
+                    "estimated_budget": 5000,
+                    "estimated_duration": "1_3_months"
+                }
+            `;
+
+            const msg = await anthropic.messages.create({
+                model: CLAUDE_MODEL,
+                max_tokens: 1024,
+                messages: [{ role: "user", content: prompt }],
+            });
+
+            const text = msg.content[0].text;
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            const parsedResult = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+
+            res.json(parsedResult);
+        } catch (error) {
+            console.error('AI Generate Project Error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // 2. AI Proposal Generator
+    generateProposal: async (req, res) => {
+        try {
+            const { project, expert } = req.body;
+
+            const anthropic = getAnthropicClient();
+            if (!anthropic) return res.json({ error: "AI features require an Anthropic API Key." });
+
+            const prompt = `
+                Draft a winning project proposal for this expert based on the project description.
+                
+                PROJECT: ${project.title} - ${project.description}
+                EXPERT: ${expert.name} - ${expert.title}. Skills: ${expert.skills}. Bio: ${expert.bio}
+
+                TASK:
+                Write a professional, persuasive cover letter (markdown). 
+                Focus on how the expert's skills solve the project's specific needs.
+                Keep it under 300 words.
+            `;
+
+            const msg = await anthropic.messages.create({
+                model: CLAUDE_MODEL,
+                max_tokens: 1024,
+                messages: [{ role: "user", content: prompt }],
+            });
+
+            res.json({ proposal: msg.content[0].text });
+        } catch (error) {
+            console.error('AI Generate Proposal Error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // 3. AI Interview Generator
+    generateInterviewQuestions: async (req, res) => {
+        try {
+            const { project, expert } = req.body;
+
+            const anthropic = getAnthropicClient();
+            if (!anthropic) return res.json({ error: "AI features require an Anthropic API Key." });
+
+            const prompt = `
+                Generate 5-7 tailored technical/behavioral interview questions for a client to ask a candidate for this specific project.
+                
+                PROJECT: ${project.title} - ${project.description}
+                CANDIDATE: ${expert.name} - ${expert.title}. Skills: ${expert.skills}
+
+                OUTPUT FORMAT:
+                Markdown list of questions with brief explanation of what each question evaluates.
+            `;
+
+            const msg = await anthropic.messages.create({
+                model: CLAUDE_MODEL,
+                max_tokens: 1024,
+                messages: [{ role: "user", content: prompt }],
+            });
+
+            res.json({ questions: msg.content[0].text });
+        } catch (error) {
+            console.error('AI Generate Interview Error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // 4. AI Collaboration AI
+    getCollaborationSuggestions: async (req, res) => {
+        try {
+            const { project } = req.body;
+
+            const anthropic = getAnthropicClient();
+            if (!anthropic) return res.json({ error: "AI features require an Anthropic API Key." });
+
+            const prompt = `
+                Suggest a roadmap for this project including key milestones and initial tasks.
+                
+                PROJECT: ${project.title} - ${project.description}
+
+                OUTPUT FORMAT (JSON ONLY):
+                {
+                    "milestones": [
+                        {"title": "Setup", "description": "Initial environment setup"},
+                        {"title": "MVP", "description": "Release of core features"}
+                    ],
+                    "tasks": [
+                        {"title": "Design Mockups", "priority": "high"},
+                        {"title": "API Backend", "priority": "medium"}
+                    ]
+                }
+            `;
+
+            const msg = await anthropic.messages.create({
+                model: CLAUDE_MODEL,
+                max_tokens: 1024,
+                messages: [{ role: "user", content: prompt }],
+            });
+
+            const text = msg.content[0].text;
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            const parsedResult = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+
+            res.json(parsedResult);
+        } catch (error) {
+            console.error('AI Collaboration Suggestions Error:', error);
+            res.status(500).json({ error: error.message });
+        }
     }
 };
 

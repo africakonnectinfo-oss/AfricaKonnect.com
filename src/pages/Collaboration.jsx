@@ -10,7 +10,7 @@ import {
     LayoutDashboard, MessageSquare, FolderOpen, CheckSquare,
     Plus, Paperclip, Send, CheckCircle2, Clock, FileText,
     Download, Play, Upload, Video, Users2, Sparkles,
-    ChevronLeft, X, FileSignature
+    ChevronLeft, X, FileSignature, Loader2, List
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -37,6 +37,24 @@ const OverviewTab = ({ project, tasks, contracts = [], onInvite }) => {
     const [showInviteCallback, setShowInviteCallback] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviting, setInviting] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState(null);
+    const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
+
+    const handleGetRoadmap = async () => {
+        try {
+            setIsGeneratingRoadmap(true);
+            const res = await api.ai.collaborationHelp(project);
+            if (res.milestones || res.tasks) {
+                setAiSuggestions(res);
+                toast.success("AI has suggested a roadmap for your project!");
+            }
+        } catch (error) {
+            console.error("Failed to get roadmap", error);
+            toast.error("Failed to generate AI suggestions.");
+        } finally {
+            setIsGeneratingRoadmap(false);
+        }
+    };
 
     const handleInvite = async (e) => {
         e.preventDefault();
@@ -124,6 +142,53 @@ const OverviewTab = ({ project, tasks, contracts = [], onInvite }) => {
                 </Card>
 
                 <div className="space-y-6">
+                    {/* AI Suggestions Section */}
+                    <Card className="p-6 bg-gradient-to-br from-primary/5 to-white border-primary/10">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                <Sparkles size={18} className="text-primary" /> AI Roadmap
+                            </h3>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-primary text-xs h-7 hover:bg-primary/10"
+                                onClick={handleGetRoadmap}
+                                disabled={isGeneratingRoadmap}
+                            >
+                                {isGeneratingRoadmap ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="mr-1" />}
+                                {aiSuggestions ? 'Refresh' : 'Get Roadmap'}
+                            </Button>
+                        </div>
+
+                        {aiSuggestions ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-widest">Suggested Milestones</p>
+                                    <div className="space-y-2">
+                                        {aiSuggestions.milestones?.map((m, i) => (
+                                            <div key={i} className="flex gap-2 p-2 bg-white rounded-lg border border-gray-100 text-sm">
+                                                <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0 mt-0.5">{i + 1}</div>
+                                                <div>
+                                                    <p className="font-bold text-gray-800">{m.title}</p>
+                                                    <p className="text-xs text-gray-500">{m.description}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <Button
+                                    className="w-full text-xs h-8 bg-primary/10 text-primary border-none shadow-none hover:bg-primary/20"
+                                    onClick={() => setAiSuggestions(null)}
+                                >
+                                    Dismiss
+                                </Button>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500 leading-relaxed italic">
+                                Need help planning? Get AI-driven milestones and task suggestions tailored to your project.
+                            </p>
+                        )}
+                    </Card>
                     <Card className="p-6">
                         <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                             <Users2 size={18} className="text-primary" /> Team Leader
@@ -337,8 +402,32 @@ const FilesTab = ({ files, onUpload }) => {
     );
 };
 
-const TasksTab = ({ tasks, onCreate, onUpdateStatus }) => {
+const TasksTab = ({ tasks, onCreate, onUpdateStatus, project }) => {
     const [newTaskTitle, setNewTaskTitle] = useState('');
+    const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+
+    const handleSuggestTasks = async () => {
+        try {
+            setIsGeneratingTasks(true);
+            const res = await api.ai.collaborationHelp(project);
+            if (res.tasks && res.tasks.length > 0) {
+                // For demo/simplicity, we just toast and maybe could auto-add them.
+                // For now, let's just show a toast or a list.
+                toast.success(`AI suggested ${res.tasks.length} tasks!`);
+                // Auto-create them? Or let user pick? 
+                // Let's auto-create the top 3 for "wow" factor
+                const topTasks = res.tasks.slice(0, 3);
+                for (const t of topTasks) {
+                    await onCreate({ title: t.title, status: 'todo' });
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to suggest tasks");
+        } finally {
+            setIsGeneratingTasks(false);
+        }
+    };
 
     const handleCreate = (e) => {
         e.preventDefault();
@@ -387,7 +476,19 @@ const TasksTab = ({ tasks, onCreate, onUpdateStatus }) => {
     return (
         <div className="space-y-6 h-[calc(100vh-200px)] flex flex-col">
             <div className="flex justify-between items-center">
-                <h3 className="font-bold text-gray-900 text-lg">Project Tasks</h3>
+                <div className="flex items-center gap-4">
+                    <h3 className="font-bold text-gray-900 text-lg">Project Tasks</h3>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary text-xs hover:bg-primary/5 border border-primary/20"
+                        onClick={handleSuggestTasks}
+                        disabled={isGeneratingTasks}
+                    >
+                        {isGeneratingTasks ? <Loader2 size={14} className="animate-spin mr-1" /> : <Sparkles size={14} className="mr-1" />}
+                        AI Suggest Tasks
+                    </Button>
+                </div>
                 <form onSubmit={handleCreate} className="flex gap-2">
                     <input
                         type="text"
@@ -578,7 +679,7 @@ export default function Collaboration() {
                         )}
                         {activeTab === 'messages' && <MessagesTab messages={data.messages} onSend={actions.sendMessage} user={user} />}
                         {activeTab === 'files' && <FilesTab files={data.files} onUpload={actions.uploadFile} />}
-                        {activeTab === 'tasks' && <TasksTab tasks={data.tasks} onCreate={actions.createTask} onUpdateStatus={actions.updateTaskStatus} />}
+                        {activeTab === 'tasks' && <TasksTab tasks={data.tasks} onCreate={actions.createTask} onUpdateStatus={actions.updateTaskStatus} project={project} />}
                         {activeTab === 'video' && <VideoConferenceTab project={project} user={user} onNotify={(msg) => actions.sendMessage(msg)} />}
                     </motion.div>
                 </AnimatePresence>

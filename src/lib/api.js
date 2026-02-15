@@ -635,6 +635,41 @@ export const api = {
                 body: JSON.stringify(data),
                 headers: getHeaders(),
             });
+        },
+        generateProject: async (idea) => {
+            return apiRequest('/ai/generate-project', {
+                method: 'POST',
+                body: JSON.stringify({ idea }),
+                headers: getHeaders(),
+            });
+        },
+        generateProposal: async (project, expert) => {
+            return apiRequest('/ai/generate-proposal', {
+                method: 'POST',
+                body: JSON.stringify({ project, expert }),
+                headers: getHeaders(),
+            });
+        },
+        generateInterview: async (project, expert) => {
+            return apiRequest('/ai/generate-interview', {
+                method: 'POST',
+                body: JSON.stringify({ project, expert }),
+                headers: getHeaders(),
+            });
+        },
+        collaborationHelp: async (project) => {
+            return apiRequest('/ai/collaboration-help', {
+                method: 'POST',
+                body: JSON.stringify({ project }),
+                headers: getHeaders(),
+            });
+        },
+        chat: async (message, context) => {
+            return apiRequest('/ai/chat', {
+                method: 'POST',
+                body: JSON.stringify({ message, context }),
+                headers: getHeaders(),
+            });
         }
     },
 

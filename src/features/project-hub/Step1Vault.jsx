@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileText, X, Check } from 'lucide-react';
+import { Upload, FileText, X, Check, Sparkles, Loader2 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useProject } from '../../contexts/ProjectContext';
 import { useFileUpload } from '../../hooks/useFileUpload';
+import { api } from '../../lib/api';
+import { toast } from 'sonner';
 
 const techStacks = [
     "React", "Node.js", "Python", "Figma", "Cybersecurity",
@@ -20,6 +22,42 @@ const Step1Vault = ({ onNext }) => {
     const [projectTitle, setProjectTitle] = useState(currentProject?.title || '');
     const [budget, setBudget] = useState(currentProject?.budget || '');
     const [duration, setDuration] = useState(currentProject?.duration || '');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleAIGenerate = async () => {
+        if (!projectTitle.trim()) {
+            toast.error("Please enter a basic project idea or title first.");
+            return;
+        }
+
+        try {
+            setIsGenerating(true);
+            const result = await api.ai.generateProject(projectTitle);
+
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                setProjectTitle(result.title || projectTitle);
+                setBudget(result.estimated_budget || budget);
+                setDuration(result.estimated_duration || duration);
+
+                if (result.techStack && Array.from(result.techStack).length > 0) {
+                    // Merge with existing techStacks but only if they are in our predefined list 
+                    // or just add them to selectedStack
+                    const newStacks = result.techStack.filter(tech =>
+                        techStacks.includes(tech) || !selectedStack.includes(tech)
+                    );
+                    setSelectedStack(prev => [...new Set([...prev, ...newStacks])]);
+                }
+                toast.success("AI has refined your project details!");
+            }
+        } catch (error) {
+            console.error("AI Generation failed", error);
+            toast.error("Failed to generate project details.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const handleDragOver = (e) => {
         e.preventDefault();
@@ -123,13 +161,25 @@ const Step1Vault = ({ onNext }) => {
 
             <Card className="p-8 mb-8">
                 <h3 className="font-semibold text-gray-900 mb-4">Project Title</h3>
-                <input
-                    type="text"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary mb-6"
-                    placeholder="Enter your project title..."
-                    value={projectTitle}
-                    onChange={(e) => setProjectTitle(e.target.value)}
-                />
+                <div className="flex gap-2 mb-6">
+                    <input
+                        type="text"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                        placeholder="Enter your project title or a simple idea..."
+                        value={projectTitle}
+                        onChange={(e) => setProjectTitle(e.target.value)}
+                    />
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleAIGenerate}
+                        disabled={isGenerating || !projectTitle.trim()}
+                        className="flex items-center gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                    >
+                        {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                        AI Help
+                    </Button>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>

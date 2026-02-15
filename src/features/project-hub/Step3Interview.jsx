@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Video, Calendar, Clock, CheckCircle, Video as VideoIcon, X, Loader2 } from 'lucide-react';
+import { Video, Calendar, Clock, CheckCircle, Video as VideoIcon, X, Loader2, Sparkles, MessageSquare } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { useProject } from '../../contexts/ProjectContext';
@@ -16,6 +16,9 @@ const Step3Interview = ({ onNext }) => {
     const [interviews, setInterviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeMeeting, setActiveMeeting] = useState(null); // { roomName: string, id: string }
+    const [selectedExpert, setSelectedExpert] = useState(null);
+    const [generatedQuestions, setGeneratedQuestions] = useState('');
+    const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
 
     const loadInterviews = useCallback(async () => {
         if (!currentProject?.id) return;
@@ -31,7 +34,36 @@ const Step3Interview = ({ onNext }) => {
 
     useEffect(() => {
         loadInterviews();
-    }, [loadInterviews]);
+
+        // Load selected expert profile for AI helper
+        const loadExpert = async () => {
+            if (currentProject?.selected_expert_id) {
+                try {
+                    const profileData = await api.experts.getProfile(currentProject.selected_expert_id);
+                    setSelectedExpert(profileData);
+                } catch (e) {
+                    console.error("Failed to load expert profile", e);
+                }
+            }
+        };
+        loadExpert();
+    }, [loadInterviews, currentProject?.selected_expert_id]);
+
+    const handleGenerateQuestions = async () => {
+        if (!currentProject || !selectedExpert) return;
+
+        try {
+            setIsGeneratingQuestions(true);
+            const res = await api.ai.generateInterview(currentProject, selectedExpert);
+            if (res.questions) {
+                setGeneratedQuestions(res.questions);
+            }
+        } catch (e) {
+            console.error("Failed to generate questions", e);
+        } finally {
+            setIsGeneratingQuestions(false);
+        }
+    };
 
     const handleSchedule = async () => {
         if (!scheduledDate || !scheduledTime) {
@@ -121,90 +153,134 @@ const Step3Interview = ({ onNext }) => {
                     />
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Scheduler Form */}
-                    <Card className="p-6">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <Calendar className="text-primary" />
-                            Propose a Time
-                        </h3>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                                <input
-                                    type="date"
-                                    className="w-full p-2 border rounded-lg"
-                                    value={scheduledDate}
-                                    onChange={(e) => setScheduledDate(e.target.value)}
-                                    min={new Date().toISOString().split('T')[0]}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                                <input
-                                    type="time"
-                                    className="w-full p-2 border rounded-lg"
-                                    value={scheduledTime}
-                                    onChange={(e) => setScheduledTime(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="pt-4">
+                <div className="space-y-8">
+                    {/* AI Helper Section */}
+                    {currentProject?.selected_expert_id && (
+                        <Card className="p-6 bg-gradient-to-r from-primary/5 to-transparent border-primary/20">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                        <Sparkles className="text-primary" size={20} />
+                                        AI Interview Prep
+                                    </h3>
+                                    <p className="text-sm text-gray-600">Prepare for your meeting with {selectedExpert?.name || 'the expert'} with tailored questions.</p>
+                                </div>
                                 <Button
-                                    className="w-full"
-                                    onClick={handleSchedule}
-                                    disabled={isScheduling || !currentProject?.selected_expert_id}
+                                    onClick={handleGenerateQuestions}
+                                    disabled={isGeneratingQuestions || !selectedExpert}
+                                    variant="outline"
+                                    className="border-primary/50 text-primary hover:bg-primary/10"
                                 >
-                                    {isScheduling ? "Sending Invite..." : "Send Interview Invitation"}
+                                    {isGeneratingQuestions ? <Loader2 size={16} className="animate-spin mr-2" /> : <Sparkles size={16} className="mr-2" />}
+                                    Generate Tailored Questions
                                 </Button>
-                                {!currentProject?.selected_expert_id && (
-                                    <p className="text-xs text-red-500 mt-2 text-center">
-                                        Please shortlist an expert in the previous step first.
-                                    </p>
-                                )}
                             </div>
-                        </div>
-                    </Card>
 
-                    {/* Scheduled Interviews List */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <VideoIcon className="text-primary" />
-                            Scheduled Sessions
-                        </h3>
-
-                        {interviews.length === 0 ? (
-                            <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                                <p className="text-gray-500">No interviews scheduled yet.</p>
-                            </div>
-                        ) : (
-                            interviews.map((interview) => (
-                                <Card key={interview.id} className="p-4 border-l-4 border-l-primary">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h4 className="font-semibold text-gray-900">Interview with {interview.expert_name || 'Expert'}</h4>
-                                            <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                                                <Calendar size={14} />
-                                                {new Date(interview.scheduled_at).toLocaleDateString()} at {new Date(interview.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                                                <Clock size={14} />
-                                                {interview.duration_minutes} mins
-                                            </div>
-                                        </div>
-                                        <Button
-                                            onClick={() => handleJoinMeeting(interview)}
-                                            className="bg-primary/10 text-primary hover:bg-primary/20 border-none shadow-none"
-                                            size="sm"
-                                        >
-                                            <Video size={16} className="mr-2" />
-                                            Join
-                                        </Button>
+                            {generatedQuestions && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-white p-4 rounded-xl border border-primary/10 shadow-sm prose prose-sm max-w-none"
+                                >
+                                    <div className="flex justify-between items-center mb-2 border-b pb-2">
+                                        <span className="text-xs font-bold text-primary uppercase">Suggested Questions</span>
+                                        <button onClick={() => setGeneratedQuestions('')} className="text-gray-400 hover:text-gray-600">
+                                            <X size={14} />
+                                        </button>
                                     </div>
-                                </Card>
-                            ))
-                        )}
+                                    <div className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                                        {generatedQuestions}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </Card>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Scheduler Form */}
+                        <Card className="p-6">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                <Calendar className="text-primary" />
+                                Propose a Time
+                            </h3>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                                    <input
+                                        type="date"
+                                        className="w-full p-2 border rounded-lg"
+                                        value={scheduledDate}
+                                        onChange={(e) => setScheduledDate(e.target.value)}
+                                        min={new Date().toISOString().split('T')[0]}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                                    <input
+                                        type="time"
+                                        className="w-full p-2 border rounded-lg"
+                                        value={scheduledTime}
+                                        onChange={(e) => setScheduledTime(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="pt-4">
+                                    <Button
+                                        className="w-full"
+                                        onClick={handleSchedule}
+                                        disabled={isScheduling || !currentProject?.selected_expert_id}
+                                    >
+                                        {isScheduling ? "Sending Invite..." : "Send Interview Invitation"}
+                                    </Button>
+                                    {!currentProject?.selected_expert_id && (
+                                        <p className="text-xs text-red-500 mt-2 text-center">
+                                            Please shortlist an expert in the previous step first.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Scheduled Interviews List */}
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                <VideoIcon className="text-primary" />
+                                Scheduled Sessions
+                            </h3>
+
+                            {interviews.length === 0 ? (
+                                <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                    <p className="text-gray-500">No interviews scheduled yet.</p>
+                                </div>
+                            ) : (
+                                interviews.map((interview) => (
+                                    <Card key={interview.id} className="p-4 border-l-4 border-l-primary">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="font-semibold text-gray-900">Interview with {interview.expert_name || 'Expert'}</h4>
+                                                <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                                                    <Calendar size={14} />
+                                                    {new Date(interview.scheduled_at).toLocaleDateString()} at {new Date(interview.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                                                    <Clock size={14} />
+                                                    {interview.duration_minutes} mins
+                                                </div>
+                                            </div>
+                                            <Button
+                                                onClick={() => handleJoinMeeting(interview)}
+                                                className="bg-primary/10 text-primary hover:bg-primary/20 border-none shadow-none"
+                                                size="sm"
+                                            >
+                                                <Video size={16} className="mr-2" />
+                                                Join
+                                            </Button>
+                                        </div>
+                                    </Card>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
