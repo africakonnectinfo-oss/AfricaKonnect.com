@@ -165,6 +165,11 @@ const aiController = {
 
             const systemPrompt = `You are the Africa Konnect AI Assistant. Respond professionally and helpfully to the user's request regarding the platform. Current Page: ${context?.currentPath || 'General'}`;
 
+            // Handle client disconnect
+            req.on('close', () => {
+                res.end();
+            });
+
             const stream = await anthropic.messages.create({
                 model: CLAUDE_MODEL,
                 max_tokens: 1024,
