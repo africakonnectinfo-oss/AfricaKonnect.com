@@ -11,36 +11,6 @@ const getHeaders = () => {
     return headers;
 };
 
-// Handle API responses
-const handleResponse = async (response) => {
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType && contentType.includes('application/json');
-
-    const data = isJson ? await response.json() : await response.text();
-
-    if (!response.ok) {
-        // Handle 401 errors (authentication failures)
-        if (response.status === 401) {
-            // Clear invalid token
-            localStorage.removeItem('userInfo');
-
-            // Only redirect to login if we're not already on a public page
-            const publicPaths = ['/', '/signup', '/signin', '/experts', '/about', '/how-it-works', '/pricing'];
-            const currentPath = window.location.pathname;
-
-            if (!publicPaths.includes(currentPath) && !currentPath.startsWith('/expert/')) {
-                window.location.href = '/signin';
-            }
-        }
-
-        const error = new Error(data.message || `HTTP error! status: ${response.status}`);
-        error.status = response.status;
-        error.data = data;
-        throw error;
-    }
-
-    return data;
-};
 
 // Debug Helper
 const debugLog = (type, ...args) => {
