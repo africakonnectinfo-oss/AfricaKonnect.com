@@ -78,7 +78,7 @@ export const AIAssistant = ({ context: propContext }) => {
 
             setMessages(prev => {
                 const newMessages = [...prev];
-                const lastMsg = newMessages[lastMsg.length - 1];
+                const lastMsg = newMessages[newMessages.length - 1];
                 if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content === '') {
                     lastMsg.content = errorMsg;
                     return newMessages;

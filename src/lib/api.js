@@ -601,11 +601,15 @@ export const api = {
     ai: {
         draftContract: async (data, onChunk) => {
             // Prefer Backend for Anthropic Claude integration
-            return apiRequest('/ai/draft-contract', {
+            const res = await apiRequest('/ai/draft-contract', {
                 method: 'POST',
                 body: JSON.stringify(data),
                 headers: getHeaders(),
             });
+            if (onChunk && res.contract) {
+                onChunk(res.contract);
+            }
+            return res;
         },
         chat: async (message, context) => {
             // Prefer Backend for Anthropic Claude integration
@@ -618,7 +622,11 @@ export const api = {
         chatStream: async (message, context, onChunk) => {
             // Currently our backend chat doesn't support streaming easy via fetch wrapper, 
             // so we fallback to standard chat for consistency.
-            return api.ai.chat(message, context);
+            const res = await api.ai.chat(message, context);
+            if (onChunk && res.reply) {
+                onChunk(res.reply);
+            }
+            return res;
         },
         matchExperts: async (data) => {
             // Prefer Backend for Anthropic Claude integration
