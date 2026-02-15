@@ -73,8 +73,8 @@ export const AIAssistant = ({ context: propContext }) => {
         } catch (error) {
             console.error("AI Chat failed", error);
             const errorMsg = error.message?.includes("not loaded")
-                ? "Puter AI is currently initializing. Please refresh or wait a moment."
-                : "Sorry, I encountered an error using Puter AI. Please try again.";
+                ? "Claude AI is currently initializing. Please refresh or wait a moment."
+                : "Sorry, I encountered an error using Claude AI. Please try again.";
 
             setMessages(prev => {
                 const newMessages = [...prev];
@@ -191,8 +191,8 @@ export const AIAssistant = ({ context: propContext }) => {
                                 </button>
                             </div>
                             <div className="text-center mt-2 flex justify-center gap-4 text-[10px] text-gray-400">
-                                <span>Powered by Puter.js</span>
-                                <span>v2.0.0</span>
+                                <span>Powered by Anthropic Claude</span>
+                                <span>v3.5 Sonnet</span>
                             </div>
                         </form>
                     </motion.div>

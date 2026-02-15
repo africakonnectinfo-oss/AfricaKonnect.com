@@ -49,7 +49,7 @@ const AIDraftModal = ({ isOpen, onClose, onDraft, project, clientName, expertNam
                 </div>
 
                 <p className="text-sm text-gray-500 mb-6">
-                    Puter AI will generate a legally sound freelance contract based on the details below.
+                    Anthropic Claude AI will generate a legally sound freelance contract based on the details below.
                 </p>
 
                 <div className="space-y-4">

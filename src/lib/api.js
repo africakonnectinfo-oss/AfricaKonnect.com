@@ -597,33 +597,10 @@ export const api = {
         })
     },
 
-    // AI Features (Puter.js Integration)
+    // AI Features (Anthropic Claude via Backend)
     ai: {
         draftContract: async (data, onChunk) => {
-            if (window.puter) {
-                const prompt = `Draft a formal freelance independent contractor agreement for a project called "${data.projectName}" on the Africa Konnect platform.
-Client: ${data.clientName}
-Contractor (Expert): ${data.expertName || 'Expert'}
-Budget: $${data.rate}
-Duration: ${data.duration}
-Deliverables: ${data.deliverables}
-
-Return ONLY the contract text.`;
-                const response = await window.puter.ai.chat(prompt, { stream: !!onChunk });
-
-                if (onChunk && response[Symbol.asyncIterator]) {
-                    let fullText = '';
-                    for await (const chunk of response) {
-                        const text = typeof chunk === 'string' ? chunk : (chunk?.text || chunk?.message?.content || '');
-                        fullText += text;
-                        onChunk(text);
-                    }
-                    return { contract: fullText };
-                }
-
-                const reply = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
-                return { contract: reply };
-            }
+            // Prefer Backend for Anthropic Claude integration
             return apiRequest('/ai/draft-contract', {
                 method: 'POST',
                 body: JSON.stringify(data),
@@ -631,12 +608,7 @@ Return ONLY the contract text.`;
             });
         },
         chat: async (message, context) => {
-            if (window.puter) {
-                const systemPrompt = context ? `Context: ${JSON.stringify(context)}` : '';
-                const response = await window.puter.ai.chat(message, { system_prompt: systemPrompt });
-                const reply = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
-                return { reply };
-            }
+            // Prefer Backend for Anthropic Claude integration
             return apiRequest('/ai/chat', {
                 method: 'POST',
                 body: JSON.stringify({ message, context }),
@@ -644,38 +616,12 @@ Return ONLY the contract text.`;
             });
         },
         chatStream: async (message, context, onChunk) => {
-            if (window.puter) {
-                const systemPrompt = context ? `Context: ${JSON.stringify(context)}` : '';
-                const response = await window.puter.ai.chat(message, {
-                    system_prompt: systemPrompt,
-                    stream: true
-                });
-
-                let fullText = '';
-                for await (const chunk of response) {
-                    const text = typeof chunk === 'string' ? chunk : (chunk?.text || chunk?.message?.content || '');
-                    fullText += text;
-                    if (onChunk) onChunk(text);
-                }
-                return { reply: fullText };
-            }
-            // Fallback to non-streaming if Puter is missing
+            // Currently our backend chat doesn't support streaming easy via fetch wrapper, 
+            // so we fallback to standard chat for consistency.
             return api.ai.chat(message, context);
         },
-        matchExperts: async (data, availableExperts = []) => {
-            if (window.puter && availableExperts.length > 0) {
-                const expertBriefs = availableExperts.map(e => `ID: ${e.id}, Name: ${e.name}, Title: ${e.title}, Bio: ${e.bio}`).join('\n\n');
-                const prompt = `Analyze this project: ${data.projectDescription}. Requirements: ${data.requirements || 'N/A'}. 
-Available Experts: ${expertBriefs}. 
-Select top matches. Return ONLY a JSON array: [{"id": "...", "reason": "...", "score": 90}, ...]`;
-
-                const response = await window.puter.ai.chat(prompt);
-                const content = typeof response === 'string' ? response : (response?.message?.content || response?.reply);
-                const jsonMatch = content.match(/\[[\s\S]*\]/);
-                if (jsonMatch) {
-                    return { matches: JSON.parse(jsonMatch[0]) };
-                }
-            }
+        matchExperts: async (data) => {
+            // Prefer Backend for Anthropic Claude integration
             return apiRequest('/ai/match', {
                 method: 'POST',
                 body: JSON.stringify(data),
