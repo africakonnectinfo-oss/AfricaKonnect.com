@@ -33,10 +33,10 @@ import EmailVerification from './pages/EmailVerification';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import OAuthConsent from './pages/OAuthConsent';
-// Neon Auth Pages
-import { Home as NeonHome } from './pages/NeonHome';
-import Auth from './pages/AuthPage';
-import { Account } from './pages/account';
+// Neon Auth Pages (Lazy loaded to isolate dependencies)
+const NeonHome = React.lazy(() => import('./pages/NeonHome').then(m => ({ default: m.Home })));
+const Auth = React.lazy(() => import('./pages/AuthPage'));
+const Account = React.lazy(() => import('./pages/account').then(m => ({ default: m.Account })));
 
 function App() {
   return (
@@ -124,10 +124,22 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/commitment" element={<Commitment />} />
 
-            {/* Neon Auth Routes */}
-            <Route path="/neon-home" element={<NeonHome />} />
-            <Route path="/auth/:pathname" element={<Auth />} />
-            <Route path="/account/:pathname" element={<Account />} />
+            {/* Neon Auth Routes (Suspense wrapped for lazy loading) */}
+            <Route path="/neon-home" element={
+              <React.Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+                <NeonHome />
+              </React.Suspense>
+            } />
+            <Route path="/auth/:pathname" element={
+              <React.Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+                <Auth />
+              </React.Suspense>
+            } />
+            <Route path="/account/:pathname" element={
+              <React.Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+                <Account />
+              </React.Suspense>
+            } />
 
             {/* Legal Routes */}
             <Route path="/privacy" element={<PrivacyPolicy />} />

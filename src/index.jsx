@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
-import { NeonAuthUIProvider, authClient } from './lib/auth'
+import { authClient } from './lib/auth'
 import App from './App.jsx'
 import './index.css'
 
@@ -26,15 +26,13 @@ if (!authUrl) {
   );
 } else {
   console.log('DEBUG: authUrl present', authUrl);
-  console.log('DEBUG: authClient', authClient);
+  // authClient log removed to avoid TDZ if client is not ready
 
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       <HelmetProvider>
         <BrowserRouter>
-          {/* <NeonAuthUIProvider auth={authClient}> */}
           <App />
-          {/* </NeonAuthUIProvider> */}
         </BrowserRouter>
       </HelmetProvider>
     </React.StrictMode>,

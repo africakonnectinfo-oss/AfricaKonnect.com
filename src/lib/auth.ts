@@ -9,4 +9,4 @@ const authConfig = {
 
 const authClient = neonAuthUrl ? createAuthClient(neonAuthUrl) : null;
 
-export { authConfig, NeonAuthUIProvider, authClient };
+export { authConfig, authClient };
