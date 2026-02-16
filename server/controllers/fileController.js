@@ -104,7 +104,6 @@ exports.uploadImage = async (req, res) => {
     }
 };
 
-// Get Project Files (Metadata from DB)
 exports.getProjectFiles = async (req, res) => {
     try {
         const { projectId } = req.params;
@@ -112,6 +111,64 @@ exports.getProjectFiles = async (req, res) => {
         const files = await getFilesByProject(projectId);
         res.json(files);
     } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Download File - Redirect to Public URL
+exports.downloadFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { getFileById } = require('../models/fileModel');
+        const file = await getFileById(id);
+
+        if (!file) {
+            return res.status(404).json({ message: 'File not found' });
+        }
+
+        // If it's a Supabase URL, redirect
+        if (file.url.startsWith('http')) {
+            return res.redirect(file.url);
+        }
+
+        // Legacy local file handling (optional, if mixed content)
+        res.status(400).json({ message: 'File is not accessible via Supabase' });
+
+    } catch (error) {
+        console.error('Download error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Delete File
+exports.deleteFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { getFileById, deleteFile } = require('../models/fileModel');
+
+        const file = await getFileById(id);
+        if (!file) {
+            return res.status(404).json({ message: 'File not found' });
+        }
+
+        // Try to delete from Supabase if it's a supabase URL
+        if (file.url.includes('supabase')) {
+            try {
+                // Extract path from URL - URL is like .../storage/v1/object/public/uploads/path/to/file
+                const path = file.url.split('/uploads/')[1];
+                if (path) {
+                    await supabase.storage.from('uploads').remove([path]);
+                }
+            } catch (err) {
+                console.error('Supabase delete error (non-fatal):', err);
+            }
+        }
+
+        await deleteFile(id);
+        res.json({ message: 'File deleted' });
+
+    } catch (error) {
+        console.error('Delete error:', error);
         res.status(500).json({ message: error.message });
     }
 };
