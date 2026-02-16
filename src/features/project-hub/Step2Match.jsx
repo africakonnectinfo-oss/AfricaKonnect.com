@@ -152,10 +152,17 @@ const Step2Match = ({ onNext, expertToHire }) => {
     const handlePostToMarketplace = async () => {
         if (!confirm("This will make your project visible to all experts. Continue?")) return;
         try {
-            await api.projects.update(currentProject.id, { status: 'open' });
+            await api.projects.update(currentProject.id, {
+                status: 'open',
+                open_for_bidding: true,
+                visibility: 'public',
+                min_budget: currentProject.budget,
+                max_budget: currentProject.budget,
+                required_skills: currentProject.tech_stack || currentProject.techStack
+            });
             toast.success("Project is now live on the Marketplace!");
-            // Verify if we should navigate or stay
-            // maybe refresh active tab
+            // Update local state if needed
+            onNext(); // Proceed to next step or show success
         } catch (error) {
             console.error(error);
             toast.error("Failed to post project.");
