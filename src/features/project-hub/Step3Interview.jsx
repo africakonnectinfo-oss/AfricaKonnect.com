@@ -256,25 +256,33 @@ const Step3Interview = ({ onNext }) => {
                             ) : (
                                 interviews.map((interview) => (
                                     <Card key={interview.id} className="p-4 border-l-4 border-l-primary">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h4 className="font-semibold text-gray-900">Interview with {interview.expert_name || 'Expert'}</h4>
-                                                <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                                                    <Calendar size={14} />
-                                                    {new Date(interview.scheduled_at).toLocaleDateString()} at {new Date(interview.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-bold text-gray-900">Meeting with {interview.expert_name || 'the Expert'}</h4>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${new Date(interview.scheduled_at) > new Date() ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                                                    }`}>
+                                                    {new Date(interview.scheduled_at) > new Date() ? 'Upcoming' : 'Ready'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Calendar size={14} className="text-primary" />
+                                                    {new Date(interview.scheduled_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                                                 </div>
-                                                <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                                                    <Clock size={14} />
-                                                    {interview.duration_minutes} mins
+                                                <div className="flex items-center gap-1.5">
+                                                    <Clock size={14} className="text-primary" />
+                                                    {new Date(interview.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div className="flex gap-2">
                                             <Button
                                                 onClick={() => handleJoinMeeting(interview)}
-                                                className="bg-primary/10 text-primary hover:bg-primary/20 border-none shadow-none"
+                                                className="bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20"
                                                 size="sm"
                                             >
                                                 <Video size={16} className="mr-2" />
-                                                Join
+                                                Start Meeting
                                             </Button>
                                         </div>
                                     </Card>
@@ -288,15 +296,16 @@ const Step3Interview = ({ onNext }) => {
             <div className="flex justify-end mt-8">
                 {!activeMeeting && (
                     <Button
-                        variant="outline"
-                        className="mr-2"
-                        onClick={() => setActiveMeeting({ roomName: 'AfricaKonnect-Demo-Room', id: 'demo' })}
+                        variant="ghost"
+                        className="mr-2 text-gray-500 hover:text-primary"
+                        onClick={() => setActiveMeeting({ roomName: `AK-Demo-${Date.now()}`, id: 'demo' })}
                     >
-                        Test Video (Demo)
+                        <VideoIcon size={16} className="mr-2" />
+                        Quick Test Call
                     </Button>
                 )}
-                <Button onClick={onNext}>
-                    Skip / Continue to Contract
+                <Button onClick={onNext} className="shadow-xl shadow-primary/20">
+                    Continue to Contract
                 </Button>
             </div>
         </div>

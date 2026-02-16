@@ -1,29 +1,27 @@
 import React, { useState } from 'react';
-import { JitsiMeeting } from '@jitsi/react-sdk';
 import { Loader2 } from 'lucide-react';
 
-const MeetingRoom = ({ roomName, userName, onLeave, domain = "meet.jit.si" }) => {
+const MeetingRoom = ({ roomName, userName, onLeave, appId = "vpaas-magic-cookie-xxx" }) => {
     const [loading, setLoading] = useState(true);
+    const jitsiContainerRef = React.useRef(null);
+    const jitsiApiRef = React.useRef(null);
 
-    return (
-        <div className="h-[600px] w-full bg-gray-900 rounded-xl overflow-hidden relative">
-            {loading && (
-                <div className="absolute inset-0 flex items-center justify-center text-white z-10">
-                    <Loader2 className="animate-spin mr-2" />
-                    <span>Connecting to Secure Meeting Room...</span>
-                </div>
-            )}
-            <JitsiMeeting
-                domain={domain}
-                roomName={roomName}
-                configOverwrite={{
+    React.useEffect(() => {
+        // Using the External API from the script tag for JaaS
+        if (window.JitsiMeetExternalAPI && jitsiContainerRef.current) {
+            const domain = "8x8.vc";
+            const options = {
+                roomName: `${appId}/${roomName}`,
+                parentNode: jitsiContainerRef.current,
+                width: '100%',
+                height: '100%',
+                configOverwrite: {
+                    prejoinPageEnabled: false,
                     startWithAudioMuted: false,
                     disableModeratorIndicator: true,
                     startScreenSharing: true,
-                    enableEmailInStats: false,
-                    prejoinPageEnabled: false
-                }}
-                interfaceConfigOverwrite={{
+                },
+                interfaceConfigOverwrite: {
                     DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
                     TOOLBAR_BUTTONS: [
                         'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
@@ -33,26 +31,40 @@ const MeetingRoom = ({ roomName, userName, onLeave, domain = "meet.jit.si" }) =>
                         'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
                         'security'
                     ]
-                }}
-                userInfo={{
+                },
+                userInfo: {
                     displayName: userName
-                }}
-                onApiReady={(externalApi) => {
-                    setLoading(false);
-                    // Handle events here
-                    externalApi.addEventListener('videoConferenceLeft', () => {
-                        if (onLeave) onLeave();
-                    });
-                    externalApi.addEventListener('readyToClose', () => {
-                        if (onLeave) onLeave();
-                    });
-                }}
-                getIFrameRef={(iframeRef) => {
-                    iframeRef.style.height = '100%';
-                    iframeRef.style.width = '100%';
-                    iframeRef.style.border = 'none';
-                }}
-            />
+                }
+            };
+
+            const api = new window.JitsiMeetExternalAPI(domain, options);
+            jitsiApiRef.current = api;
+
+            api.addEventListener('videoConferenceJoined', () => {
+                setLoading(false);
+            });
+
+            api.addEventListener('videoConferenceLeft', () => {
+                if (onLeave) onLeave();
+            });
+
+            return () => {
+                if (jitsiApiRef.current) {
+                    jitsiApiRef.current.dispose();
+                }
+            };
+        }
+    }, [roomName, userName, onLeave, appId]);
+
+    return (
+        <div className="h-[600px] w-full bg-gray-900 rounded-xl overflow-hidden relative">
+            {loading && (
+                <div className="absolute inset-0 flex items-center justify-center text-white z-10">
+                    <Loader2 className="animate-spin mr-2" />
+                    <span>Connecting to Secure Meeting Room...</span>
+                </div>
+            )}
+            <div ref={jitsiContainerRef} className="h-full w-full" />
         </div>
     );
 };
