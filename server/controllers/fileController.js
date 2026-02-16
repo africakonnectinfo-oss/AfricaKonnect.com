@@ -1,127 +1,117 @@
-const {
-    createFile,
-    getFilesByProject,
-    getFileById,
-    deleteFile
-} = require('../models/fileModel');
-const fs = require('fs');
-const path = require('path');
+const supabase = require('../config/supabase');
 const { v4: uuidv4 } = require('uuid');
 
-// Upload file
+// Upload file (Generic) - Stores in 'uploads' bucket
 exports.uploadFile = async (req, res) => {
     try {
         const { projectId, name, type, size, data } = req.body;
 
-        const file = await createFile({
+        // Data is expected as base64 or similar. For now, let's assume direct buffer or base64.
+        // If it's a file object from frontend, we need to handle it.
+        // Assuming 'data' is base64 string for text/small bits, or multi-part form data which is harder in JSON body.
+        // If the frontend sends JSON with base64 'data', we proceed.
+
+        if (!data) return res.status(400).json({ message: "No data provided" });
+
+        // Decode base64
+        const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        let buffer, contentType;
+
+        if (matches && matches.length === 3) {
+            contentType = matches[1];
+            buffer = Buffer.from(matches[2], 'base64');
+        } else {
+            // Assume raw base64 or handle error
+            return res.status(400).json({ message: "Invalid data format" });
+        }
+
+        const filename = `${projectId}/${uuidv4()}-${name}`; // Organize by project
+
+        const { data: uploadData, error } = await supabase
+            .storage
+            .from('uploads')
+            .upload(filename, buffer, {
+                contentType: contentType,
+                upsert: false
+            });
+
+        if (error) throw error;
+
+        const { data: { publicUrl } } = supabase
+            .storage
+            .from('uploads')
+            .getPublicUrl(filename);
+
+        // Save metadata to DB (using existing model)
+        const { createFile } = require('../models/fileModel');
+        const fileRecord = await createFile({
             projectId,
             name,
-            type,
+            type: contentType,
             size,
-            data,
-            uploadedBy: req.user.name
+            url: publicUrl, // Storing URL is key
+            uploadedBy: req.user ? req.user.name : 'System'
         });
 
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to(`project_${projectId}`).emit('file_uploaded', file);
-            console.log(`Emitted file_uploaded to project_${projectId}`);
+            io.to(`project_${projectId}`).emit('file_uploaded', fileRecord);
         }
 
-        res.status(201).json(file);
+        res.status(201).json(fileRecord);
+
     } catch (error) {
-        console.error('Upload file error:', error);
+        console.error('Supabase Upload Error:', error);
         res.status(500).json({ message: error.message });
     }
 };
 
-
-
-// Upload generic image (profile, etc) - returns URL
+// Upload Image (Profile/Assets) - Returns URL directly
 exports.uploadImage = async (req, res) => {
     try {
-        const { data, name } = req.body; // data is base64 string
+        const { data, name } = req.body;
+        if (!data) return res.status(400).json({ message: 'No image data' });
 
-        if (!data) {
-            return res.status(400).json({ message: 'No image data provided' });
-        }
-
-        // Extract base64 header and data
         const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-
-        if (!matches || matches.length !== 3) {
-            return res.status(400).json({ message: 'Invalid base64 string' });
-        }
+        if (!matches) return res.status(400).json({ message: 'Invalid base64' });
 
         const type = matches[1];
         const buffer = Buffer.from(matches[2], 'base64');
         const extension = type.split('/')[1] || 'png';
-        const filename = `${uuidv4()}.${extension}`;
+        const filename = `images/${uuidv4()}.${extension}`;
 
-        const uploadsDir = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir);
-        }
+        const { error } = await supabase
+            .storage
+            .from('uploads')
+            .upload(filename, buffer, {
+                contentType: type,
+                upsert: true
+            });
 
-        const filePath = path.join(uploadsDir, filename);
+        if (error) throw error;
 
-        fs.writeFileSync(filePath, buffer);
+        const { data: { publicUrl } } = supabase
+            .storage
+            .from('uploads')
+            .getPublicUrl(filename);
 
-        // Return URL (relative to server root, served via static middleware)
-        // Return URL (relative to server root, served via static middleware)
-        // Use production URL if in production mode, otherwise localhost
-        const baseUrl = process.env.API_URL ||
-            (process.env.NODE_ENV === 'production'
-                ? 'https://africa-konnect-api.onrender.com'
-                : 'http://localhost:5000');
+        res.json({ url: publicUrl });
 
-        const url = `${baseUrl}/uploads/${filename}`;
-
-        res.json({ url });
     } catch (error) {
-        console.error('Upload image error:', error);
+        console.error('Supabase Image Upload Error:', error);
         res.status(500).json({ message: error.message });
     }
 };
 
-// Get project files (existing)
+// Get Project Files (Metadata from DB)
 exports.getProjectFiles = async (req, res) => {
     try {
         const { projectId } = req.params;
+        const { getFilesByProject } = require('../models/fileModel');
         const files = await getFilesByProject(projectId);
         res.json(files);
     } catch (error) {
-        console.error('Get files error:', error);
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// Download file (get content)
-exports.downloadFile = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const file = await getFileById(id);
-
-        if (!file) {
-            return res.status(404).json({ message: 'File not found' });
-        }
-
-        res.json(file);
-    } catch (error) {
-        console.error('Download file error:', error);
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// Delete file
-exports.deleteFile = async (req, res) => {
-    try {
-        const { id } = req.params;
-        await deleteFile(id);
-        res.json({ message: 'File deleted' });
-    } catch (error) {
-        console.error('Delete file error:', error);
         res.status(500).json({ message: error.message });
     }
 };
