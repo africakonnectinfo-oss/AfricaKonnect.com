@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Sparkles, CheckCircle, MapPin, Star, Search, User, FileText, Bot } from 'lucide-react';
+import { Sparkles, CheckCircle, MapPin, Star, Search, User, FileText, Bot, Globe, Loader2 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { api } from '../../lib/api';
@@ -149,20 +149,40 @@ const Step2Match = ({ onNext, expertToHire }) => {
         );
     }
 
+    const handlePostToMarketplace = async () => {
+        if (!confirm("This will make your project visible to all experts. Continue?")) return;
+        try {
+            await api.projects.update(currentProject.id, { status: 'open' });
+            toast.success("Project is now live on the Marketplace!");
+            // Verify if we should navigate or stay
+            // maybe refresh active tab
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to post project.");
+        }
+    };
+
     return (
-        <div className="max-w-5xl mx-auto">
-            <div className="flex justify-between items-end mb-8">
+        <div className="max-w-6xl mx-auto">
+            <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Expert Candidates</h2>
-                    <p className="text-gray-600">Review AI-matched experts or check your project applicants.</p>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Find your perfect expert</h2>
+                    <p className="text-gray-600">AI has analyzed your project. Here are the best matches.</p>
                 </div>
-                <Button
-                    onClick={runAIMatch}
-                    disabled={isMatching}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 border-none shadow-lg hover:shadow-purple-500/20"
-                >
-                    {isMatching ? 'Scanning...' : <><Bot size={18} className="mr-2" /> Run AI Match Engine</>}
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={handlePostToMarketplace}>
+                        <Globe className="mr-2" size={16} />
+                        Post to Marketplace
+                    </Button>
+                    <Button
+                        onClick={runAIMatch}
+                        disabled={isMatching}
+                        className="shadow-lg shadow-purple-500/20"
+                    >
+                        {isMatching ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
+                        Run AI Match
+                    </Button>
+                </div>
             </div>
 
             {/* Tabs */}

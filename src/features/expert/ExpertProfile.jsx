@@ -66,7 +66,8 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
         try {
             const res = await api.experts.addPortfolio(newPortfolio);
             setPortfolioItems(res.portfolioItems); // Update local list from server response
-            setShowAddPortfolio(false);
+            // Don't close, just clear
+            toast.success('Project added to portfolio!');
             setNewPortfolio({ title: '', description: '', url: '', type: 'link' });
         } catch (error) {
             console.error("Failed to add portfolio", error);
@@ -341,7 +342,10 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
 
                         {showAddPortfolio && (
                             <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-8 animate-in fade-in slide-in-from-top-4">
-                                <h4 className="font-bold text-gray-900 mb-4">Add New Project</h4>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h4 className="font-bold text-gray-900">Add New Project</h4>
+                                    <Button variant="ghost" size="sm" onClick={() => setShowAddPortfolio(false)}>Close</Button>
+                                </div>
                                 <div className="space-y-4">
                                     <input
                                         className="w-full border p-2 rounded"
@@ -370,8 +374,11 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
                                             onChange={e => setNewPortfolio({ ...newPortfolio, imageUrl: e.target.value })}
                                         />
                                     </div>
-                                    <div className="flex justify-end pt-2">
-                                        <Button onClick={handleAddPortfolio} disabled={loading}>Add to Portfolio</Button>
+                                    <div className="flex justify-end pt-2 gap-2">
+                                        <Button variant="outline" onClick={() => setShowAddPortfolio(false)}>Cancel</Button>
+                                        <Button onClick={handleAddPortfolio} disabled={loading}>
+                                            {loading ? 'Adding...' : 'Save & Add Another'}
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
