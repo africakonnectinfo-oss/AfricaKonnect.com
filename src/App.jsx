@@ -12,6 +12,7 @@ import ExpertDashboard from './pages/ExpertDashboard';
 import Collaboration from './pages/Collaboration';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
+import Onboarding from './pages/Onboarding';
 import Pricing from './pages/Pricing';
 import UserProfile from './pages/UserProfile';
 import PublicProfile from './pages/PublicProfile';
@@ -61,6 +62,11 @@ function App() {
               <Route path="/oauth/consent" element={<OAuthConsent />} />
 
               {/* Protected Routes */}
+              <Route path="/onboarding" element={
+                <PrivateRoute>
+                  <Onboarding />
+                </PrivateRoute>
+              } />
               <Route
                 path="/project-hub"
                 element={

@@ -153,13 +153,9 @@ const SignUp = () => {
             if (error) throw error;
 
             if (user) {
-                await signOut();
-                navigate('/signin', {
-                    state: {
-                        message: "Account created successfully! Please sign in to access your dashboard.",
-                        type: "success"
-                    }
-                });
+                // Auto-login logic (if your API returns token on signup, otherwise keep as is)
+                // Assuming verify-email or signin is next step, but ideally:
+                navigate('/onboarding', { state: { fromSignup: true } });
             }
         } catch (error) {
             alert(typeof error === 'string' ? error : error.message);

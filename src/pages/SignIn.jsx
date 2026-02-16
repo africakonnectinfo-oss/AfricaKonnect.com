@@ -34,12 +34,16 @@ export default function SignIn() {
                     // Decode and navigate to the return URL
                     navigate(decodeURIComponent(returnUrl));
                 } else {
-                    // Redirect based on role
-                    const role = user.role || user.user_metadata?.role;
-                    if (role === 'expert') {
-                        navigate('/expert-dashboard');
+                    // Redirect based on onboarding status
+                    if (!user.onboarding_completed && !user.user_metadata?.onboarding_completed) {
+                        navigate('/onboarding');
                     } else {
-                        navigate('/project-hub');
+                        const role = user.role || user.user_metadata?.role;
+                        if (role === 'expert') {
+                            navigate('/expert-dashboard');
+                        } else {
+                            navigate('/project-hub');
+                        }
                     }
                 }
             }

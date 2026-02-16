@@ -208,53 +208,41 @@ export const AuthProvider = ({ children }) => {
     };
 
     const uploadProfileImage = async (file) => {
-        const reader = new FileReader();
-        return new Promise((resolve, reject) => {
-            reader.onload = async (e) => {
-                const base64Image = e.target.result;
-                try {
-                    const { url } = await api.files.uploadImage({
-                        data: base64Image,
-                        name: file.name
-                    });
+        // 1. Immediate Optimistic Update
+        const optimisticUrl = URL.createObjectURL(file);
 
-                    // Update user profile with correct field name
-                    await updateProfile({ profile_image_url: url });
+        // Update both user and profile state immediately
+        setUser(prev => ({ ...prev, profile_image_url: optimisticUrl }));
+        setProfile(prev => prev ? ({ ...prev, profile_image_url: optimisticUrl }) : { profile_image_url: optimisticUrl });
 
-                    // If expert, also update expert profile
-                    if (user?.role === 'expert') {
-                        try {
-                            await api.experts.updateProfile(user.id, { profile_image_url: url });
-                        } catch (expertError) {
-                            console.log('Expert profile image update skipped:', expertError.message);
-                        }
-                    }
+        try {
+            const { url } = await api.files.uploadImage({
+                data: await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                }),
+                name: file.name
+            });
 
-                    // Refresh user and profile state to ensure navbar updates
-                    const refreshedUser = await api.auth.getProfile();
-                    setUser(refreshedUser);
-                    localStorage.setItem('userInfo', JSON.stringify(refreshedUser));
+            // 2. Confirm with real URL
+            setUser(prev => ({ ...prev, profile_image_url: url }));
+            setProfile(prev => prev ? ({ ...prev, profile_image_url: url }) : { profile_image_url: url });
 
-                    // Reload profile based on role
-                    if (refreshedUser.role === 'expert') {
-                        try {
-                            const refreshedProfile = await api.experts.getProfile(refreshedUser.id);
-                            setProfile(refreshedProfile);
-                        } catch {
-                            setProfile(refreshedUser);
-                        }
-                    } else {
-                        setProfile(refreshedUser);
-                    }
+            // Persist to localStorage
+            const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            localStorage.setItem('userInfo', JSON.stringify({ ...stored, profile_image_url: url }));
 
-                    resolve(url);
-                } catch (err) {
-                    reject(err);
-                }
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
+            // Update Backend Profiles
+            await updateProfile({ profile_image_url: url });
+
+            return { url };
+        } catch (error) {
+            console.error('Image upload failed:', error);
+            // Revert on failure (optional, or let next load fix it)
+            toast.error("Failed to save profile picture permanently.");
+            throw error;
+        }
     };
 
     const value = {
