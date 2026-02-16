@@ -289,6 +289,21 @@ const MessagesTab = ({ messages, onSend, user }) => {
                         </div>
                     );
                 })}
+                {/* Typing indicators */}
+                {typingUsers.length > 0 && (
+                    <div className="flex justify-start">
+                        <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-2xl border border-gray-100 flex items-center gap-2 shadow-sm animate-pulse">
+                            <div className="flex gap-1">
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
+                            </div>
+                            <span className="text-xs text-gray-500 italic">
+                                {typingUsers.map(u => u.name).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
@@ -301,7 +316,10 @@ const MessagesTab = ({ messages, onSend, user }) => {
                         className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-2 text-gray-800 placeholder:text-gray-400"
                         placeholder="Type your message..."
                         value={message}
-                        onChange={(e) => setMessage(e.target.value)}
+                        onChange={(e) => {
+                            setMessage(e.target.value);
+                            onTyping();
+                        }}
                     />
                     <Button
                         type="submit"
@@ -677,7 +695,7 @@ export default function Collaboration() {
                                 />
                             </div>
                         )}
-                        {activeTab === 'messages' && <MessagesTab messages={data.messages} onSend={actions.sendMessage} user={user} />}
+                        {activeTab === 'messages' && <MessagesTab messages={data.messages} onSend={actions.sendMessage} onTyping={actions.sendTyping} typingUsers={data.typingUsers} user={user} />}
                         {activeTab === 'files' && <FilesTab files={data.files} onUpload={actions.uploadFile} />}
                         {activeTab === 'tasks' && <TasksTab tasks={data.tasks} onCreate={actions.createTask} onUpdateStatus={actions.updateTaskStatus} project={project} />}
                         {activeTab === 'video' && <VideoConferenceTab project={project} user={user} onNotify={(msg) => actions.sendMessage(msg)} />}

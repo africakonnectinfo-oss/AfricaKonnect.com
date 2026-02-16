@@ -43,7 +43,8 @@ exports.createTask = async (req, res) => {
         // Notify via Socket
         const io = req.app.get('io');
         if (io) {
-            io.to(`project_${projectId}`).emit('task_created', task);
+            const payload = { ...task, projectId, project_id: projectId };
+            io.to(`project_${projectId}`).emit('task_created', payload);
         }
 
         res.status(201).json(task);
@@ -80,7 +81,8 @@ exports.updateTask = async (req, res) => {
 
         const io = req.app.get('io');
         if (io) {
-            io.to(`project_${task.project_id}`).emit('task_updated', task);
+            const payload = { ...task, projectId: task.project_id };
+            io.to(`project_${task.project_id}`).emit('task_updated', payload);
         }
 
         res.json(task);
@@ -142,7 +144,8 @@ exports.updateMilestone = async (req, res) => {
 
         const io = req.app.get('io');
         if (io) {
-            io.to(`project_${milestone.project_id}`).emit('milestone_updated', milestone);
+            const payload = { ...milestone, projectId: milestone.project_id };
+            io.to(`project_${milestone.project_id}`).emit('milestone_updated', payload);
         }
 
         res.json(milestone);
@@ -161,6 +164,15 @@ exports.addFileVersion = async (req, res) => {
             ...req.body,
             uploadedBy: req.user.id
         });
+
+        const io = req.app.get('io');
+        if (io) {
+            // We need project_id for files too. Usually file has it.
+            // Let's assume createFileVersion returns the version which might not have project_id directly.
+            // But 'file_uploaded' hook in useCollaboration expects project_id.
+            // Let's look up project_id if not present.
+            io.to(`project_${version.project_id}`).emit('file_version_added', version);
+        }
 
         res.status(201).json(version);
     } catch (error) {

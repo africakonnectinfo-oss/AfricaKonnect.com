@@ -67,12 +67,18 @@ class SocketClient {
         }
 
         if (!this.socket) {
+            const user = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            const token = user?.token;
+
             this.socket = io(SOCKET_URL, {
                 transports: ['websocket', 'polling'],
                 reconnection: true,
                 reconnectionDelay: 1000,
                 reconnectionAttempts: 5,
                 timeout: 10000,
+                auth: {
+                    token: token
+                }
             });
 
             this.socket.on('connect', () => {

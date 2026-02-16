@@ -5,19 +5,28 @@ const { query } = require('../database/db');
  */
 const requireProjectParticipant = async (req, res, next) => {
     try {
-        const projectId = req.params.projectId || req.params.id || req.body.projectId;
+        let projectId = req.params.projectId || req.body.projectId;
+        const resourceId = req.params.id || req.params.fileId;
 
-        if (!projectId) {
-            // If we can't determine project ID from standard locations, 
-            // we might be in a route like 'updateTask' where ID is task ID.
-            // In that case, the controller/previous middleware should have attached project info,
-            // or we need to look it up. For now, let's assume standard params or previously attached.
-            if (req.project) {
-                // if project is already attached
-                if (req.project.client_id === req.user.id || req.project.selected_expert_id === req.user.id) {
-                    return next();
+        // If no direct projectId, try to look it up from sub-resources
+        if (!projectId && resourceId) {
+            // Check if it's a task, milestone or file
+            const lookupQueries = [
+                { table: 'project_tasks', id: resourceId },
+                { table: 'project_milestones', id: resourceId },
+                { table: 'files', id: resourceId }
+            ];
+
+            for (const lookup of lookupQueries) {
+                const checkRes = await query(`SELECT project_id FROM ${lookup.table} WHERE id = $1`, [lookup.id]);
+                if (checkRes.rows.length > 0) {
+                    projectId = checkRes.rows[0].project_id;
+                    break;
                 }
             }
+        }
+
+        if (!projectId) {
             return res.status(400).json({ message: 'Project context required for this action' });
         }
 
@@ -26,7 +35,6 @@ const requireProjectParticipant = async (req, res, next) => {
             FROM projects 
             WHERE id = $1
         `;
-        // console.log('Checking participation for project:', projectId, 'User:', req.user.id);
         const result = await query(text, [projectId]);
 
         if (result.rows.length === 0) {
@@ -34,9 +42,7 @@ const requireProjectParticipant = async (req, res, next) => {
         }
 
         const project = result.rows[0];
-        // console.log('Project participants:', project);
 
-        // Allow if Client OR Expert OR Admin
         const isClient = project.client_id === req.user.id;
         const isExpert = project.selected_expert_id === req.user.id;
         const isAdmin = req.user.role === 'admin';
@@ -47,19 +53,14 @@ const requireProjectParticipant = async (req, res, next) => {
             });
         }
 
-        // Attach basics for downstream use
-        req.projectParticipant = {
-            isClient,
-            isExpert
-        };
-
+        req.projectParticipant = { isClient, isExpert };
         next();
     } catch (error) {
-        console.error('Participant middleware error debug:', error); // Enhanced logging
-        if (error.code === '22P02') { // Invalid text representation (UUID)
+        console.error('Participant middleware error debug:', error);
+        if (error.code === '22P02') {
             return res.status(400).json({ message: 'Invalid Project ID format' });
         }
-        res.status(500).json({ message: 'Server error checking project participation', details: error.message });
+        res.status(500).json({ message: 'Server error checking project participation' });
     }
 };
 

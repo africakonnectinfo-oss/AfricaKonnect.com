@@ -13,6 +13,7 @@ export const useCollaboration = (projectId, user) => {
     const [contracts, setContracts] = useState([]);
     const [interviews, setInterviews] = useState([]);
     const [activity, setActivity] = useState([]);
+    const [typingUsers, setTypingUsers] = useState([]);
 
     // Loading States
     const [loading, setLoading] = useState({
@@ -100,9 +101,9 @@ export const useCollaboration = (projectId, user) => {
         }
 
         const handleNewMessage = (msg) => {
-            if (msg.project_id === projectId || msg.projectId === projectId) {
+            const msgProjectId = msg.project_id || msg.projectId;
+            if (msgProjectId === projectId) {
                 setMessages(prev => {
-                    // Prevent duplicates if optimistic update already added it
                     if (prev.some(m => m.id === msg.id)) return prev;
                     return [...prev, msg];
                 });
@@ -110,7 +111,8 @@ export const useCollaboration = (projectId, user) => {
         };
 
         const handleTaskUpdate = (task) => {
-            if (task.project_id === projectId) {
+            const taskProjectId = task.project_id || task.projectId;
+            if (taskProjectId === projectId) {
                 setTasks(prev => {
                     const exists = prev.find(t => t.id === task.id);
                     if (exists) return prev.map(t => t.id === task.id ? task : t);
@@ -120,13 +122,23 @@ export const useCollaboration = (projectId, user) => {
         };
 
         const handleFileUploaded = (file) => {
-            if (file.project_id === projectId) {
-                setFiles(prev => [...prev, file]);
+            const fileProjectId = file.project_id || file.projectId;
+            if (fileProjectId === projectId) {
+                setFiles(prev => {
+                    if (prev.some(f => f.id === file.id)) return prev;
+                    return [...prev, file];
+                });
             }
         };
 
+        const handleFileVersionAdded = (version) => {
+            // Update file in list if matched
+            setFiles(prev => prev.map(f => f.id === version.file_id ? { ...f, updated_at: version.created_at } : f));
+        };
+
         const handleTaskCreated = (task) => {
-            if (task.project_id === projectId) {
+            const taskProjectId = task.project_id || task.projectId;
+            if (taskProjectId === projectId) {
                 setTasks(prev => {
                     if (prev.some(t => t.id === task.id)) return prev;
                     return [...prev, task];
@@ -139,30 +151,47 @@ export const useCollaboration = (projectId, user) => {
         };
 
         const handleContractUpdated = (contract) => {
-            setContracts(prev => {
-                const exists = prev.find(c => c.id === contract.id);
-                if (exists) return prev.map(c => c.id === contract.id ? contract : c);
-                return [...prev, contract];
-            });
+            const contractProjectId = contract.project_id || contract.projectId;
+            if (contractProjectId === projectId) {
+                setContracts(prev => {
+                    const exists = prev.find(c => c.id === contract.id);
+                    if (exists) return prev.map(c => c.id === contract.id ? contract : c);
+                    return [...prev, contract];
+                });
+            }
         };
 
         const handleInterviewScheduled = (interview) => {
-            setInterviews(prev => {
-                if (prev.some(i => i.id === interview.id)) return prev;
-                return [...prev, interview];
-            });
+            const intProjectId = interview.project_id || interview.projectId;
+            if (intProjectId === projectId) {
+                setInterviews(prev => {
+                    if (prev.some(i => i.id === interview.id)) return prev;
+                    return [...prev, interview];
+                });
+            }
         };
 
-        // Placeholder for Escrow/Payment updates if we add that state
-        // const handleEscrowUpdated = (escrow) => { ... }
+        const handleUserTyping = ({ userId, userName }) => {
+            if (userId === user.id) return;
+            setTypingUsers(prev => {
+                if (prev.find(u => u.id === userId)) return prev;
+                return [...prev, { id: userId, name: userName }];
+            });
+            // Auto remove after 3s
+            setTimeout(() => {
+                setTypingUsers(prev => prev.filter(u => u.id !== userId));
+            }, 3000);
+        };
 
         socket.on('receive_message', handleNewMessage);
         socket.on('task_updated', handleTaskUpdate);
         socket.on('task_created', handleTaskCreated);
         socket.on('task_deleted', handleTaskDeleted);
         socket.on('file_uploaded', handleFileUploaded);
+        socket.on('file_version_added', handleFileVersionAdded);
         socket.on('contract_updated', handleContractUpdated);
         socket.on('interview_scheduled', handleInterviewScheduled);
+        socket.on('user_typing', handleUserTyping);
 
         return () => {
             socket.off('receive_message', handleNewMessage);
@@ -170,17 +199,19 @@ export const useCollaboration = (projectId, user) => {
             socket.off('task_created', handleTaskCreated);
             socket.off('task_deleted', handleTaskDeleted);
             socket.off('file_uploaded', handleFileUploaded);
+            socket.off('file_version_added', handleFileVersionAdded);
             socket.off('contract_updated', handleContractUpdated);
             socket.off('interview_scheduled', handleInterviewScheduled);
+            socket.off('user_typing', handleUserTyping);
             socket.emit('leave_project', projectId);
         };
     }, [socket, projectId]);
 
     // Actions
     const sendMessage = useCallback(async (content) => {
+        const tempId = Date.now();
         try {
             // Optimistic update
-            const tempId = Date.now();
             const optimisticMsg = {
                 id: tempId,
                 content,
@@ -196,14 +227,11 @@ export const useCollaboration = (projectId, user) => {
             setMessages(prev => [...prev, optimisticMsg]);
 
             const res = await api.messages.send(projectId, content);
-
-            // Replace optimistic message with real one
             setMessages(prev => prev.map(m => m.id === tempId ? res : m));
             return res;
         } catch (err) {
             console.error("Failed to send message", err);
-            // Revert optimistic update
-            setMessages(prev => prev.filter(m => !m.isOptimistic));
+            setMessages(prev => prev.filter(m => m.id !== tempId));
             throw err;
         }
     }, [projectId, user]);
@@ -212,10 +240,7 @@ export const useCollaboration = (projectId, user) => {
         try {
             const formData = new FormData();
             formData.append('file', fileData);
-
-            // api.files.upload expects data (FormData) and then projectId
             const res = await api.files.upload(formData, projectId);
-
             setFiles(prev => [...prev, res]);
             return res;
         } catch (err) {
@@ -236,36 +261,37 @@ export const useCollaboration = (projectId, user) => {
     }, [projectId]);
 
     const updateTaskStatus = useCallback(async (taskId, status) => {
+        const previousTasks = [...tasks];
         try {
-            // Optimistic
+            // Optimistic update
             setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
-
             await api.tasks.update(taskId, { status });
         } catch (err) {
             console.error("Task update failed", err);
-            // Revert
-            // You might want to re-fetch tasks here or revert the optimistic change
+            setTasks(previousTasks); // Rollback
+            toast.error("Failed to update task status");
         }
-    }, []);
+    }, [tasks]);
+
+    const sendTyping = useCallback(() => {
+        if (socket && projectId) {
+            socket.emit('typing_start', { roomId: projectId, userId: user.id, userName: user.name });
+        }
+    }, [socket, projectId, user]);
 
     const signContract = useCallback(async (contractId) => {
+        const previousContracts = [...contracts];
         try {
-            // Optimistic update
             setContracts(prev => prev.map(c => c.id === contractId ? { ...c, status: 'signed' } : c));
-
             const res = await api.contracts.sign(contractId);
-
-            // Update with real data
             setContracts(prev => prev.map(c => c.id === contractId ? res : c));
             return res;
         } catch (err) {
             console.error("Sign contract failed", err);
-            // Revert
-            // logic to revert or re-fetch
-            const res = await api.contracts.getByProject(projectId); // Fallback refetch
-            if (res && res.contracts) setContracts(res.contracts);
+            setContracts(previousContracts); // Rollback
+            toast.error("Failed to sign contract");
         }
-    }, [projectId]);
+    }, [contracts]);
 
     const scheduleInterview = useCallback(async (data) => {
         try {
@@ -304,11 +330,12 @@ export const useCollaboration = (projectId, user) => {
     return {
         activeTab,
         setActiveTab,
-        data: { messages, files, tasks, activity, contracts, interviews },
+        data: { messages, files, tasks, activity, contracts, interviews, typingUsers },
         loading,
         error,
         actions: {
             sendMessage,
+            sendTyping,
             uploadFile,
             createTask,
             updateTaskStatus,

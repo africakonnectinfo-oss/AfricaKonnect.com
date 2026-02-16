@@ -18,6 +18,24 @@ const setupSocket = (server) => {
         }
     });
 
+    // Authentication Middleware
+    io.use((socket, next) => {
+        const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+
+        if (!token) {
+            return next(new Error('Authentication error: Token missing'));
+        }
+
+        try {
+            const jwt = require('jsonwebtoken');
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+            socket.user = decoded; // Attach user info to socket
+            next();
+        } catch (err) {
+            return next(new Error('Authentication error: Invalid token'));
+        }
+    });
+
     io.on('connection', (socket) => {
         // console.log('New client connected:', socket.id);
 
