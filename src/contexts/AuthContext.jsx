@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
-import { authClient } from '../lib/auth'; // Import Neon Auth Client
 
 const AuthContext = createContext({});
 
@@ -25,11 +24,9 @@ export const AuthProvider = ({ children }) => {
                     setProfile(profileData);
                 } catch (error) {
                     console.log('No expert profile found yet');
-                    // For experts without a profile yet, use user data
                     setProfile(userData);
                 }
             } else {
-                // For clients, use the user data as profile
                 setProfile(userData);
             }
         } catch (error) {
@@ -39,7 +36,6 @@ export const AuthProvider = ({ children }) => {
 
     const checkSession = useCallback(async () => {
         try {
-            // 1. Check if we have a stored user in localStorage
             const storedUserJson = localStorage.getItem('userInfo');
 
             if (storedUserJson) {
@@ -47,26 +43,9 @@ export const AuthProvider = ({ children }) => {
                 const dbUser = await api.auth.getProfile();
                 setUser(dbUser);
                 loadProfile(dbUser);
-
-                // Optional: Sync with Neon if needed, but don't block
-                if (authClient && import.meta.env.VITE_NEON_AUTH_URL) {
-                    authClient.getSession().catch(() => { });
-                }
-            } else {
-                // 2. Fallback: Check Neon Session directly (if user logged in elsewhere/via magic link)
-                if (authClient && import.meta.env.VITE_NEON_AUTH_URL) {
-                    const session = await authClient.getSession();
-                    if (session && session.user) {
-                        // User exists in Neon, try to get/create in our backend
-                        // This might fail if we don't have a token, but let's assume valid session implies we should have a token
-                        // For now, just stop loading if no local token found.
-                        console.log('Neon session found but no local token');
-                    }
-                }
             }
         } catch (error) {
             console.log("Authentication check failed:", error.message);
-            // Only clear if it's an auth error (401/403)
             if (error.message && (error.message.includes('401') || error.message.includes('403') || error.message.includes('Auth'))) {
                 localStorage.removeItem('userInfo');
                 setUser(null);
@@ -82,8 +61,6 @@ export const AuthProvider = ({ children }) => {
 
     const signUp = async (email, password, name, role) => {
         try {
-            // Primary: Register directly with our Backend DB
-            // This ensures users can always sign up even without Neon Auth
             const dbUser = await api.auth.register({
                 email,
                 password,
@@ -92,23 +69,8 @@ export const AuthProvider = ({ children }) => {
             });
 
             if (dbUser && dbUser.id) {
-                // Successfully registered with backend
                 setUser(dbUser);
                 localStorage.setItem('userInfo', JSON.stringify(dbUser));
-
-                // Optionally try to register with Neon Auth for enhanced auth features
-                if (authClient && import.meta.env.VITE_NEON_AUTH_URL) {
-                    try {
-                        await authClient.signUp({
-                            email,
-                            password,
-                            options: { data: { name, role } }
-                        });
-                    } catch (neonError) {
-                        console.log('Neon Auth sync skipped:', neonError.message);
-                    }
-                }
-
                 await loadProfile(dbUser);
                 return { user: dbUser, error: null };
             } else {
@@ -122,24 +84,11 @@ export const AuthProvider = ({ children }) => {
 
     const signIn = async (email, password, rememberMe = false) => {
         try {
-            // Primary: Login directly with our Backend
-            // This ensures users can always login even without Neon Auth
             const dbUser = await api.auth.login({ email, password, rememberMe });
 
             if (dbUser && dbUser.id) {
-                // Successfully logged in with backend
                 setUser(dbUser);
                 localStorage.setItem('userInfo', JSON.stringify(dbUser));
-
-                // Optionally try to sync with Neon Auth for enhanced auth features
-                if (authClient && import.meta.env.VITE_NEON_AUTH_URL) {
-                    try {
-                        await authClient.signInWithEmail({ email, password });
-                    } catch (neonError) {
-                        console.log('Neon Auth sync skipped:', neonError.message);
-                    }
-                }
-
                 await loadProfile(dbUser);
                 return { user: dbUser, error: null };
             } else {
@@ -153,14 +102,7 @@ export const AuthProvider = ({ children }) => {
 
     const signOut = async () => {
         try {
-            // Attempt Neon signout if client exists
-            if (authClient) {
-                try {
-                    await authClient.signOut();
-                } catch (err) {
-                    console.warn('Neon auth signout failed, proceeding with local cleanup:', err);
-                }
-            }
+            // Backend signout (if needed) or just local cleanup
         } catch (error) {
             console.error('Sign out error:', error);
         } finally {
