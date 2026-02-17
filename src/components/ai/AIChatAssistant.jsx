@@ -83,7 +83,7 @@ const AIChatAssistant = () => {
                                         <h3 className="font-bold text-sm">AI Assistant</h3>
                                         <p className="text-[10px] text-primary-foreground/80 flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                                            Powered by Claude
+                                            Ready to help
                                         </p>
                                     </div>
                                 </div>

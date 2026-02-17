@@ -16,7 +16,7 @@ const createExpertProfile = async (profileData) => {
     const text = `
         INSERT INTO expert_profiles 
         (user_id, title, bio, location, skills, hourly_rate, profile_image_url, certifications, vetting_status, country, city, company, services, documents)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'verified', $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'approved', $9, $10, $11, $12, $13)
         RETURNING *
     `;
     const values = [

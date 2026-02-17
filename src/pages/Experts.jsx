@@ -157,9 +157,11 @@ export default function Experts() {
         };
 
         socket.on('new_expert', handleNewExpert);
+        socket.on('expert_updated', handleNewExpert);
 
         return () => {
             socket.off('new_expert', handleNewExpert);
+            socket.off('expert_updated', handleNewExpert);
         };
     }, [socket]);
 

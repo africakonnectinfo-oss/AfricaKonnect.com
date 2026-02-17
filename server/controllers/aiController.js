@@ -1,4 +1,5 @@
 const Anthropic = require("@anthropic-ai/sdk");
+const OpenAI = require("openai");
 const pool = require('../database/db');
 
 // Initialize Anthropic AI lazily to ensure environment variables are loaded
@@ -12,6 +13,17 @@ const getAnthropicClient = () => {
 };
 
 const CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
+const DEEPSEEK_MODEL = "deepseek-chat";
+
+// Initialize DeepSeek (OpenAI-compatible)
+const getDeepSeekClient = () => {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) return null;
+    return new OpenAI({
+        apiKey,
+        baseURL: 'https://api.deepseek.com'
+    });
+};
 
 const aiController = {
     // Match Experts
@@ -61,19 +73,29 @@ const aiController = {
             `;
 
             // 3. Call AI
+            const deepseek = getDeepSeekClient();
             const anthropic = getAnthropicClient();
-            if (!anthropic) {
-                console.warn("AI Match skipped: No Anthropic API Key provided.");
-                return res.json({ matches: experts.map(e => ({ ...e, score: 0, reason: "AI features require an Anthropic API Key." })) });
+
+            if (!deepseek && !anthropic) {
+                console.warn("AI Match skipped: No API Key provided.");
+                return res.json({ matches: experts.map(e => ({ ...e, score: 0, reason: "AI features require a DeepSeek or Anthropic API Key." })) });
             }
 
-            const msg = await anthropic.messages.create({
-                model: CLAUDE_MODEL,
-                max_tokens: 1024,
-                messages: [{ role: "user", content: prompt }],
-            });
-
-            const text = msg.content[0].text;
+            let text;
+            if (deepseek) {
+                const completion = await deepseek.chat.completions.create({
+                    model: DEEPSEEK_MODEL,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                text = completion.choices[0].message.content;
+            } else {
+                const msg = await anthropic.messages.create({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1024,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                text = msg.content[0].text;
+            }
 
             let parsedResult;
             try {
@@ -105,9 +127,11 @@ const aiController = {
         try {
             const { message, context } = req.body;
 
+            const deepseek = getDeepSeekClient();
             const anthropic = getAnthropicClient();
-            if (!anthropic) {
-                return res.json({ reply: "AI features require an Anthropic API Key." });
+
+            if (!deepseek && !anthropic) {
+                return res.json({ reply: "AI features require a DeepSeek or Anthropic API Key." });
             }
 
             const systemPrompt = `
@@ -133,14 +157,27 @@ const aiController = {
                 - Use markdown for lists and bold text.
             `;
 
-            const msg = await anthropic.messages.create({
-                model: CLAUDE_MODEL,
-                max_tokens: 1024,
-                system: systemPrompt,
-                messages: [{ role: "user", content: message }],
-            });
+            let reply;
+            if (deepseek) {
+                const completion = await deepseek.chat.completions.create({
+                    model: DEEPSEEK_MODEL,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: message }
+                    ],
+                });
+                reply = completion.choices[0].message.content;
+            } else {
+                const msg = await anthropic.messages.create({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1024,
+                    system: systemPrompt,
+                    messages: [{ role: "user", content: message }],
+                });
+                reply = msg.content[0].text;
+            }
 
-            res.json({ reply: msg.content[0].text });
+            res.json({ reply });
 
         } catch (error) {
             console.error('AI Chat Claude Error:', error);
@@ -153,34 +190,66 @@ const aiController = {
         try {
             const { message, context } = req.body;
 
-            const anthropic = getAnthropicClient();
-            if (!anthropic) {
-                return res.write(`data: ${JSON.stringify({ error: "No API Key" })}\n\n`);
-            }
-
-            // Set headers for SSE
+            // Set headers for SSE immediately
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
+            res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering
 
-            const systemPrompt = `You are the Africa Konnect AI Assistant. Respond professionally and helpfully to the user's request regarding the platform. Current Page: ${context?.currentPath || 'General'}`;
+            const deepseek = getDeepSeekClient();
+            const anthropic = getAnthropicClient();
+
+            if (!deepseek && !anthropic) {
+                res.write(`data: ${JSON.stringify({ error: "AI keys missing. Please set DEEPSEEK_API_KEY or ANTHROPIC_API_KEY." })}\n\n`);
+                return res.end();
+            }
+
+            const systemPrompt = `You are the Africa Konnect AI Assistant. Respond professionally and helpfully. Current Page: ${context?.currentPath || 'General'}`;
 
             // Handle client disconnect
             req.on('close', () => {
                 res.end();
             });
 
-            const stream = await anthropic.messages.create({
-                model: CLAUDE_MODEL,
-                max_tokens: 1024,
-                system: systemPrompt,
-                messages: [{ role: "user", content: message }],
-                stream: true,
-            });
+            if (deepseek) {
+                // Try DeepSeek first as it's the requested integration
+                try {
+                    const stream = await deepseek.chat.completions.create({
+                        model: DEEPSEEK_MODEL,
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: message }
+                        ],
+                        stream: true,
+                    });
 
-            for await (const event of stream) {
-                if (event.type === 'content_block_delta') {
-                    res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+                    for await (const chunk of stream) {
+                        const content = chunk.choices[0]?.delta?.content || "";
+                        if (content) {
+                            res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
+                        }
+                    }
+                } catch (dsError) {
+                    console.error('DeepSeek Stream Error:', dsError);
+                    if (!anthropic) throw dsError;
+                    // Fallback to Anthropic if available
+                    console.log('Falling back to Anthropic Claude...');
+                }
+            }
+
+            if (anthropic && (!deepseek || res.writableFinished === false)) {
+                const stream = await anthropic.messages.create({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1024,
+                    system: systemPrompt,
+                    messages: [{ role: "user", content: message }],
+                    stream: true,
+                });
+
+                for await (const event of stream) {
+                    if (event.type === 'content_block_delta') {
+                        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+                    }
                 }
             }
 
@@ -189,6 +258,7 @@ const aiController = {
 
         } catch (error) {
             console.error('AI Stream Error:', error);
+            // If we already started the stream, we can't change status code
             res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
             res.end();
         }
@@ -217,16 +287,28 @@ const aiController = {
                 4. Tone: Serious and authoritative.
             `;
 
+            const deepseek = getDeepSeekClient();
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ contract: "Contract drafting unavailable (No API Key)." });
 
-            const msg = await anthropic.messages.create({
-                model: CLAUDE_MODEL,
-                max_tokens: 2500,
-                messages: [{ role: "user", content: prompt }],
-            });
+            if (!deepseek && !anthropic) return res.json({ contract: "Contract drafting unavailable (No AI Key)." });
 
-            res.json({ contract: msg.content[0].text });
+            let contract;
+            if (deepseek) {
+                const completion = await deepseek.chat.completions.create({
+                    model: DEEPSEEK_MODEL,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                contract = completion.choices[0].message.content;
+            } else {
+                const msg = await anthropic.messages.create({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 2500,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                contract = msg.content[0].text;
+            }
+
+            res.json({ contract });
 
         } catch (error) {
             console.error('AI Contract Error:', error);
@@ -240,31 +322,25 @@ const aiController = {
             const { idea } = req.body;
             if (!idea) return res.status(400).json({ error: "No idea provided" });
 
+            const deepseek = getDeepSeekClient();
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ error: "AI disabled" });
+            if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
 
-            const prompt = `
-                Task: Act as a Senior Project Architect. Transform a raw project idea into a professional project brief for the Africa Konnect platform.
-                
-                IDEA: ${idea}
-
-                OUTPUT REQUIREMENTS (STRICT JSON ONLY):
-                {
-                    "title": "A compelling, professional project name",
-                    "description": "A high-quality 3-sentence summary highlighting the value proposition and core goals.",
-                    "techStack": ["Primary Tech", "Secondary Tech", "Supporting Tools"],
-                    "estimated_budget": 2000,
-                    "estimated_duration": "4_12_weeks"
-                }
-            `;
-
-            const msg = await anthropic.messages.create({
-                model: CLAUDE_MODEL,
-                max_tokens: 1024,
-                messages: [{ role: "user", content: prompt }],
-            });
-
-            const text = msg.content[0].text;
+            let text;
+            if (deepseek) {
+                const completion = await deepseek.chat.completions.create({
+                    model: DEEPSEEK_MODEL,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                text = completion.choices[0].message.content;
+            } else {
+                const msg = await anthropic.messages.create({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1024,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                text = msg.content[0].text;
+            }
             const jsonMatch = text.match(/\{[\s\S]*\}/);
             const parsedResult = JSON.parse(jsonMatch ? jsonMatch[0] : text);
 
@@ -280,37 +356,27 @@ const aiController = {
         try {
             const { project, expert } = req.body;
 
+            const deepseek = getDeepSeekClient();
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ error: "AI disabled" });
+            if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
 
-            const prompt = `
-                Task: Draft a high-converting, professional project proposal for an expert on Africa Konnect.
-                
-                PROJECT CONTEXT:
-                Title: ${project.title}
-                Description: ${project.description}
+            let proposal;
+            if (deepseek) {
+                const completion = await deepseek.chat.completions.create({
+                    model: DEEPSEEK_MODEL,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                proposal = completion.choices[0].message.content;
+            } else {
+                const msg = await anthropic.messages.create({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1500,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                proposal = msg.content[0].text;
+            }
 
-                EXPERT PROFILE:
-                Name: ${expert.name}
-                Title: ${expert.title}
-                Skills: ${expert.skills}
-                Bio: ${expert.bio}
-
-                PROPOSAL REQUIREMENTS:
-                1. Professional and respectful tone.
-                2. Highlight specific skills that match the project's needs.
-                3. Propose a clear value proposition.
-                4. Length: Under 250 words.
-                5. Format: Markdown.
-            `;
-
-            const msg = await anthropic.messages.create({
-                model: CLAUDE_MODEL,
-                max_tokens: 1500,
-                messages: [{ role: "user", content: prompt }],
-            });
-
-            res.json({ proposal: msg.content[0].text });
+            res.json({ proposal });
         } catch (error) {
             console.error('AI Proposal Gen Error:', error);
             res.status(500).json({ error: error.message });
@@ -322,28 +388,27 @@ const aiController = {
         try {
             const { project, expert } = req.body;
 
+            const deepseek = getDeepSeekClient();
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ error: "AI disabled" });
+            if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
 
-            const prompt = `
-                Generate a list of 5 deeply technical and 2 behavioral interview questions for this specific project and candidate.
-                
-                PROJECT: ${project.title} - ${project.description}
-                CANDIDATE: ${expert.name} - ${expert.title} (${expert.skills})
+            let questions;
+            if (deepseek) {
+                const completion = await deepseek.chat.completions.create({
+                    model: DEEPSEEK_MODEL,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                questions = completion.choices[0].message.content;
+            } else {
+                const msg = await anthropic.messages.create({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1500,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                questions = msg.content[0].text;
+            }
 
-                STRUCTURE:
-                1. Question
-                2. Evaluation Criteria: What should the client look for in the answer?
-                Format as a clean Markdown list.
-            `;
-
-            const msg = await anthropic.messages.create({
-                model: CLAUDE_MODEL,
-                max_tokens: 1500,
-                messages: [{ role: "user", content: prompt }],
-            });
-
-            res.json({ questions: msg.content[0].text });
+            res.json({ questions });
         } catch (error) {
             console.error('AI Interview Gen Error:', error);
             res.status(500).json({ error: error.message });
@@ -355,39 +420,25 @@ const aiController = {
         try {
             const { project } = req.body;
 
+            const deepseek = getDeepSeekClient();
             const anthropic = getAnthropicClient();
-            if (!anthropic) return res.json({ error: "AI disabled" });
+            if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
 
-            const prompt = `
-                As a Project Manager, suggest a 4-milestone roadmap and 5 initial urgent tasks for this project.
-                
-                PROJECT: ${project.title} - ${project.description}
-
-                OUTPUT FORMAT (STRICT JSON ONLY):
-                {
-                    "milestones": [
-                        {"title": "Planning & Discovery", "description": "Defining requirements and architecture."},
-                        {"title": "Core Development Phase 1", "description": "Building foundational features."},
-                        {"title": "Core Development Phase 2", "description": "Building advanced features and integrations."},
-                        {"title": "Testing & Deployment", "description": "Quality assurance and production launch."}
-                    ],
-                    "tasks": [
-                        {"title": "Finalize Requirements Document", "priority": "high"},
-                        {"title": "Setup Development Environment", "priority": "high"},
-                        {"title": "Design Database Schema", "priority": "medium"},
-                        {"title": "Build Authentication System", "priority": "high"},
-                        {"title": "Create Project Roadmap in Hub", "priority": "medium"}
-                    ]
-                }
-            `;
-
-            const msg = await anthropic.messages.create({
-                model: CLAUDE_MODEL,
-                max_tokens: 1500,
-                messages: [{ role: "user", content: prompt }],
-            });
-
-            const text = msg.content[0].text;
+            let text;
+            if (deepseek) {
+                const completion = await deepseek.chat.completions.create({
+                    model: DEEPSEEK_MODEL,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                text = completion.choices[0].message.content;
+            } else {
+                const msg = await anthropic.messages.create({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1500,
+                    messages: [{ role: "user", content: prompt }],
+                });
+                text = msg.content[0].text;
+            }
             const jsonMatch = text.match(/\{[\s\S]*\}/);
             const parsedResult = JSON.parse(jsonMatch ? jsonMatch[0] : text);
 

@@ -43,6 +43,16 @@ exports.createProfile = async (req, res) => {
             certifications
         });
 
+        // Emit event to notify clients about the new expert
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('new_expert', {
+                ...profile,
+                name: req.user.name,
+                email: req.user.email
+            });
+        }
+
         res.status(201).json(profile);
     } catch (error) {
         console.error('Create profile error:', error);
@@ -92,6 +102,12 @@ exports.updateProfile = async (req, res) => {
 
         if (!profile) {
             return res.status(404).json({ message: 'Expert profile not found' });
+        }
+
+        // Emit update event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('expert_updated', profile);
         }
 
         res.json(profile);

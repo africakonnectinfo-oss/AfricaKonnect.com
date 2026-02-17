@@ -15,8 +15,8 @@ const FeaturedExperts = () => {
     const fetchFeatured = async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            // Fetch all experts (limit to 3 for featured section)
-            const data = await api.experts.getAll({ vettingStatus: 'all', limit: 3 });
+            // Fetch all experts (limit removed to show all as requested)
+            const data = await api.experts.getAll({ vettingStatus: 'all' });
             if (data && data.experts) {
                 setExperts(data.experts);
             }
@@ -40,7 +40,11 @@ const FeaturedExperts = () => {
         };
 
         socket.on('new_expert', handleNewExpert);
-        return () => socket.off('new_expert', handleNewExpert);
+        socket.on('expert_updated', handleNewExpert);
+        return () => {
+            socket.off('new_expert', handleNewExpert);
+            socket.off('expert_updated', handleNewExpert);
+        };
     }, [socket]);
 
     const LoadingSkeleton = () => (
