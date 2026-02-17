@@ -36,7 +36,7 @@ exports.scheduleInterview = async (req, res) => {
 
         if (!meetingLink) {
             const meetingRoom = uuidv4();
-            meetingLink = `https://meet.jit.si/africakonnect-${meetingRoom}`;
+            meetingLink = `https://africakonnect.com/africakonnect-${meetingRoom}`;
         }
 
         const interview = await createInterview({

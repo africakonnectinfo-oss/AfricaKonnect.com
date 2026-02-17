@@ -8,7 +8,14 @@ const { getIO } = require('../socket');
 const scheduleInterview = async (req, res) => {
     try {
         const { projectId, bidId } = req.params;
-        const { scheduledTime, duration, meetingLink, meetingPlatform, clientNotes } = req.body;
+        let { scheduledTime, duration, meetingLink, meetingPlatform, clientNotes } = req.body;
+
+        const { v4: uuidv4 } = require('uuid');
+        if (!meetingLink) {
+            const meetingRoom = uuidv4();
+            meetingLink = `https://africakonnect.com/africakonnect-${meetingRoom}`;
+            if (!meetingPlatform) meetingPlatform = 'Jitsi';
+        }
 
         // Verify project ownership
         const project = await getProjectById(projectId);

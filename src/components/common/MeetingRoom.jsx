@@ -7,11 +7,11 @@ const MeetingRoom = ({ roomName, userName, onLeave, appId = "vpaas-magic-cookie-
     const jitsiApiRef = React.useRef(null);
 
     React.useEffect(() => {
-        // Using the External API from the script tag for JaaS
+        // Using the External API from the script tag for Jitsi
         if (window.JitsiMeetExternalAPI && jitsiContainerRef.current) {
-            const domain = "8x8.vc";
+            const domain = "africakonnect.com";
             const options = {
-                roomName: `${appId}/${roomName}`,
+                roomName: roomName,
                 parentNode: jitsiContainerRef.current,
                 width: '100%',
                 height: '100%',

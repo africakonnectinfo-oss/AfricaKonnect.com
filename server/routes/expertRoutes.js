@@ -28,10 +28,12 @@ router.get('/skills/categories', getCategories);
 router.get('/skills/category/:category', getSkillsByCategory);
 router.get('/skills/search', searchSkills);
 
+const { validateExpertProfile } = require('../middleware/validationMiddleware');
+
 // Protected routes - Expert profile management
-router.post('/profile', protect, authorize('expert'), requireEmailVerification, createProfile);
+router.post('/profile', protect, authorize('expert'), requireEmailVerification, validateExpertProfile, createProfile);
 router.get('/profile/:userId', protect, getProfile);
-router.put('/profile/:userId', protect, requireEmailVerification, updateProfile);
+router.put('/profile/:userId', protect, requireEmailVerification, validateExpertProfile, updateProfile);
 
 // Profile completeness
 router.get('/profile/:userId/completeness', protect, getProfileCompleteness);
