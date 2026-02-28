@@ -13,6 +13,7 @@ const {
     logProfileChange,
     getProfileChangeLog
 } = require('../models/expertModel');
+const { updateUser } = require('../models/userModel');
 const { getAllSkills, getSkillsByCategory, getAllCategories, searchSkills } = require('../models/skillTaxonomyModel');
 
 // Create expert profile
@@ -42,6 +43,9 @@ exports.createProfile = async (req, res) => {
             profileImageUrl,
             certifications
         });
+
+        // Sync with base users table
+        await updateUser(userId, { profileImageUrl, bio });
 
         // Emit event to notify clients about the new expert
         const io = req.app.get('io');
@@ -103,6 +107,9 @@ exports.updateProfile = async (req, res) => {
         if (!profile) {
             return res.status(404).json({ message: 'Expert profile not found' });
         }
+
+        // Sync with base users table
+        await updateUser(userId, { profileImageUrl, bio });
 
         // Emit update event
         const io = req.app.get('io');

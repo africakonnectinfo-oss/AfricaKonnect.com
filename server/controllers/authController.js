@@ -524,7 +524,7 @@ exports.resetPassword = async (req, res) => {
 exports.updateUserProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { name, email, profileImageUrl, profile_image_url } = req.body;
+        const { name, email, profileImageUrl, profile_image_url, bio } = req.body;
 
         // Prevent users from changing their role via this endpoint
         if (req.body.role) {
@@ -534,7 +534,8 @@ exports.updateUserProfile = async (req, res) => {
         const updatedUser = await updateUser(userId, {
             name,
             email,
-            profileImageUrl: profileImageUrl || profile_image_url // Handle both cases
+            profileImageUrl: profileImageUrl || profile_image_url, // Handle both cases
+            bio
         });
 
         res.json({

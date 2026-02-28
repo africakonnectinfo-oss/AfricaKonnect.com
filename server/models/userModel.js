@@ -30,36 +30,37 @@ const createUser = async (userData) => {
 
 // Find user by email
 const findUserByEmail = async (email) => {
-    const text = 'SELECT * FROM users WHERE email = $1';
+    const text = 'SELECT id, name, email, password_hash, role, profile_image_url, bio, created_at, updated_at FROM users WHERE email = $1';
     const result = await query(text, [email]);
     return result.rows[0];
 };
 
 // Find user by ID
 const findUserById = async (id) => {
-    const text = 'SELECT id, name, email, role, created_at, updated_at FROM users WHERE id = $1';
+    const text = 'SELECT id, email, password_hash, name, role, profile_image_url, bio, created_at FROM users WHERE id = $1';
     const result = await query(text, [id]);
     return result.rows[0];
 };
 
 // Update user
 const updateUser = async (id, userData) => {
-    const { name, email, profileImageUrl, profile_image_url, company, country, city } = userData;
-    const imageToUpdate = profileImageUrl || profile_image_url;
+    const { name, email, role, profileImageUrl, profile_image_url, bio } = userData;
+    // Map both camelCase and snake_case for profileImageUrl
+    const finalImageUrl = profile_image_url || profileImageUrl;
 
     const text = `
         UPDATE users 
-        SET name = COALESCE($1, name), 
+        SET 
+            name = COALESCE($1, name),
             email = COALESCE($2, email),
-            profile_image_url = COALESCE($3, profile_image_url),
-            company = COALESCE($4, company),
-            country = COALESCE($5, country),
-            city = COALESCE($6, city),
-            updated_at = NOW()
-        WHERE id = $7
-        RETURNING id, name, email, role, profile_image_url, company, country, city, created_at, updated_at
+            role = COALESCE($3, role),
+            profile_image_url = COALESCE($4, profile_image_url),
+            bio = COALESCE($5, bio),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6
+        RETURNING id, name, email, role, profile_image_url, bio
     `;
-    const values = [name, email, imageToUpdate, company, country, city, id];
+    const values = [name, email, role, finalImageUrl, bio, id];
     const result = await query(text, values);
     return result.rows[0];
 };

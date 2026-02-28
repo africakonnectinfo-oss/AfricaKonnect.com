@@ -534,12 +534,18 @@ const TasksTab = ({ tasks, onCreate, onUpdateStatus, project }) => {
 const VideoConferenceTab = ({ project, user, onNotify }) => {
     const [inMeeting, setInMeeting] = useState(false);
     const roomName = `africakonnect-project-${project.id}`;
+    const meetingLink = `https://africakonnect.com/${roomName}`;
 
     const handleJoin = () => {
         setInMeeting(true);
         if (onNotify) {
-            onNotify(`I've started a video meeting. Join me in the Meeting Room!`);
+            onNotify(`I've started a video meeting for project: ${project.title}. \n\nJoin here: ${meetingLink}`);
         }
+    };
+
+    const copyMeetingLink = () => {
+        navigator.clipboard.writeText(meetingLink);
+        toast.success("Meeting link copied to clipboard!");
     };
 
     if (inMeeting) {
@@ -550,11 +556,16 @@ const VideoConferenceTab = ({ project, user, onNotify }) => {
                         <div className="p-2 bg-red-600 rounded-lg animate-pulse">
                             <Video size={16} />
                         </div>
-                        <span className="font-bold">Live Meeting</span>
+                        <span className="font-bold">Live Meeting: {project.title}</span>
                     </div>
-                    <Button variant="destructive" size="sm" onClick={() => setInMeeting(false)}>
-                        Leave Meeting
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700" onClick={copyMeetingLink}>
+                            Copy Link
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => setInMeeting(false)}>
+                            Leave Meeting
+                        </Button>
+                    </div>
                 </div>
                 <div className="h-full">
                     <MeetingRoom roomName={roomName} userName={user?.name || 'User'} onLeave={() => setInMeeting(false)} />
@@ -577,6 +588,9 @@ const VideoConferenceTab = ({ project, user, onNotify }) => {
                 <div className="pt-4 space-y-3">
                     <Button size="lg" className="w-full text-base py-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02] transition-all" onClick={handleJoin}>
                         Join Meeting Room & Notify Team
+                    </Button>
+                    <Button variant="outline" className="w-full" onClick={copyMeetingLink}>
+                        Copy Invite Link
                     </Button>
                 </div>
             </Card>

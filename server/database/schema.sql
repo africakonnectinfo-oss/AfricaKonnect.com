@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('client', 'expert')),
+    profile_image_url TEXT,
+    bio TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -59,11 +61,13 @@ CREATE TABLE IF NOT EXISTS contracts (
 -- Messages table
 CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id UUID REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     is_read BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CHECK (project_id IS NOT NULL OR receiver_id IS NOT NULL)
 );
 
 -- Create indexes for better query performance
@@ -78,6 +82,7 @@ CREATE INDEX IF NOT EXISTS idx_contracts_expert_id ON contracts(expert_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_client_id ON contracts(client_id);
 CREATE INDEX IF NOT EXISTS idx_messages_project_id ON messages(project_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -8,10 +8,12 @@ const {
     deleteFile
 } = require('../controllers/fileController');
 const { protect } = require('../middleware/authMiddleware');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(protect);
 
-router.post('/', uploadFile);
+router.post('/', upload.single('file'), uploadFile);
 router.post('/upload', uploadImage);
 router.get('/project/:projectId', getProjectFiles);
 router.get('/:id/download', downloadFile);

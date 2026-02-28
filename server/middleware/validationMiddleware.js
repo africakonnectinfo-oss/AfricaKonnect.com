@@ -176,8 +176,17 @@ const validateMessage = [
         .isLength({ min: 1, max: 5000 }).withMessage('Message must be between 1 and 5000 characters')
         .customSanitizer(sanitizeText),
     body('projectId')
-        .notEmpty().withMessage('Project ID is required')
+        .optional()
         .isUUID().withMessage('Invalid Project ID format'),
+    body('receiverId')
+        .optional()
+        .isUUID().withMessage('Invalid Receiver ID format'),
+    body().custom((value, { req }) => {
+        if (!req.body.projectId && !req.body.receiverId) {
+            throw new Error('Either Project ID or Receiver ID is required');
+        }
+        return true;
+    }),
     validate
 ];
 

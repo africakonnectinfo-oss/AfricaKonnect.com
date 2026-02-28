@@ -3,9 +3,13 @@ const router = express.Router();
 const {
     sendMessage,
     getMessages,
+    getMessageById,
+    getDirectMessages,
     markAsRead,
-    markProjectAsRead,
-    getUnreadMessages
+    markProjectMessagesAsRead,
+    getUnreadCount,
+    getAllUnreadMessages,
+    deleteMessage
 } = require('../controllers/messageController');
 const { protect } = require('../middleware/authMiddleware');
 const { validateMessage, validateId } = require('../middleware/validationMiddleware');
@@ -17,15 +21,21 @@ router.use(protect);
 router.post('/', validateMessage, sendMessage);
 
 // Get unread messages for user
-router.get('/unread', getUnreadMessages);
+router.get('/unread', getAllUnreadMessages);
 
 // Get messages for a project
 router.get('/project/:projectId', validateId, getMessages);
+
+// Get direct messages with another user
+router.get('/direct/:userId', validateId, getDirectMessages);
 
 // Mark message as read
 router.put('/:id/read', validateId, markAsRead);
 
 // Mark all project messages as read
-router.put('/project/:projectId/read', validateId, markProjectAsRead);
+router.put('/project/:projectId/read', validateId, markProjectMessagesAsRead);
+
+// Delete message
+router.delete('/:id', validateId, deleteMessage);
 
 module.exports = router;

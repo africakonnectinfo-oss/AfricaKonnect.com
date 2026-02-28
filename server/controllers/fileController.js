@@ -4,26 +4,30 @@ const { v4: uuidv4 } = require('uuid');
 // Upload file (Generic) - Stores in 'uploads' bucket
 exports.uploadFile = async (req, res) => {
     try {
-        const { projectId, name, type, size, data } = req.body;
-
-        // Data is expected as base64 or similar. For now, let's assume direct buffer or base64.
-        // If it's a file object from frontend, we need to handle it.
-        // Assuming 'data' is base64 string for text/small bits, or multi-part form data which is harder in JSON body.
-        // If the frontend sends JSON with base64 'data', we proceed.
-
-        if (!data) return res.status(400).json({ message: "No data provided" });
-
-        // Decode base64
-        const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        let { projectId, name, type, size, data } = req.body;
         let buffer, contentType;
 
-        if (matches && matches.length === 3) {
-            contentType = matches[1];
-            buffer = Buffer.from(matches[2], 'base64');
-        } else {
-            // Assume raw base64 or handle error
-            return res.status(400).json({ message: "Invalid data format" });
+        // Handle Multipart/Form-Data (Multer)
+        if (req.file) {
+            buffer = req.file.buffer;
+            contentType = req.file.mimetype;
+            name = name || req.file.originalname;
+            size = size || req.file.size;
         }
+        // Handle Base64 (JSON)
+        else if (data) {
+            const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                contentType = matches[1];
+                buffer = Buffer.from(matches[2], 'base64');
+            } else {
+                return res.status(400).json({ message: "Invalid data format" });
+            }
+        } else {
+            return res.status(400).json({ message: "No file data provided" });
+        }
+
+        if (!projectId) return res.status(400).json({ message: "Project ID is required" });
 
         const filename = `${projectId}/${uuidv4()}-${name}`; // Organize by project
 
@@ -31,7 +35,7 @@ exports.uploadFile = async (req, res) => {
             .storage
             .from('uploads')
             .upload(filename, buffer, {
-                contentType: contentType,
+                contentType: contentType || type,
                 upsert: false
             });
 

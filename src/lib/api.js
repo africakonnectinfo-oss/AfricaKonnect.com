@@ -399,10 +399,13 @@ export const api = {
         getMessages: async (projectId) => apiRequest(`/messages/project/${projectId}`, {
             headers: getHeaders(),
         }),
-        send: async (projectId, content) => apiRequest('/messages', {
+        getDirect: async (userId) => apiRequest(`/messages/direct/${userId}`, {
+            headers: getHeaders(),
+        }),
+        send: async (projectId, content, receiverId) => apiRequest('/messages', {
             method: 'POST',
             headers: getHeaders(),
-            body: JSON.stringify({ projectId, content }),
+            body: JSON.stringify({ projectId, content, receiverId }),
         }),
         getUnread: async () => apiRequest('/messages/unread', {
             headers: getHeaders(),

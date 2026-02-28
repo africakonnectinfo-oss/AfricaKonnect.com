@@ -2,14 +2,14 @@ const { query } = require('../database/db');
 
 // Create a new message
 const createMessage = async (messageData) => {
-    const { projectId, senderId, content } = messageData;
+    const { projectId, senderId, receiverId, content } = messageData;
 
     const text = `
-        INSERT INTO messages (project_id, sender_id, content)
-        VALUES ($1, $2, $3)
+        INSERT INTO messages (project_id, sender_id, receiver_id, content)
+        VALUES ($1, $2, $3, $4)
         RETURNING *
     `;
-    const values = [projectId, senderId, content];
+    const values = [projectId || null, senderId, receiverId || null, content];
 
     const result = await query(text, values);
     return result.rows[0];
@@ -118,10 +118,32 @@ const deleteProjectMessages = async (projectId) => {
     return result.rows;
 };
 
+// Get direct messages between two users
+const getDirectMessages = async (user1Id, user2Id, limit = 100, offset = 0) => {
+    const text = `
+        SELECT 
+            m.*,
+            u.name as sender_name,
+            u.email as sender_email,
+            u.role as sender_role
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.project_id IS NULL AND (
+            (m.sender_id = $1 AND m.receiver_id = $2) OR 
+            (m.sender_id = $2 AND m.receiver_id = $1)
+        )
+        ORDER BY m.created_at ASC
+        LIMIT $3 OFFSET $4
+    `;
+    const result = await query(text, [user1Id, user2Id, limit, offset]);
+    return result.rows;
+};
+
 module.exports = {
     createMessage,
     getMessagesByProject,
     getMessageById,
+    getDirectMessages,
     markAsRead,
     markProjectMessagesAsRead,
     getUnreadCount,

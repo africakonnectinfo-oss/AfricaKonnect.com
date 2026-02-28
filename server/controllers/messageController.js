@@ -4,7 +4,8 @@ const {
     markAsRead,
     markProjectMessagesAsRead,
     getUnreadCount,
-    getAllUnreadMessages
+    getAllUnreadMessages,
+    getDirectMessages
 } = require('../models/messageModel');
 const { getProjectById } = require('../models/projectModel');
 const { getContractsByProject } = require('../models/contractModel');
@@ -12,44 +13,45 @@ const { getContractsByProject } = require('../models/contractModel');
 // Send message
 exports.sendMessage = async (req, res) => {
     try {
-        const { projectId, content } = req.body;
+        const { projectId, receiverId, content } = req.body;
         const senderId = req.user.id;
 
-        // Validate required fields
-        if (!projectId || !content) {
-            return res.status(400).json({ message: 'Project ID and content are required' });
+        if (!content) {
+            return res.status(400).json({ message: 'Content is required' });
         }
 
-        // Verify user has access to project
-        const project = await getProjectById(projectId);
-        if (!project) {
-            return res.status(404).json({ message: 'Project not found' });
-        }
+        if (projectId) {
+            // Verify user has access to project
+            const project = await getProjectById(projectId);
+            if (!project) {
+                return res.status(404).json({ message: 'Project not found' });
+            }
 
-        // Check if user is client or expert on this project
-        const isClient = project.client_id === senderId;
-        const contracts = await getContractsByProject(projectId);
-        const isExpert = contracts.some(c => c.expert_id === senderId);
+            // Check if user is client or expert on this project
+            const isClient = project.client_id === senderId;
+            const contracts = await getContractsByProject(projectId);
+            const isExpert = contracts.some(c => c.expert_id === senderId);
 
-        if (!isClient && !isExpert && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Not authorized to send messages in this project' });
+            if (!isClient && !isExpert && req.user.role !== 'admin') {
+                return res.status(403).json({ message: 'Not authorized to send messages in this project' });
+            }
+        } else if (!receiverId) {
+            return res.status(400).json({ message: 'Either Project ID or Receiver ID is required' });
         }
 
         const message = await createMessage({
             projectId,
             senderId,
+            receiverId,
             content
         });
 
         const io = req.app.get('io');
         if (io) {
-            // Frontend expects the message object directly
             const messagePayload = {
                 ...message,
-                project_id: projectId, // Ensure snake_case if frontend expects it, or camelCase. JS model usually camelCase but DB snake_case. Let's provide both or standard. 
-                // DB returns snake_case usually if using pg, but sequelize/orm might return camel.
-                // Looking at `useCollaboration.js`: msg.project_id || msg.projectId
-                // So both work.
+                project_id: projectId,
+                receiver_id: receiverId,
                 sender: {
                     id: req.user.id,
                     name: req.user.name,
@@ -57,8 +59,14 @@ exports.sendMessage = async (req, res) => {
                 }
             };
 
-            io.to(`project_${projectId}`).emit('receive_message', messagePayload);
-            console.log(`Emitted message to project_${projectId}`);
+            if (projectId) {
+                io.to(`project_${projectId}`).emit('receive_message', messagePayload);
+            } else if (receiverId) {
+                const roomIds = [senderId, receiverId].sort();
+                const roomName = `dm_${roomIds[0]}_${roomIds[1]}`;
+                io.to(roomName).emit('receive_message', messagePayload);
+                io.to(`user_${receiverId}`).emit('new_direct_message', messagePayload);
+            }
         }
 
         res.status(201).json(message);
@@ -105,6 +113,31 @@ exports.getMessages = async (req, res) => {
         });
     } catch (error) {
         console.error('Get messages error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get direct messages
+exports.getDirectMessages = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { limit, offset } = req.query;
+        const currentUserId = req.user.id;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required' });
+        }
+
+        const messages = await getDirectMessages(
+            currentUserId,
+            userId,
+            limit ? parseInt(limit) : 100,
+            offset ? parseInt(offset) : 0
+        );
+
+        res.json(messages);
+    } catch (error) {
+        console.error('Get direct messages error:', error);
         res.status(500).json({ message: error.message });
     }
 };
