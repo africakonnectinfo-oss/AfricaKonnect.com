@@ -1,11 +1,13 @@
 const {
     createMessage,
     getMessagesByProject,
+    getMessageById,
     markAsRead,
     markProjectMessagesAsRead,
     getUnreadCount,
     getAllUnreadMessages,
-    getDirectMessages
+    getDirectMessages,
+    deleteMessage
 } = require('../models/messageModel');
 const { getProjectById } = require('../models/projectModel');
 const { getContractsByProject } = require('../models/contractModel');
@@ -117,6 +119,35 @@ exports.getMessages = async (req, res) => {
     }
 };
 
+// Get message by ID
+exports.getMessageById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const message = await getMessageById(id);
+
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+
+        // Access check
+        if (message.project_id) {
+            const project = await getProjectById(message.project_id);
+            const contracts = await getContractsByProject(message.project_id);
+            const isExpert = contracts.some(c => c.expert_id === req.user.id);
+            if (project.client_id !== req.user.id && !isExpert && req.user.role !== 'admin') {
+                return res.status(403).json({ message: 'Not authorized' });
+            }
+        } else if (message.sender_id !== req.user.id && message.receiver_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        res.json(message);
+    } catch (error) {
+        console.error('Get message by ID error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // Get direct messages
 exports.getDirectMessages = async (req, res) => {
     try {
@@ -169,7 +200,7 @@ exports.markAsRead = async (req, res) => {
 };
 
 // Mark all project messages as read
-exports.markProjectAsRead = async (req, res) => {
+exports.markProjectMessagesAsRead = async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user.id;
@@ -203,7 +234,7 @@ exports.markProjectAsRead = async (req, res) => {
 };
 
 // Get all unread messages for user
-exports.getUnreadMessages = async (req, res) => {
+exports.getAllUnreadMessages = async (req, res) => {
     try {
         const userId = req.user.id;
 
@@ -215,6 +246,40 @@ exports.getUnreadMessages = async (req, res) => {
         });
     } catch (error) {
         console.error('Get unread messages error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get unread count for project
+exports.getUnreadCount = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const count = await getUnreadCount(projectId, req.user.id);
+        res.json({ unreadCount: count });
+    } catch (error) {
+        console.error('Get unread count error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Delete message
+exports.deleteMessage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const message = await getMessageById(id);
+
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+
+        if (message.sender_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized to delete this message' });
+        }
+
+        await deleteMessage(id);
+        res.json({ message: 'Message deleted successfully' });
+    } catch (error) {
+        console.error('Delete message error:', error);
         res.status(500).json({ message: error.message });
     }
 };
