@@ -103,8 +103,7 @@ export const AIAssistant = ({ context: propContext }) => {
         <>
             {/* Floating Toggle Button */}
             <motion.button
-                className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-[100] hover:shadow-xl transition-shadow group"
-                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }}
+                className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-[100] hover:shadow-xl transition-shadow group bg-primary"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsOpen(!isOpen)}

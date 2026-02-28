@@ -368,8 +368,8 @@ exports.addProjectMember = async (req, res) => {
         }
 
         // Find user by email
-        const { getUserByEmail } = require('../models/userModel');
-        const userToAdd = await getUserByEmail(email);
+        const { findUserByEmail } = require('../models/userModel');
+        const userToAdd = await findUserByEmail(email);
 
         if (!userToAdd) {
             return res.status(404).json({ message: 'User not found' });
@@ -420,8 +420,8 @@ exports.getOrCreateInquiry = async (req, res) => {
             return res.status(403).json({ message: 'Only clients can initiate inquiries' });
         }
 
+        const { findUserById } = require('../models/userModel');
         const { findExistingInquiry, createProject, assignExpert, addMember } = require('../models/projectModel');
-        const { getUserById } = require('../models/userModel');
 
         // 1. Check for existing inquiry
         let project = await findExistingInquiry(clientId, expertId);
@@ -431,7 +431,7 @@ exports.getOrCreateInquiry = async (req, res) => {
         }
 
         // 2. Create new inquiry project
-        const expert = await getUserById(expertId);
+        const expert = await findUserById(expertId);
         if (!expert) {
             return res.status(404).json({ message: 'Expert not found' });
         }

@@ -290,5 +290,8 @@ module.exports = {
     cleanupExpiredSessions,
     generatePasswordResetToken,
     verifyPasswordResetToken,
-    updatePassword
+    updatePassword,
+    // Aliases for compatibility
+    getUserById: findUserById,
+    getUserByEmail: findUserByEmail
 };

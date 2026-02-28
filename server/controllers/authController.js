@@ -290,8 +290,9 @@ exports.refreshToken = async (req, res) => {
             return res.status(401).json({ message: 'Invalid refresh token' });
         }
 
-        // Find user
-        const user = await findUserByEmail(req.user?.email);
+        // Find user by id from decoded token
+        const { findUserById } = require('../models/userModel');
+        const user = await findUserById(decoded.id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }

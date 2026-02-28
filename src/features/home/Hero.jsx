@@ -67,7 +67,7 @@ const Hero = () => {
                             <Link to="/project-hub">
                                 <Button
                                     size="lg"
-                                    className="group bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300 px-8 py-4 text-lg rounded-full border-0"
+                                    className="group shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300 px-8 py-4 text-lg rounded-full border-0"
                                 >
                                     Start your project
                                     <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={20} />
