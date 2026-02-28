@@ -4,7 +4,8 @@ import { Card } from '../../components/ui/Card';
 import { api } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, X, Plus, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const ExpertProfile = ({ user, existingProfile, onComplete }) => {
     const { uploadProfileImage } = useAuth();
@@ -298,12 +299,23 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
                             <h3 className="text-lg font-medium text-gray-900 mb-2">My Skills</h3>
                             <p className="text-sm text-gray-500 mb-4">Add skills to help clients find you. Press Enter to add.</p>
 
-                            <div className="flex flex-wrap gap-2 mb-4">
+                            <div className="flex flex-wrap gap-2.5 mb-6">
                                 {formData.skills.map((skill, idx) => (
-                                    <span key={idx} className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">
+                                    <motion.div
+                                        key={idx}
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm hover:border-primary/50 transition-colors"
+                                    >
                                         {skill}
-                                        <button type="button" onClick={() => removeSkill(skill)} className="hover:text-primary/70">×</button>
-                                    </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeSkill(skill)}
+                                            className="text-gray-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </motion.div>
                                 ))}
                             </div>
 

@@ -24,7 +24,16 @@ const debugLog = (type, ...args) => {
 const apiRequest = async (endpoint, options = {}) => {
     const url = `${API_URL}${endpoint}`;
 
-    debugLog('REQ', options.method || 'GET', endpoint, options.body ? JSON.parse(options.body) : '');
+    let bodyPreview = '';
+    if (options.body) {
+        try {
+            bodyPreview = JSON.parse(options.body);
+        } catch (e) {
+            bodyPreview = options.body instanceof FormData ? '[FormData]' : '[Binary/Other]';
+        }
+    }
+
+    debugLog('REQ', options.method || 'GET', endpoint, bodyPreview);
 
     try {
         const response = await fetch(url, options);
@@ -606,102 +615,96 @@ export const api = {
         })
     },
 
-    // AI Features (Anthropic Claude via Backend)
+    // AI Features (Now using Puter.js for free Frontend AI)
     ai: {
-        draftContract: async (data, onChunk) => {
-            // Prefer Backend for Anthropic Claude integration
-            const res = await apiRequest('/ai/draft-contract', {
-                method: 'POST',
-                body: JSON.stringify(data),
-                headers: getHeaders(),
-            });
-            if (onChunk && res.contract) {
-                onChunk(res.contract);
-            }
-            return res;
-        },
-        chat: async (message, context) => {
-            // Prefer Backend for Anthropic Claude integration
-            return apiRequest('/ai/chat', {
-                method: 'POST',
-                body: JSON.stringify({ message, context }),
-                headers: getHeaders(),
-            });
+        chat: async (message, context = {}) => {
+            const model = "gpt-4o"; // Default high-quality model
+            const prompt = `
+Context: ${JSON.stringify(context)}
+User Message: ${message}
+Provide a helpful response as an AI assistant for Africa Konnect Hub.
+`;
+            return window.puter.ai.chat(prompt, { model });
         },
         chatStream: async (message, context, onChunk) => {
-            const user = JSON.parse(localStorage.getItem('userInfo'));
-            const response = await fetch(`${API_URL}/ai/chat-stream`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user?.token}`
-                },
-                body: JSON.stringify({ message, context }),
-            });
-
-            if (!response.ok) throw new Error('Failed to start AI stream');
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep partial line in buffer
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.slice(6).trim();
-                        if (dataStr === '[DONE]') continue;
-                        try {
-                            const data = JSON.parse(dataStr);
-                            if (data.text) onChunk(data.text);
-                            if (data.error) throw new Error(data.error);
-                        } catch (e) {
-                            console.warn("Stream parse error:", e);
-                        }
-                    }
-                }
-            }
-        },
-        matchExperts: async (data) => {
-            return apiRequest('/ai/match', {
-                method: 'POST',
-                body: JSON.stringify(data),
-                headers: getHeaders(),
-            });
-        },
-        generateProject: async (idea) => {
-            return apiRequest('/ai/generate-project', {
-                method: 'POST',
-                body: JSON.stringify({ idea }),
-                headers: getHeaders(),
-            });
-        },
-        generateProposal: async (project, expert) => {
-            return apiRequest('/ai/generate-proposal', {
-                method: 'POST',
-                body: JSON.stringify({ project, expert }),
-                headers: getHeaders(),
-            });
-        },
-        generateInterview: async (project, expert) => {
-            return apiRequest('/ai/generate-interview', {
-                method: 'POST',
-                body: JSON.stringify({ project, expert }),
-                headers: getHeaders(),
-            });
+            const model = "gpt-4o";
+            const prompt = `Context: ${JSON.stringify(context)}\nUser: ${message}`;
+            // Puter.js v2 chat doesn't natively support easy streaming directly in the same call as v1 in some versions,
+            // but we can simulate it or use the promise-based response if it's not strictly streaming.
+            // If Puter.js supports streaming, it usually has a callback.
+            const response = await window.puter.ai.chat(prompt, { model });
+            if (onChunk) onChunk(response);
+            return response;
         },
         collaborationHelp: async (project) => {
-            return apiRequest('/ai/collaboration-help', {
-                method: 'POST',
-                body: JSON.stringify({ project }),
-                headers: getHeaders(),
-            });
+            const model = "gpt-4o";
+            const prompt = `
+Project Title: ${project.title}
+Description: ${project.description}
+
+Suggest a roadmap for this project. 
+Return ONLY a JSON object with:
+1. "milestones": array of {title, description}
+2. "tasks": array of {title, description}
+Example: {"milestones": [...], "tasks": [...]}
+`;
+            const response = await window.puter.ai.chat(prompt, { model });
+            try {
+                const jsonMatch = response.toString().match(/\{[\s\S]*\}/);
+                return JSON.parse(jsonMatch ? jsonMatch[0] : response.toString());
+            } catch (e) {
+                console.error("AI parse error:", e);
+                return { milestones: [], tasks: [] };
+            }
+        },
+        // ... generateProject, generateProposal ...
+        generateProject: async (idea) => {
+            const model = "gpt-4o";
+            const prompt = `Generate a detailed project structure for the following idea: ${idea}. Include title, description, and list of milestones. Format as JSON.`;
+            const response = await window.puter.ai.chat(prompt, { model });
+            try {
+                const jsonStr = response.toString().match(/\{[\s\S]*\}/)?.[0] || response.toString();
+                return JSON.parse(jsonStr);
+            } catch (e) {
+                return { title: idea, description: response };
+            }
+        },
+        generateProposal: async (project, expert) => {
+            const model = "gpt-4o";
+            const prompt = `Expert: ${expert.name} (${expert.title})\nProject: ${project.title}\n\nDraft a professional project proposal.`;
+            return { proposal: await window.puter.ai.chat(prompt, { model }) };
+        },
+        generateInterview: async (project, expert) => {
+            const model = "gpt-4o";
+            const prompt = `Generate 5 technical interview questions for ${expert.name} regarding project "${project.title}".`;
+            return { questions: await window.puter.ai.chat(prompt, { model }) };
+        },
+        draftContract: async (data, onChunk) => {
+            const model = "gpt-4o";
+            const prompt = `Draft a simple freelance contract for: ${JSON.stringify(data)}`;
+            const response = await window.puter.ai.chat(prompt, { model });
+            if (onChunk) onChunk(response);
+            return { contract: response };
+        },
+        matchExperts: async (projectData, experts) => {
+            const model = "gpt-4o";
+            const prompt = `
+Project Description: ${projectData.projectDescription}
+Requirements: ${projectData.requirements}
+
+Experts:
+${JSON.stringify(experts.map(e => ({ id: e.id, name: e.name, title: e.title, skills: e.skills })))}
+
+Identify the best matches. Return ONLY a JSON object with a "matches" array of {id, score, reason}.
+`;
+            const response = await window.puter.ai.chat(prompt, { model });
+            try {
+                const jsonMatch = response.toString().match(/\{[\s\S]*\}/);
+                return JSON.parse(jsonMatch ? jsonMatch[0] : response.toString());
+            } catch (e) {
+                console.error("AI Match parse error", e);
+                return { matches: experts.slice(0, 3).map(e => ({ id: e.id, score: 70, reason: "Manual selection" })) };
+            }
         }
     },
 

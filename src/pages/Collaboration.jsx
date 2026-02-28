@@ -230,7 +230,7 @@ const OverviewTab = ({ project, tasks, contracts = [], onInvite }) => {
     );
 };
 
-const MessagesTab = ({ messages, onSend, user }) => {
+const MessagesTab = ({ messages, onSend, user, typingUsers = [], onTyping = () => { } }) => {
     const [message, setMessage] = useState('');
     const scrollRef = useRef(null);
 
