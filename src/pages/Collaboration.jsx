@@ -534,7 +534,7 @@ const TasksTab = ({ tasks, onCreate, onUpdateStatus, project }) => {
 const VideoConferenceTab = ({ project, user, onNotify }) => {
     const [inMeeting, setInMeeting] = useState(false);
     const roomName = `africakonnect-project-${project.id}`;
-    const meetingLink = `https://africakonnect.com/${roomName}`;
+    const meetingLink = `https://meet.jit.si/${roomName}`;
 
     const handleJoin = () => {
         setInMeeting(true);

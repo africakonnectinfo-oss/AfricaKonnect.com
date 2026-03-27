@@ -120,7 +120,7 @@ const validateContract = [
         .notEmpty().withMessage('Expert ID is required')
         .isUUID().withMessage('Invalid Expert ID format'),
     body('terms')
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .trim()
         .isLength({ max: 10000 }).withMessage('Terms must not exceed 10000 characters')
         .customSanitizer(sanitizeText),
@@ -176,10 +176,10 @@ const validateMessage = [
         .isLength({ min: 1, max: 5000 }).withMessage('Message must be between 1 and 5000 characters')
         .customSanitizer(sanitizeText),
     body('projectId')
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isUUID().withMessage('Invalid Project ID format'),
     body('receiverId')
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isUUID().withMessage('Invalid Receiver ID format'),
     body().custom((value, { req }) => {
         if (!req.body.projectId && !req.body.receiverId) {
@@ -212,10 +212,10 @@ const validatePayment = [
  */
 const validateId = [
     param('id')
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isUUID().withMessage('Invalid ID format'),
     param('projectId')
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isUUID().withMessage('Invalid Project ID format'),
     validate
 ];

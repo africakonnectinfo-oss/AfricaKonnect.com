@@ -41,8 +41,13 @@ export const AuthProvider = ({ children }) => {
             if (storedUserJson) {
                 // Verify the token with our backend
                 const dbUser = await api.auth.getProfile();
-                setUser(dbUser);
-                loadProfile(dbUser);
+
+                // Merge with stored data to keep the token in React state
+                const stored = JSON.parse(storedUserJson);
+                const newUser = { ...stored, ...dbUser };
+
+                setUser(newUser);
+                loadProfile(newUser);
             }
         } catch (error) {
             console.log("Authentication check failed:", error.message);
@@ -118,14 +123,17 @@ export const AuthProvider = ({ children }) => {
         try {
             // Update user table if basic fields changed
             if (updates.name || updates.email || updates.profileImageUrl || updates.profile_image_url) {
-                const updatedUser = await api.auth.updateProfile({
+                const response = await api.auth.updateProfile({
                     name: updates.name || user.name,
                     email: updates.email || user.email,
                     profile_image_url: updates.profileImageUrl || updates.profile_image_url || user.profile_image_url
                 });
 
-                // Merge updated fields into user object
-                const newUser = { ...user, ...updatedUser.user };
+                // Merge updated fields into current user state AND preserve token in localStorage
+                const updatedUserData = response.user || response;
+                const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                const newUser = { ...stored, ...updatedUserData };
+
                 setUser(newUser);
                 localStorage.setItem('userInfo', JSON.stringify(newUser));
             }
@@ -133,15 +141,19 @@ export const AuthProvider = ({ children }) => {
             // Update expert profile if user is an expert
             if (user?.role === 'expert') {
                 const updated = await api.experts.updateProfile(user.id, updates);
-                setProfile(updated);
+                const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                setProfile({ ...stored, ...updated });
                 return { profile: updated, error: null };
             } else {
                 // For clients, update the profile state with user data
                 const refreshedUser = await api.auth.getProfile();
-                setUser(refreshedUser);
-                setProfile(refreshedUser);
-                localStorage.setItem('userInfo', JSON.stringify(refreshedUser));
-                return { profile: refreshedUser, error: null };
+                const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                const newUser = { ...stored, ...refreshedUser };
+
+                setUser(newUser);
+                setProfile(newUser);
+                localStorage.setItem('userInfo', JSON.stringify(newUser));
+                return { profile: newUser, error: null };
             }
         } catch (error) {
             console.error(error);

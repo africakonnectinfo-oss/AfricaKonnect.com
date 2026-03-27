@@ -1,9 +1,10 @@
 const API_URL = import.meta.env.VITE_API_URL || 'https://africa-konnect-api.onrender.com/api';
 
-const getHeaders = () => {
-    const headers = {
-        'Content-Type': 'application/json',
-    };
+const getHeaders = (contentType = 'application/json') => {
+    const headers = {};
+    if (contentType) {
+        headers['Content-Type'] = contentType;
+    }
     const user = JSON.parse(localStorage.getItem('userInfo'));
     if (user?.token) {
         headers['Authorization'] = `Bearer ${user.token}`;
@@ -20,6 +21,24 @@ const debugLog = (type, ...args) => {
     }
 };
 
+// Safe Puter.js Helper
+const ensurePuterAI = async () => {
+    // Check if already available
+    if (window.puter?.ai) return window.puter.ai;
+
+    // Wait for it to become available (up to 3 seconds)
+    let attempts = 0;
+    while (attempts < 30) {
+        if (window.puter?.ai) return window.puter.ai;
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+    }
+
+    // Fallback if Puter.js fails to load
+    console.error("Puter.js AI engine failed to initialize.");
+    throw new Error("AI services are currently unavailable. Please check your connection and refresh.");
+};
+
 // Wrapper for fetch to handle logging
 const apiRequest = async (endpoint, options = {}) => {
     const url = `${API_URL}${endpoint}`;
@@ -34,6 +53,15 @@ const apiRequest = async (endpoint, options = {}) => {
     }
 
     debugLog('REQ', options.method || 'GET', endpoint, bodyPreview);
+
+    // Automatically handle FormData headers
+    if (options.body instanceof FormData) {
+        // When using FormData, we MUST NOT set Content-Type header manually
+        // so the browser can set it with the correct boundary
+        if (options.headers && options.headers['Content-Type']) {
+            delete options.headers['Content-Type'];
+        }
+    }
 
     try {
         const response = await fetch(url, options);
@@ -472,11 +500,19 @@ export const api = {
         upload: async (data, projectId = null) => {
             // Check if it's FormData (has binary)
             if (data instanceof FormData) {
-                const token = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')).token : null;
-                const response = await fetch(`${API_URL}/files/upload`, {
+                // Ensure projectId is included in FormData if provided
+                if (projectId && !data.has('projectId')) {
+                    data.append('projectId', projectId);
+                }
+
+                const userInfo = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')) : null;
+                const token = userInfo?.token;
+
+                const response = await fetch(`${API_URL}/files`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}` // Let browser set Content-Type
+                        'Authorization': `Bearer ${token}`
+                        // Browser sets Content-Type automatically for FormData
                     },
                     body: data,
                 });
@@ -489,10 +525,10 @@ export const api = {
             }
 
             // JSON upload (metadata only or base64)
-            return apiRequest(`/files/upload`, {
+            return apiRequest(`/files`, {
                 method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify(data),
+                body: JSON.stringify({ ...data, projectId: projectId || data.projectId }),
             });
         },
         getByProject: async (projectId) => apiRequest(`/projects/${projectId}/files`, {
@@ -624,15 +660,14 @@ Context: ${JSON.stringify(context)}
 User Message: ${message}
 Provide a helpful response as an AI assistant for Africa Konnect Hub.
 `;
-            return window.puter.ai.chat(prompt, { model });
+            const ai = await ensurePuterAI();
+            return ai.chat(prompt, { model });
         },
         chatStream: async (message, context, onChunk) => {
             const model = "gpt-4o";
             const prompt = `Context: ${JSON.stringify(context)}\nUser: ${message}`;
-            // Puter.js v2 chat doesn't natively support easy streaming directly in the same call as v1 in some versions,
-            // but we can simulate it or use the promise-based response if it's not strictly streaming.
-            // If Puter.js supports streaming, it usually has a callback.
-            const response = await window.puter.ai.chat(prompt, { model });
+            const ai = await ensurePuterAI();
+            const response = await ai.chat(prompt, { model });
             if (onChunk) onChunk(response);
             return response;
         },
@@ -648,7 +683,8 @@ Return ONLY a JSON object with:
 2. "tasks": array of {title, description}
 Example: {"milestones": [...], "tasks": [...]}
 `;
-            const response = await window.puter.ai.chat(prompt, { model });
+            const ai = await ensurePuterAI();
+            const response = await ai.chat(prompt, { model });
             try {
                 const jsonMatch = response.toString().match(/\{[\s\S]*\}/);
                 return JSON.parse(jsonMatch ? jsonMatch[0] : response.toString());
@@ -657,11 +693,11 @@ Example: {"milestones": [...], "tasks": [...]}
                 return { milestones: [], tasks: [] };
             }
         },
-        // ... generateProject, generateProposal ...
         generateProject: async (idea) => {
             const model = "gpt-4o";
             const prompt = `Generate a detailed project structure for the following idea: ${idea}. Include title, description, and list of milestones. Format as JSON.`;
-            const response = await window.puter.ai.chat(prompt, { model });
+            const ai = await ensurePuterAI();
+            const response = await ai.chat(prompt, { model });
             try {
                 const jsonStr = response.toString().match(/\{[\s\S]*\}/)?.[0] || response.toString();
                 return JSON.parse(jsonStr);
@@ -672,17 +708,20 @@ Example: {"milestones": [...], "tasks": [...]}
         generateProposal: async (project, expert) => {
             const model = "gpt-4o";
             const prompt = `Expert: ${expert.name} (${expert.title})\nProject: ${project.title}\n\nDraft a professional project proposal.`;
-            return { proposal: await window.puter.ai.chat(prompt, { model }) };
+            const ai = await ensurePuterAI();
+            return { proposal: await ai.chat(prompt, { model }) };
         },
         generateInterview: async (project, expert) => {
             const model = "gpt-4o";
             const prompt = `Generate 5 technical interview questions for ${expert.name} regarding project "${project.title}".`;
-            return { questions: await window.puter.ai.chat(prompt, { model }) };
+            const ai = await ensurePuterAI();
+            return { questions: await ai.chat(prompt, { model }) };
         },
         draftContract: async (data, onChunk) => {
             const model = "gpt-4o";
             const prompt = `Draft a simple freelance contract for: ${JSON.stringify(data)}`;
-            const response = await window.puter.ai.chat(prompt, { model });
+            const ai = await ensurePuterAI();
+            const response = await ai.chat(prompt, { model });
             if (onChunk) onChunk(response);
             return { contract: response };
         },
@@ -697,7 +736,8 @@ ${JSON.stringify(experts.map(e => ({ id: e.id, name: e.name, title: e.title, ski
 
 Identify the best matches. Return ONLY a JSON object with a "matches" array of {id, score, reason}.
 `;
-            const response = await window.puter.ai.chat(prompt, { model });
+            const ai = await ensurePuterAI();
+            const response = await ai.chat(prompt, { model });
             try {
                 const jsonMatch = response.toString().match(/\{[\s\S]*\}/);
                 return JSON.parse(jsonMatch ? jsonMatch[0] : response.toString());
@@ -747,17 +787,26 @@ const handleResponse = async (response) => {
     if (!response.ok) {
         // Handle 401 errors (authentication failures)
         if (response.status === 401) {
-            // Clear invalid token
-            localStorage.removeItem('userInfo');
+            // Check if we already have userInfo - if not, we were never logged in
+            const hasUserInfo = localStorage.getItem('userInfo');
 
-            // Only redirect to login if we're not already on a public page
-            const publicPaths = ['/', '/signup', '/signin', '/experts', '/about', '/how-it-works', '/pricing'];
-            const currentPath = window.location.pathname;
+            if (hasUserInfo) {
+                // Only clear and redirect if we're CERTAIN the session is dead
+                // We avoid clearing on /auth/profile which can be transient
+                if (response.url.includes('/auth/profile')) {
+                    console.warn('Session verification failed. Attempting to maintain state...');
+                    // Don't clear localStorage yet, let AuthContext handle it if it persists
+                } else {
+                    localStorage.removeItem('userInfo');
 
-            // Silently handle 401 on public pages
-            if (!publicPaths.includes(currentPath) && !currentPath.startsWith('/expert/')) {
-                console.warn('Authentication required. Redirecting to sign in...');
-                window.location.href = '/signin';
+                    const publicPaths = ['/', '/signup', '/signin', '/experts', '/about', '/how-it-works', '/pricing'];
+                    const currentPath = window.location.pathname;
+
+                    if (!publicPaths.includes(currentPath) && !currentPath.startsWith('/expert/')) {
+                        console.warn('Session expired. Redirecting to sign in...');
+                        window.location.href = '/signin';
+                    }
+                }
             }
         }
 
