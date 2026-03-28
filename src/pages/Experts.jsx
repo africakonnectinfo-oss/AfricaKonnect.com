@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { Search, MapPin, Star, Filter, Verified, Briefcase, ExternalLink, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { SEO } from '../components/SEO';
+import SEO from '../components/SEO';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 

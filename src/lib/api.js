@@ -21,23 +21,7 @@ const debugLog = (type, ...args) => {
     }
 };
 
-// Safe Puter.js Helper
-const ensurePuterAI = async () => {
-    // Check if already available
-    if (window.puter?.ai) return window.puter.ai;
 
-    // Wait for it to become available (up to 3 seconds)
-    let attempts = 0;
-    while (attempts < 30) {
-        if (window.puter?.ai) return window.puter.ai;
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-    }
-
-    // Fallback if Puter.js fails to load
-    console.error("Puter.js AI engine failed to initialize.");
-    throw new Error("AI services are currently unavailable. Please check your connection and refresh.");
-};
 
 // Wrapper for fetch to handle logging
 const apiRequest = async (endpoint, options = {}) => {
@@ -651,118 +635,96 @@ export const api = {
         })
     },
 
-    // AI Features (Now using Puter.js for free Frontend AI)
+    // AI Features (Now securely proxied via backend RapidAPI)
     ai: {
-        chat: async (message, context = {}) => {
-            const model = "gpt-4o"; // Default high-quality model
-            const prompt = `
-Context: ${JSON.stringify(context)}
-User Message: ${message}
-Provide a helpful response as an AI assistant for Africa Konnect Hub.
-`;
-            const ai = await ensurePuterAI();
-            return ai.chat(prompt, { model });
-        },
+        chat: async (message, context = {}) => apiRequest('/ai/chat', {
+            method: 'POST',
+            body: JSON.stringify({ message, context }),
+            headers: getHeaders(),
+        }),
         chatStream: async (message, context, onChunk) => {
-            const model = "gpt-4o";
-            const prompt = `Context: ${JSON.stringify(context)}\nUser: ${message}`;
-            const ai = await ensurePuterAI();
-            const response = await ai.chat(prompt, { model });
-            
-            const fullText = response?.toString() || String(response);
-            if (onChunk) {
-                // Simulate streaming for better UX
-                const chunkSize = 4;
-                for (let i = 0; i < fullText.length; i += chunkSize) {
-                    onChunk(fullText.slice(i, i + chunkSize));
-                    await new Promise(r => setTimeout(r, 20)); // tiny delay
-                }
-            }
-            return fullText;
-        },
-        collaborationHelp: async (project) => {
-            const model = "gpt-4o";
-            const prompt = `
-Project Title: ${project.title}
-Description: ${project.description}
+            const url = `${API_URL}/ai/chat-stream`;
+            const options = {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ message, context })
+            };
+            try {
+                const response = await fetch(url, options);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = "";
 
-Suggest a roadmap for this project. 
-Return ONLY a JSON object with:
-1. "milestones": array of {title, description}
-2. "tasks": array of {title, description}
-Example: {"milestones": [...], "tasks": [...]}
-`;
-            const ai = await ensurePuterAI();
-            const response = await ai.chat(prompt, { model });
-            try {
-                const jsonMatch = response.toString().match(/\{[\s\S]*\}/);
-                return JSON.parse(jsonMatch ? jsonMatch[0] : response.toString());
-            } catch (e) {
-                console.error("AI parse error:", e);
-                return { milestones: [], tasks: [] };
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.replace('data: ', '').trim();
+                            if (dataStr === '[DONE]') break;
+                            try {
+                                const parsed = JSON.parse(dataStr);
+                                if (parsed.error) throw new Error(parsed.error);
+                                if (parsed.text) {
+                                    fullText += parsed.text;
+                                    if (onChunk) onChunk(parsed.text);
+                                }
+                            } catch (e) { }
+                        }
+                    }
+                }
+                return fullText;
+            } catch (err) {
+                console.error("API Stream Error:", err);
+                throw err;
             }
         },
-        generateProject: async (idea) => {
-            const model = "gpt-4o";
-            const prompt = `Generate a detailed project structure for the following idea: ${idea}. Include title, description, and list of milestones. Format as JSON.`;
-            const ai = await ensurePuterAI();
-            const response = await ai.chat(prompt, { model });
-            try {
-                const jsonStr = response.toString().match(/\{[\s\S]*\}/)?.[0] || response.toString();
-                return JSON.parse(jsonStr);
-            } catch (e) {
-                return { title: idea, description: response };
-            }
-        },
-        generateProposal: async (project, expert) => {
-            const model = "gpt-4o";
-            const prompt = `Expert: ${expert.name} (${expert.title})\nProject: ${project.title}\n\nDraft a professional project proposal.`;
-            const ai = await ensurePuterAI();
-            return { proposal: await ai.chat(prompt, { model }) };
-        },
-        generateInterview: async (project, expert) => {
-            const model = "gpt-4o";
-            const prompt = `Generate 5 technical interview questions for ${expert.name} regarding project "${project.title}".`;
-            const ai = await ensurePuterAI();
-            return { questions: await ai.chat(prompt, { model }) };
-        },
+        collaborationHelp: async (project) => apiRequest('/ai/collaboration-help', {
+            method: 'POST',
+            body: JSON.stringify({ project }),
+            headers: getHeaders(),
+        }),
+        generateProject: async (idea) => apiRequest('/ai/generate-project', {
+            method: 'POST',
+            body: JSON.stringify({ idea }),
+            headers: getHeaders(),
+        }),
+        generateProposal: async (project, expert) => apiRequest('/ai/generate-proposal', {
+            method: 'POST',
+            body: JSON.stringify({ project, expert }),
+            headers: getHeaders(),
+        }),
+        generateInterview: async (project, expert) => apiRequest('/ai/generate-interview', {
+            method: 'POST',
+            body: JSON.stringify({ project, expert }),
+            headers: getHeaders(),
+        }),
         draftContract: async (data, onChunk) => {
-            const model = "gpt-4o";
-            const prompt = `Draft a simple freelance contract for: ${JSON.stringify(data)}`;
-            const ai = await ensurePuterAI();
-            const response = await ai.chat(prompt, { model });
-            
-            const fullText = response?.toString() || String(response);
-            if (onChunk) {
-                const chunkSize = 4;
+            const response = await apiRequest('/ai/draft-contract', {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: getHeaders(),
+            });
+            // Simulate typing stream for UX
+            if (response && response.contract && onChunk) {
+                const fullText = response.contract;
+                const chunkSize = 20;
                 for (let i = 0; i < fullText.length; i += chunkSize) {
                     onChunk(fullText.slice(i, i + chunkSize));
-                    await new Promise(r => setTimeout(r, 20));
+                    await new Promise(r => setTimeout(r, 10));
                 }
             }
-            return { contract: fullText };
+            return response;
         },
-        matchExperts: async (projectData, experts) => {
-            const model = "gpt-4o";
-            const prompt = `
-Project Description: ${projectData.projectDescription}
-Requirements: ${projectData.requirements}
-
-Experts:
-${JSON.stringify(experts.map(e => ({ id: e.id, name: e.name, title: e.title, skills: e.skills })))}
-
-Identify the best matches. Return ONLY a JSON object with a "matches" array of {id, score, reason}.
-`;
-            const ai = await ensurePuterAI();
-            const response = await ai.chat(prompt, { model });
-            try {
-                const jsonMatch = response.toString().match(/\{[\s\S]*\}/);
-                return JSON.parse(jsonMatch ? jsonMatch[0] : response.toString());
-            } catch (e) {
-                console.error("AI Match parse error", e);
-                return { matches: experts.slice(0, 3).map(e => ({ id: e.id, score: 70, reason: "Manual selection" })) };
-            }
-        }
+        matchExperts: async (projectData, experts) => apiRequest('/ai/match', {
+            method: 'POST',
+            body: JSON.stringify({ projectDescription: projectData.projectDescription, requirements: projectData.requirements, experts }),
+            headers: getHeaders(),
+        })
     },
 
     // Applications

@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const AIChatAssistant = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -19,29 +20,40 @@ const AIChatAssistant = () => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [messages, isOpen]);
+    }, [messages, isOpen, isLoading]);
 
-    const handleSend = async (e) => {
-        e.preventDefault();
-        if (!input.trim() || isLoading) return;
+    const { user } = useAuth();
 
-        const userMsg = { role: 'user', content: input };
+    const handleSend = async (e, forcedInput = null) => {
+        if (e) e.preventDefault();
+        const messageToSend = forcedInput || input;
+        
+        if (!messageToSend.trim() || isLoading) return;
+
+        const userMsg = { role: 'user', content: messageToSend };
         setMessages(prev => [...prev, userMsg]);
-        setInput('');
+        if (!forcedInput) setInput('');
         setIsLoading(true);
 
+        // Prepare the AI message placeholder
         const aiMsgIndex = messages.length + 1;
         setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
         try {
             const context = {
                 currentPath: window.location.pathname,
+                pageTitle: document.title,
+                userName: user?.name || 'Guest',
+                userRole: user?.role || 'Visitor'
             };
 
-            await api.ai.chatStream(input, context, (chunk) => {
+            await api.ai.chatStream(messageToSend, context, (chunk) => {
                 setMessages(prev => {
                     const newMessages = [...prev];
-                    newMessages[aiMsgIndex].content += chunk;
+                    const targetMsg = newMessages[aiMsgIndex];
+                    if (targetMsg) {
+                        targetMsg.content += chunk;
+                    }
                     return newMessages;
                 });
             });
@@ -49,18 +61,26 @@ const AIChatAssistant = () => {
             console.error('AI Chat Error:', error);
             setMessages(prev => {
                 const newMessages = [...prev];
-                // Show specific error message if available, otherwise generic
                 const errorMessage = error.message && error.message.length < 100
                     ? `Error: ${error.message}`
-                    : "I'm sorry, I'm having trouble connecting right now. Please try again later.";
+                    : "I'm sorry, I'm having trouble connecting to Africa Konnect AI right now. Please try again later.";
 
-                newMessages[aiMsgIndex].content = errorMessage;
+                if (newMessages[aiMsgIndex]) {
+                    newMessages[aiMsgIndex].content = errorMessage;
+                }
                 return newMessages;
             });
         } finally {
             setIsLoading(false);
         }
     };
+
+    const quickActions = [
+        { label: "Find Experts", icon: Users, prompt: "How do I find and hire the best experts on Africa Konnect?" },
+        { label: "Escrow Info", icon: Sparkles, prompt: "Tell me about the secure escrow payment system." },
+        { label: "Pricing", icon: Bot, prompt: "What are the different pricing plans available?" },
+        { label: "About Us", icon: Sparkles, prompt: "What is the mission of Africa Konnect?" }
+    ];
 
     return (
         <div className="fixed bottom-6 right-6 z-[9999]">
@@ -100,7 +120,7 @@ const AIChatAssistant = () => {
                             {/* Messages */}
                             <div
                                 ref={scrollRef}
-                                className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50"
+                                className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50 scroll-smooth"
                             >
                                 {messages.map((msg, i) => (
                                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -110,15 +130,42 @@ const AIChatAssistant = () => {
                                                 : 'bg-white text-gray-800 rounded-bl-none border-gray-100'
                                                 }`}>
                                                 {msg.content}
+                                                {msg.role === 'assistant' && msg.content === '' && (
+                                                    <span className="inline-flex gap-1 items-center">
+                                                        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce"></span>
+                                                        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                                        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
                                 ))}
+                                
+                                {!isLoading && messages.length < 3 && (
+                                    <div className="grid grid-cols-2 gap-2 pt-2">
+                                        {quickActions.map((action, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => handleSend(null, action.prompt)}
+                                                className="text-[11px] text-left p-2 rounded-xl bg-white border border-gray-200 hover:border-primary/30 hover:bg-primary/5 transition-all text-gray-600 flex items-center gap-2 group"
+                                            >
+                                                <action.icon size={12} className="text-primary group-hover:scale-110 transition-transform" />
+                                                {action.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {isLoading && (
                                     <div className="flex justify-start">
                                         <div className="bg-white border border-gray-100 px-4 py-3 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-2">
-                                            <Loader2 size={16} className="animate-spin text-primary" />
-                                            <span className="text-xs text-gray-500 font-medium">Assistant is thinking...</span>
+                                            <div className="flex gap-1">
+                                                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></div>
+                                                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                                                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                                            </div>
+                                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">AI is generating...</span>
                                         </div>
                                     </div>
                                 )}

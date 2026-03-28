@@ -1,29 +1,73 @@
-const Anthropic = require("@anthropic-ai/sdk");
-const OpenAI = require("openai");
 const pool = require('../database/db');
 
-// Initialize Anthropic AI lazily to ensure environment variables are loaded
-const getAnthropicClient = () => {
-    const apiKey = process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-        console.warn("AI Client initialization skipped: No Anthropic API Key provided.");
-        return null;
+// Global helper to query RapidAPI endpoint
+async function callRapidAPI(promptStr) {
+    const fetchFn = typeof fetch !== 'undefined' ? fetch : (await import('node-fetch')).default;
+    
+    // Fallbacks just in case .env didn't load properly
+    const rapidApiKey = process.env.RAPIDAPI_KEY || "c7e5534adbmshe7aeff69caa00e0p1b6db5jsn7fb9d7c8861b";
+    const rapidApiHost = process.env.RAPIDAPI_HOST || "chatgpt-vision1.p.rapidapi.com";
+    const rapidApiUrl = process.env.RAPIDAPI_URL || "https://chatgpt-vision1.p.rapidapi.com/matagvision2";
+
+    if (!rapidApiKey) {
+        throw new Error("RapidAPI Key is missing from configuration.");
     }
-    return new Anthropic({ apiKey });
-};
 
-const CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
-const DEEPSEEK_MODEL = "deepseek-chat";
+    const payload = {
+        messages: [
+            {
+                role: "user",
+                content: [
+                    { type: "text", text: promptStr }
+                ]
+            }
+        ],
+        web_access: false
+    };
 
-// Initialize DeepSeek (OpenAI-compatible)
-const getDeepSeekClient = () => {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) return null;
-    return new OpenAI({
-        apiKey,
-        baseURL: 'https://api.deepseek.com'
-    });
-};
+    const options = {
+        method: 'POST',
+        headers: {
+            'x-rapidapi-key': rapidApiKey,
+            'x-rapidapi-host': rapidApiHost,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    };
+
+    try {
+        const response = await fetchFn(rapidApiUrl, options);
+        if (!response.ok) {
+            throw new Error(`RapidAPI Error: ${response.status} - ${await response.text()}`);
+        }
+        
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            let data = await response.json();
+            
+            let textResponse = "";
+            if (data.choices && data.choices[0] && data.choices[0].message) {
+                textResponse = data.choices[0].message.content;
+            } else if (data.result) {
+                textResponse = data.result;
+            } else if (data.response) {
+                textResponse = data.response;
+            } else if (data.message) {
+                textResponse = data.message;
+            } else if (data.text) {
+                textResponse = data.text;
+            } else {
+                textResponse = typeof data === 'string' ? data : JSON.stringify(data);
+            }
+            return textResponse;
+        } else {
+            return await response.text();
+        }
+    } catch (e) {
+        console.error("RapidAPI Error details:", e);
+        throw e;
+    }
+}
 
 const aiController = {
     // Match Experts
@@ -72,34 +116,10 @@ const aiController = {
                 - "reason": A concise reason for the match
             `;
 
-            // 3. Call AI
-            const deepseek = getDeepSeekClient();
-            const anthropic = getAnthropicClient();
-
-            if (!deepseek && !anthropic) {
-                console.warn("AI Match skipped: No API Key provided.");
-                return res.json({ matches: experts.map(e => ({ ...e, score: 0, reason: "AI features require a DeepSeek or Anthropic API Key." })) });
-            }
-
-            let text;
-            if (deepseek) {
-                const completion = await deepseek.chat.completions.create({
-                    model: DEEPSEEK_MODEL,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                text = completion.choices[0].message.content;
-            } else {
-                const msg = await anthropic.messages.create({
-                    model: CLAUDE_MODEL,
-                    max_tokens: 1024,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                text = msg.content[0].text;
-            }
+            const text = await callRapidAPI(prompt);
 
             let parsedResult;
             try {
-                // Find JSON block if Claude adds preamble
                 const jsonMatch = text.match(/\{[\s\S]*\}/);
                 const cleanedText = jsonMatch ? jsonMatch[0] : text;
                 parsedResult = JSON.parse(cleanedText);
@@ -127,65 +147,59 @@ const aiController = {
         try {
             const { message, context } = req.body;
 
-            const deepseek = getDeepSeekClient();
-            const anthropic = getAnthropicClient();
-
-            if (!deepseek && !anthropic) {
-                return res.json({ reply: "AI features require a DeepSeek or Anthropic API Key." });
-            }
-
             const systemPrompt = `
-                You are the Africa Konnect AI Assistant, a premium AI expert dedicated to helping users thrive on Africa's leading expert platform.
+                You are the Africa Konnect AI Assistant, the official premium expert guide for Africa's leading platform connecting global businesses with vetted African talent.
                 
+                PLATFORM KNOWLEDGE BASE:
+                - Mission: Bridging the gap between African technical talent and global innovation. Our vision is "Made in Africa" as a global standard of excellence.
+                - Impact: 2,500+ Vetted Experts, 30+ Countries served, 10,000+ Projects completed, 98% Client satisfaction.
+                - Pricing: 
+                  - Starter: Free to join, 1 project post, 5% platform fee.
+                  - Growth: $49/month, Unlimited projects, Priority matching, 3% platform fee.
+                  - Enterprise: Custom pricing, White-glove matching, SLA guarantees, 1% platform fee.
+                - How It Works (6 Steps):
+                  1. Register & Profile
+                  2. Company Vault: Securely upload brand assets and technical requirements.
+                  3. AI Match Engine: Proprietary algorithm for technical/cultural matching.
+                  4. Integrated Interview: Built-in video platform with whiteboard.
+                  5. Smart Contract: Instant, fair contracts with IP protection.
+                  6. Escrow & Collaborate: Milestone-based secure payments.
+                - Security: Enterprise-grade security. TLS 1.3/AES-256 encryption. PCI-DSS Level 1 payment compliance via Stripe/PayPal. MFA enabled.
+                - Legal: Latest updates to Privacy Policy and Terms of Service (Jan 1, 2026). 
+                - Commitment: We pledge a portion of income to scholarships and learning resources (computers, textbooks) for African schools.
+                - Contact: 
+                  - USA: +1 (404) 713-2428 | Waterford Way, Conyers, GA.
+                  - Sierra Leone: +232 88 580 063 | Tech Avenue, Freetown.
+                  - Emails: hello@africakonnect.com, support@africakonnect.com.
+
                 YOUR IDENTITY:
-                - Helpful, professional, and culturally aware.
-                - Expert in freelancing, project management, and collaboration.
-                
-                YOUR GOALS:
-                1. Help Clients define project requirements and find the best experts.
-                2. Help Experts draft winning proposals and manage their workflow.
-                3. Answer general platform questions (pricing, escrow, how it works).
-                4. Assist with legal document drafting (contracts/NDAs).
+                - Helpful, professional, culturally aware, and supportive.
+                - Expert in African tech ecosystem, freelancing, and collaboration.
                 
                 CONTEXT:
                 Current Page: ${context?.currentPath || 'Unknown'}
-                User Context: ${context ? JSON.stringify(context) : 'General Inquiry'}
+                User: ${context?.userName || 'Guest'} (${context?.userRole || 'General Reader'})
+                Page Info: ${context?.pageTitle || 'Africa Konnect Platform'}
 
                 GUIDELINES:
-                - If asked about contracts, suggest the "Draft Contract" tool.
-                - Keep responses concise (under 150 words) unless detail is asked.
+                - Always reference specific platform features (e.g., "Company Vault", "Escrow Protection") when explaining how things work.
+                - If asked about contracts, suggest our "Smart Contract" tool.
+                - Keep responses concise (under 150 words) unless detail is specifically requested.
                 - Use markdown for lists and bold text.
             `;
 
-            let reply;
-            if (deepseek) {
-                const completion = await deepseek.chat.completions.create({
-                    model: DEEPSEEK_MODEL,
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: message }
-                    ],
-                });
-                reply = completion.choices[0].message.content;
-            } else {
-                const msg = await anthropic.messages.create({
-                    model: CLAUDE_MODEL,
-                    max_tokens: 1024,
-                    system: systemPrompt,
-                    messages: [{ role: "user", content: message }],
-                });
-                reply = msg.content[0].text;
-            }
+            const fullPrompt = systemPrompt + "\n\nUser Message: " + message;
+            const reply = await callRapidAPI(fullPrompt);
 
             res.json({ reply });
 
         } catch (error) {
-            console.error('AI Chat Claude Error:', error);
+            console.error('AI Chat Error:', error);
             res.status(500).json({ error: error.message || 'Failed to generate AI response' });
         }
     },
 
-    // Streaming Chat Response (Real-time)
+    // Streaming Chat Response (Simulated Stream from unified response)
     chatStream: async (req, res) => {
         try {
             const { message, context } = req.body;
@@ -194,77 +208,60 @@ const aiController = {
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
-            res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering
+            res.setHeader('X-Accel-Buffering', 'no');
 
-            const deepseek = getDeepSeekClient();
-            const anthropic = getAnthropicClient();
+            // 1. Send immediate signal to frontend to start typing animation
+            res.write(`data: ${JSON.stringify({ text: "", status: "thinking" })}\n\n`);
 
-            if (!deepseek && !anthropic) {
-                res.write(`data: ${JSON.stringify({ error: "AI keys missing. Please set DEEPSEEK_API_KEY or ANTHROPIC_API_KEY." })}\n\n`);
-                return res.end();
-            }
-
-            const systemPrompt = `You are the Africa Konnect AI Assistant. Respond professionally and helpfully. Current Page: ${context?.currentPath || 'General'}`;
+            const systemPrompt = `
+                You are the Africa Konnect AI Assistant. Provide helpful, platform-specific information.
+                Platform Context: Vetted African Talent, Escrow Protection, Company Vault, Smart Contracts.
+                Current Page: ${context?.currentPath || 'General'}
+                User: ${context?.userName || 'User'} (${context?.userRole || 'User'})
+            `;
+            const fullPrompt = systemPrompt + "\n\nUser: " + message;
 
             // Handle client disconnect
+            let isClosed = false;
             req.on('close', () => {
+                isClosed = true;
                 res.end();
             });
 
-            if (deepseek) {
-                // Try DeepSeek first as it's the requested integration
-                try {
-                    const stream = await deepseek.chat.completions.create({
-                        model: DEEPSEEK_MODEL,
-                        messages: [
-                            { role: "system", content: systemPrompt },
-                            { role: "user", content: message }
-                        ],
-                        stream: true,
-                    });
+            // Get full response from RapidAPI
+            const fullText = await callRapidAPI(fullPrompt);
+            
+            if (isClosed) return;
 
-                    for await (const chunk of stream) {
-                        const content = chunk.choices[0]?.delta?.content || "";
-                        if (content) {
-                            res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
-                        }
-                    }
-                } catch (dsError) {
-                    console.error('DeepSeek Stream Error:', dsError);
-                    if (!anthropic) throw dsError;
-                    // Fallback to Anthropic if available
-                    console.log('Falling back to Anthropic Claude...');
-                }
+            // 2. Simulate realtime word-by-word streaming for a "living" experience
+            const words = fullText.split(' ');
+            
+            for (let i = 0; i < words.length; i++) {
+                if (isClosed) break;
+                
+                // Add space back except for the last word
+                const chunk = words[i] + (i === words.length - 1 ? "" : " ");
+                res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
+                
+                // Control timing for "realtime" feel
+                // Faster if the response is long
+                const delay = words.length > 100 ? 20 : 50; 
+                await new Promise(r => setTimeout(r, delay));
             }
 
-            if (anthropic && (!deepseek || res.writableFinished === false)) {
-                const stream = await anthropic.messages.create({
-                    model: CLAUDE_MODEL,
-                    max_tokens: 1024,
-                    system: systemPrompt,
-                    messages: [{ role: "user", content: message }],
-                    stream: true,
-                });
-
-                for await (const event of stream) {
-                    if (event.type === 'content_block_delta') {
-                        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
-                    }
-                }
+            if (!isClosed) {
+                res.write('data: [DONE]\n\n');
+                res.end();
             }
-
-            res.write('data: [DONE]\n\n');
-            res.end();
 
         } catch (error) {
             console.error('AI Stream Error:', error);
-            // If we already started the stream, we can't change status code
             res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
             res.end();
         }
     },
 
-    // Draft Contract (Refined for Perfection)
+    // Draft Contract
     draftContract: async (req, res) => {
         try {
             const { projectName, clientName, expertName, rate, deliverables, duration } = req.body;
@@ -287,27 +284,7 @@ const aiController = {
                 4. Tone: Serious and authoritative.
             `;
 
-            const deepseek = getDeepSeekClient();
-            const anthropic = getAnthropicClient();
-
-            if (!deepseek && !anthropic) return res.json({ contract: "Contract drafting unavailable (No AI Key)." });
-
-            let contract;
-            if (deepseek) {
-                const completion = await deepseek.chat.completions.create({
-                    model: DEEPSEEK_MODEL,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                contract = completion.choices[0].message.content;
-            } else {
-                const msg = await anthropic.messages.create({
-                    model: CLAUDE_MODEL,
-                    max_tokens: 2500,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                contract = msg.content[0].text;
-            }
-
+            const contract = await callRapidAPI(prompt);
             res.json({ contract });
 
         } catch (error) {
@@ -316,33 +293,15 @@ const aiController = {
         }
     },
 
-    // 1. AI Project Generator (Refined for Accuracy)
+    // 1. AI Project Generator
     generateProjectDetails: async (req, res) => {
         try {
             const { idea } = req.body;
             if (!idea) return res.status(400).json({ error: "No idea provided" });
 
-            const deepseek = getDeepSeekClient();
-            const anthropic = getAnthropicClient();
-            if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
-
             const prompt = `Generate a detailed project structure for the following idea: ${idea}. Include title, description, and list of milestones. Format as JSON.`;
 
-            let text;
-            if (deepseek) {
-                const completion = await deepseek.chat.completions.create({
-                    model: DEEPSEEK_MODEL,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                text = completion.choices[0].message.content;
-            } else {
-                const msg = await anthropic.messages.create({
-                    model: CLAUDE_MODEL,
-                    max_tokens: 1024,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                text = msg.content[0].text;
-            }
+            const text = await callRapidAPI(prompt);
             const jsonMatch = text.match(/\{[\s\S]*\}/);
             const parsedResult = JSON.parse(jsonMatch ? jsonMatch[0] : text);
 
@@ -353,33 +312,14 @@ const aiController = {
         }
     },
 
-    // 2. AI Proposal Generator (Refined for Success)
+    // 2. AI Proposal Generator
     generateProposal: async (req, res) => {
         try {
             const { project, expert } = req.body;
 
-            const deepseek = getDeepSeekClient();
-            const anthropic = getAnthropicClient();
-            if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
-
             const prompt = `Expert: ${expert?.name || 'Expert'} (${expert?.title || 'Professional'})\nProject: ${project?.title || 'Project'}\n\nDraft a professional project proposal emphasizing the expert's suitability for the project requirements.`;
 
-            let proposal;
-            if (deepseek) {
-                const completion = await deepseek.chat.completions.create({
-                    model: DEEPSEEK_MODEL,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                proposal = completion.choices[0].message.content;
-            } else {
-                const msg = await anthropic.messages.create({
-                    model: CLAUDE_MODEL,
-                    max_tokens: 1500,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                proposal = msg.content[0].text;
-            }
-
+            const proposal = await callRapidAPI(prompt);
             res.json({ proposal });
         } catch (error) {
             console.error('AI Proposal Gen Error:', error);
@@ -392,28 +332,9 @@ const aiController = {
         try {
             const { project, expert } = req.body;
 
-            const deepseek = getDeepSeekClient();
-            const anthropic = getAnthropicClient();
-            if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
-
             const prompt = `Generate 5 technical interview questions for ${expert?.name || 'the expert'} regarding project "${project?.title || 'the project'}".`;
 
-            let questions;
-            if (deepseek) {
-                const completion = await deepseek.chat.completions.create({
-                    model: DEEPSEEK_MODEL,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                questions = completion.choices[0].message.content;
-            } else {
-                const msg = await anthropic.messages.create({
-                    model: CLAUDE_MODEL,
-                    max_tokens: 1500,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                questions = msg.content[0].text;
-            }
-
+            const questions = await callRapidAPI(prompt);
             res.json({ questions });
         } catch (error) {
             console.error('AI Interview Gen Error:', error);
@@ -421,32 +342,14 @@ const aiController = {
         }
     },
 
-    // 4. AI Collaboration AI (Refined for Real-time action)
+    // 4. AI Collaboration AI
     getCollaborationSuggestions: async (req, res) => {
         try {
             const { project } = req.body;
 
-            const deepseek = getDeepSeekClient();
-            const anthropic = getAnthropicClient();
-            if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
-
             const prompt = `Project Title: ${project?.title || ''}\nDescription: ${project?.description || ''}\n\nSuggest a roadmap for this project. Return ONLY a JSON object with: 1. "milestones": array of {title, description}. 2. "tasks": array of {title, description}`;
 
-            let text;
-            if (deepseek) {
-                const completion = await deepseek.chat.completions.create({
-                    model: DEEPSEEK_MODEL,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                text = completion.choices[0].message.content;
-            } else {
-                const msg = await anthropic.messages.create({
-                    model: CLAUDE_MODEL,
-                    max_tokens: 1500,
-                    messages: [{ role: "user", content: prompt }],
-                });
-                text = msg.content[0].text;
-            }
+            const text = await callRapidAPI(prompt);
             const jsonMatch = text.match(/\{[\s\S]*\}/);
             const parsedResult = JSON.parse(jsonMatch ? jsonMatch[0] : text);
 
