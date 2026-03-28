@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, X, Bot, Loader2, Minimize2, Maximize2, Sparkles } from 'lucide-react';
+import { MessageSquare, Send, X, Bot, Minimize2, Sparkles, Users } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { motion, AnimatePresence } from 'framer-motion';
