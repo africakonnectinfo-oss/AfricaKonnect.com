@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useProject } from '../contexts/ProjectContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Plus, Briefcase, ChevronRight, Clock, AlertCircle, DollarSign, Activity, FileText, Check } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, Clock, AlertCircle, DollarSign, Activity, FileText, Check, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 
 import { Step1Vault } from '../features/project-hub/Step1Vault';
@@ -35,7 +35,7 @@ const ProjectHub = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user } = useAuth();
-    const { currentProject } = useProject();
+    const { currentProject, clearCurrentProject, setActiveProject, deleteProject } = useProject();
 
     // State for direct hire flow
     const [expertToHire, setExpertToHire] = useState(null);
@@ -43,9 +43,9 @@ const ProjectHub = () => {
     useEffect(() => {
         if (location.state?.expertToHire) {
             setExpertToHire(location.state.expertToHire);
+            clearCurrentProject();
             setViewMode('wizard');
-            setCurrentStep(1); // Start at step 1 to create project first
-            // Clear state so it doesn't persist if we navigate away and back
+            setCurrentStep(1); 
             window.history.replaceState({}, document.title);
         }
     }, [location]);
@@ -69,20 +69,19 @@ const ProjectHub = () => {
             if (user?.id) {
                 try {
                     const data = await api.projects.getMine();
-                    if (data && data.projects) {
-                        setClientProjects(data.projects);
+                    const projects = data?.projects || (Array.isArray(data) ? data : []);
+                    setClientProjects(projects);
 
-                        // Calculate stats
-                        const totalSpent = data.projects.reduce((acc, p) => acc + (Number(p.budget) || 0), 0);
-                        const active = data.projects.filter(p => p.status === 'active' || p.status === 'in_progress').length;
-                        const completed = data.projects.filter(p => p.status === 'completed').length;
+                    // Calculate stats
+                    const totalSpent = projects.reduce((acc, p) => acc + (Number(p.budget) || 0), 0);
+                    const active      = projects.filter(p => p.status === 'active' || p.status === 'in_progress').length;
+                    const completed   = projects.filter(p => p.status === 'completed').length;
 
-                        setStats({
-                            totalSpent,
-                            activeCount: active,
-                            completedCount: completed
-                        });
-                    }
+                    setStats({
+                        totalSpent,
+                        activeCount: active,
+                        completedCount: completed
+                    });
                 } catch (e) {
                     console.error("Failed to load projects", e);
                 } finally {
@@ -110,6 +109,18 @@ const ProjectHub = () => {
         }
     };
 
+    const handleDeleteProject = async (id) => {
+        if (confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+            try {
+                await deleteProject(id);
+                setClientProjects(prev => prev.filter(p => p.id !== id));
+                toast.success('Project deleted');
+            } catch (err) {
+                toast.error('Failed to delete project');
+            }
+        }
+    };
+
     const renderStep = () => {
         switch (currentStep) {
             case 1: return <Step1Vault onNext={nextStep} />;
@@ -132,7 +143,7 @@ const ProjectHub = () => {
         return (
             <div className="min-h-screen bg-gray-50 pt-24 pb-12">
                 <SEO title="Project Hub" description="Manage your Africa Konnect projects." />
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl auto px-4 sm:px-6 lg:px-8">
                     {/* Command Center Header */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                         <div>
@@ -140,7 +151,7 @@ const ProjectHub = () => {
                             <p className="text-gray-600">Overview of your active work and talent pipeline</p>
                         </div>
                         <Button
-                            onClick={() => { setViewMode('wizard'); setCurrentStep(1); }}
+                            onClick={() => { clearCurrentProject(); setViewMode('wizard'); setCurrentStep(1); }}
                             className="shadow-lg shadow-primary/20"
                         >
                             <Plus className="mr-2" size={20} />
@@ -223,8 +234,9 @@ const ProjectHub = () => {
                                             </div>
                                         </div>
                                         <Button size="sm" variant="secondary" onClick={() => {
+                                            setActiveProject(p.id);
                                             setViewMode('wizard');
-                                            // Ideally we would load the draft state here
+                                            setCurrentStep(1);
                                         }}>
                                             Continue Setup
                                         </Button>
@@ -261,10 +273,15 @@ const ProjectHub = () => {
                                                             'bg-blue-50 text-blue-600'}`}>
                                                     {p.status}
                                                 </span>
-                                                <button className="text-gray-400 hover:text-primary">
-                                                    <span className="sr-only">Menu</span>
-                                                    •••
-                                                </button>
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => handleDeleteProject(p.id)}
+                                                        className="text-gray-400 hover:text-error transition-colors p-1"
+                                                        title="Delete Project"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-1">{p.title}</h3>
@@ -284,8 +301,15 @@ const ProjectHub = () => {
                                         <div className="p-4 bg-gray-50 border-t border-gray-100">
                                             <Button
                                                 className="w-full justify-between group"
-                                                onClick={() => navigate('/collaboration', { state: { projectId: p.id } })}
-                                                disabled={p.status === 'draft'}
+                                                onClick={() => {
+                                                    if (p.status === 'draft') {
+                                                        setActiveProject(p.id);
+                                                        setViewMode('wizard');
+                                                        setCurrentStep(1);
+                                                    } else {
+                                                        navigate('/collaboration', { state: { projectId: p.id } });
+                                                    }
+                                                }}
                                             >
                                                 {p.status === 'draft' ? 'Finish Setup' : 'Open Workspace'}
                                                 <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />

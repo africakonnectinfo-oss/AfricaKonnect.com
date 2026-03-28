@@ -209,6 +209,25 @@ export const ProjectProvider = ({ children }) => {
         }
     };
 
+    const deleteProject = async (projectId) => {
+        try {
+            await api.projects.delete(projectId);
+            setProjects(prev => prev.filter(p => p.id === projectId));
+            if (currentProject?.id === projectId) {
+                setCurrentProject(null);
+                localStorage.removeItem('currentProjectId');
+            }
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            throw error;
+        }
+    };
+
+    const clearCurrentProject = () => {
+        setCurrentProject(null);
+        localStorage.removeItem('currentProjectId');
+    };
+
     const updateProject = async (projectId, updates) => {
         try {
             // Only update core project fields via API
@@ -406,6 +425,8 @@ export const ProjectProvider = ({ children }) => {
         loading,
         createProject,
         updateProject,
+        deleteProject,
+        clearCurrentProject,
         addProjectFile,
         removeProjectFile,
         addMessage,

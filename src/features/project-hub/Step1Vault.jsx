@@ -30,6 +30,21 @@ const Step1Vault = ({ onNext }) => {
     const [maxBudget, setMaxBudget]               = useState(currentProject?.max_budget || '');
     const [biddingDeadline, setBiddingDeadline]   = useState(currentProject?.bidding_deadline ? new Date(currentProject.bidding_deadline).toISOString().split('T')[0] : '');
 
+    // Sync with currentProject when it changes (for "Continue Setup" flow)
+    React.useEffect(() => {
+        if (currentProject) {
+            setProjectTitle(currentProject.title || '');
+            setBudget(currentProject.budget || '');
+            setDuration(currentProject.duration || '');
+            setFiles(currentProject.files || []);
+            setSelectedStack(currentProject.techStack || currentProject.tech_stack || []);
+            setIsOpenForBidding(currentProject.open_for_bidding || false);
+            setMinBudget(currentProject.min_budget || '');
+            setMaxBudget(currentProject.max_budget || '');
+            setBiddingDeadline(currentProject.bidding_deadline ? new Date(currentProject.bidding_deadline).toISOString().split('T')[0] : '');
+        }
+    }, [currentProject]);
+
     const handleAIGenerate = async () => {
         if (!projectTitle.trim()) {
             toast.error("Please enter a basic project idea or title first.");
