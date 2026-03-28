@@ -144,8 +144,15 @@ const UserProfile = () => {
         const file = e.target.files?.[0];
         if (!file) return;
         try {
-            setImagePreview(URL.createObjectURL(file));
-            await uploadProfileImage(file);
+            // Optimistic UI update
+            const optimisticUrl = URL.createObjectURL(file);
+            setImagePreview(optimisticUrl);
+            
+            // Background upload and persistence
+            const { url } = await uploadProfileImage(file);
+            
+            // Synchronize local preview with real URL
+            setImagePreview(url);
             toast.success('Avatar updated!');
         } catch (err) {
             toast.error('Image upload failed: ' + err.message);
@@ -198,7 +205,7 @@ const UserProfile = () => {
                 country: formData.country,
                 city:    formData.city,
                 company: formData.company,
-                profileImageUrl: imagePreview
+                profile_image_url: imagePreview // Use standardized field name
             });
 
             if (isExpert) {
@@ -212,7 +219,7 @@ const UserProfile = () => {
                     services:    formData.services,
                     documents:   formData.documents,
                     hourlyRate:  parseFloat(formData.hourly_rate) || 0,
-                    profileImageUrl: imagePreview
+                    profile_image_url: imagePreview
                 });
             }
 
@@ -817,6 +824,22 @@ const UserProfile = () => {
                     </main>
                 </div>
             </div>
+            {/* Hidden inputs for uploads */}
+            <input 
+                ref={fileInputRef} 
+                type="file" 
+                className="hidden" 
+                onChange={handleImageUpload} 
+                accept="image/*" 
+                style={{ display: 'none' }} 
+            />
+            <input 
+                ref={docInputRef} 
+                type="file" 
+                className="hidden" 
+                onChange={handleDocumentUpload} 
+                style={{ display: 'none' }} 
+            />
         </div>
     );
 };
