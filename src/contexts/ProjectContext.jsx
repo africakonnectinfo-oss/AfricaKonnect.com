@@ -141,10 +141,10 @@ export const ProjectProvider = ({ children }) => {
                 let data;
                 if (user.role === 'client') {
                     data = await api.projects.getClientProjects(user.id);
-                    setProjects(data.projects || []);
+                    setProjects(data?.projects || (Array.isArray(data) ? data : []));
                 } else {
                     data = await api.projects.getAll();
-                    setProjects(data.projects || []);
+                    setProjects(data?.projects || (Array.isArray(data) ? data : []));
                 }
             } else {
                 setProjects([]);
@@ -158,25 +158,29 @@ export const ProjectProvider = ({ children }) => {
 
     const loadProjectDetails = async (projectId) => {
         try {
-            const [tasks, files, messagesRes] = await Promise.all([
+            const [tasksRes, filesRes, messagesRes] = await Promise.all([
                 api.tasks.getByProject(projectId),
                 api.files.getByProject(projectId),
                 api.messages.getMessages(projectId)
             ]);
 
-            const messages = messagesRes.messages.map(m => ({
+            const tasks = tasksRes?.tasks || (Array.isArray(tasksRes) ? tasksRes : []);
+            const files = filesRes?.files || (Array.isArray(filesRes) ? filesRes : []);
+            const messagesArray = messagesRes?.messages || (Array.isArray(messagesRes) ? messagesRes : []);
+
+            const formattedMessages = messagesArray.map(m => ({
                 ...m,
-                text: m.content,
+                text: m.content || m.text,
                 sender: m.sender_name || m.sender,
-                isMe: false // Calculated in component based on user
+                isMe: false
             }));
 
             const fullProject = {
                 ...projects.find(p => p.id === projectId),
                 tasks,
                 files,
-                messages,
-                activities: [] // We don't have persistent activities yet, could derive from tasks/files
+                messages: formattedMessages,
+                activities: []
             };
 
             setCurrentProject(fullProject);

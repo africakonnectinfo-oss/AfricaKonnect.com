@@ -44,14 +44,16 @@ export const useCollaboration = (projectId, user) => {
 
                 // Handle Messages
                 if (msgsRes.status === 'fulfilled') {
-                    setMessages(msgsRes.value || []);
+                    const data = msgsRes.value;
+                    setMessages(data?.messages || (Array.isArray(data) ? data : []));
                 } else {
                     console.error("Failed to fetch messages", msgsRes.reason);
                 }
 
                 // Handle Files
                 if (filesRes.status === 'fulfilled') {
-                    setFiles(filesRes.value || []);
+                    const data = filesRes.value;
+                    setFiles(data?.files || (Array.isArray(data) ? data : []));
                 } else {
                     console.error("Failed to fetch files", filesRes.reason);
                 }
@@ -59,19 +61,21 @@ export const useCollaboration = (projectId, user) => {
                 // Handle Contracts
                 if (contractsRes.status === 'fulfilled') {
                     const data = contractsRes.value;
-                    setContracts(data.contracts || (Array.isArray(data) ? data : []));
+                    setContracts(data?.contracts || (Array.isArray(data) ? data : []));
                 }
 
                 // Handle Interviews
                 if (interviewsRes.status === 'fulfilled') {
-                    setInterviews(interviewsRes.value?.interviews || (Array.isArray(interviewsRes.value) ? interviewsRes.value : []));
+                    const data = interviewsRes.value;
+                    setInterviews(data?.interviews || (Array.isArray(data) ? data : []));
                 } else {
                     console.error("Failed to fetch interviews", interviewsRes.reason);
                 }
 
                 // Handle Tasks
                 if (tasksRes.status === 'fulfilled') {
-                    setTasks(tasksRes.value || []);
+                    const data = tasksRes.value;
+                    setTasks(data?.tasks || (Array.isArray(data) ? data : []));
                 } else {
                     console.error("Failed to fetch tasks", tasksRes.reason);
                 }
