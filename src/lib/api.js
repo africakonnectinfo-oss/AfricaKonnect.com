@@ -423,6 +423,11 @@ export const api = {
         getDirect: async (userId) => apiRequest(`/messages/direct/${userId}`, {
             headers: getHeaders(),
         }),
+        sendDirect: async (toUserId, content) => apiRequest('/messages', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ receiverId: toUserId, content }),
+        }),
         send: async (projectId, content, receiverId) => apiRequest('/messages', {
             method: 'POST',
             headers: getHeaders(),
@@ -440,6 +445,7 @@ export const api = {
             headers: getHeaders(),
         }),
     },
+
 
     // Tasks
     tasks: {

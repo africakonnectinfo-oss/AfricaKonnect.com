@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import SEO from '../components/SEO';
@@ -6,54 +6,55 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCollaboration } from '../hooks/useCollaboration';
 import { api } from '../lib/api';
 import { Step4Contract } from '../features/project-hub/Step4Contract';
+import AIDraftModal from '../components/AIDraftModal';
+import DirectMessagesPanel from '../components/collaboration/DirectMessagesPanel';
+import MeetingRoom from '../components/common/MeetingRoom';
+import { Avatar } from '../components/ui/Avatar';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     LayoutDashboard, MessageSquare, FolderOpen, CheckSquare,
     Plus, Paperclip, Send, CheckCircle2, Clock, FileText,
-    Download, Play, Upload, Video, Users2, Sparkles,
-    ChevronLeft, X, FileSignature, Loader2, List
+    Download, Play, Upload, Video, Users2, Sparkles, Mail,
+    ChevronLeft, X, FileSignature, Loader2, DollarSign,
+    CheckCheck, Shield, Zap, Copy, Check, Link, Trash2
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { Avatar } from '../components/ui/Avatar';
-import { motion, AnimatePresence } from 'framer-motion';
-import MeetingRoom from '../components/common/MeetingRoom';
 
-// --- Shared Components ---
-
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const EmptyState = ({ icon: Icon, title, description, action }) => (
     <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-gray-100 rounded-2xl bg-gray-50/50">
-        <div className="p-4 bg-white rounded-full shadow-sm mb-4">
-            <Icon size={32} className="text-gray-400" />
+        <div className="p-4 bg-white rounded-full shadow-sm mb-4 text-gray-300">
+            <Icon size={32} />
         </div>
-        <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
-        <p className="text-gray-500 max-w-sm mb-6">{description}</p>
+        <h3 className="text-base font-bold text-gray-900 mb-1">{title}</h3>
+        <p className="text-sm text-gray-500 max-w-sm mb-5">{description}</p>
         {action}
     </div>
 );
 
-// --- Tab Components ---
+const formatTime = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const formatDate = (d) => new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' });
 
+// ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 const OverviewTab = ({ project, tasks, contracts = [], onInvite }) => {
-    const [showInviteCallback, setShowInviteCallback] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
-    const [inviting, setInviting] = useState(false);
-    const [aiSuggestions, setAiSuggestions] = useState(null);
-    const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
+    const [showInvite, setShowInvite]   = useState(false);
+    const [inviting, setInviting]       = useState(false);
+    const [aiSuggestions, setAiSuggestions]     = useState(null);
+    const [generatingRoadmap, setGeneratingRoadmap] = useState(false);
+
+    const doneCount  = tasks.filter(t => t.status === 'done').length;
+    const pct        = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
 
     const handleGetRoadmap = async () => {
+        setGeneratingRoadmap(true);
         try {
-            setIsGeneratingRoadmap(true);
             const res = await api.ai.collaborationHelp(project);
-            if (res.milestones || res.tasks) {
-                setAiSuggestions(res);
-                toast.success("AI has suggested a roadmap for your project!");
-            }
-        } catch (error) {
-            console.error("Failed to get roadmap", error);
-            toast.error("Failed to generate AI suggestions.");
-        } finally {
-            setIsGeneratingRoadmap(false);
-        }
+            if (res.milestones || res.tasks) setAiSuggestions(res);
+            toast.success('AI roadmap generated!');
+        } catch { toast.error('Failed to generate roadmap.'); }
+        finally { setGeneratingRoadmap(false); }
     };
 
     const handleInvite = async (e) => {
@@ -64,510 +65,547 @@ const OverviewTab = ({ project, tasks, contracts = [], onInvite }) => {
             await onInvite(inviteEmail);
             toast.success(`Invitation sent to ${inviteEmail}`);
             setInviteEmail('');
-            setShowInviteCallback(false);
-        } catch (error) {
-            console.error("Invite failed", error);
-            toast.error("Failed to send invitation");
-        } finally {
-            setInviting(false);
-        }
+            setShowInvite(false);
+        } catch { toast.error('Failed to send invitation.'); }
+        finally { setInviting(false); }
     };
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2 p-8 bg-gradient-to-br from-white to-gray-50 border-gray-100/50 shadow-sm hover:shadow-md transition-all duration-300">
-                    <div className="flex justify-between items-start mb-6">
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: 'Budget', value: `$${project.budget?.toLocaleString() || '—'}`, icon: DollarSign, color: 'text-green-600 bg-green-50' },
+                    { label: 'Deadline', value: project.deadline ? formatDate(project.deadline) : 'No deadline', icon: Clock, color: 'text-orange-600 bg-orange-50' },
+                    { label: 'Tasks Done', value: `${doneCount}/${tasks.length}`, icon: CheckCircle2, color: 'text-primary bg-primary/10' },
+                    { label: 'Team', value: `${(contracts.filter(c => c.status === 'signed').length) + 1}`, icon: Users2, color: 'text-violet-600 bg-violet-50' },
+                ].map(({ label, value, icon: Icon, color }) => (
+                    <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+                            <Icon size={18} />
+                        </div>
                         <div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">{project.title}</h2>
-                            <p className="text-gray-500">Project ID: #{project.id.substring(0, 8)}</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setShowInviteCallback(!showInviteCallback)}>
-                                <Plus size={16} className="mr-1" /> Add Member
-                            </Button>
-                            <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${project.status === 'active' ? 'bg-green-100 text-green-700' :
-                                project.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
-                                }`}>
-                                {project.status}
-                            </span>
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
+                            <p className="text-lg font-black text-gray-900 leading-none mt-0.5">{value}</p>
                         </div>
                     </div>
+                ))}
+            </div>
 
-                    {showInviteCallback && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mb-6 p-4 bg-white rounded-xl border border-blue-100 shadow-sm"
-                        >
-                            <h4 className="text-sm font-bold text-gray-900 mb-2">Invite Team Member</h4>
-                            <form onSubmit={handleInvite} className="flex gap-2">
-                                <input
-                                    type="email"
-                                    placeholder="Enter colleague's email..."
-                                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                                    value={inviteEmail}
-                                    onChange={(e) => setInviteEmail(e.target.value)}
-                                    required
-                                />
-                                <Button type="submit" size="sm" disabled={inviting}>
-                                    {inviting ? 'Sending...' : 'Invite'}
-                                </Button>
-                            </form>
-                        </motion.div>
-                    )}
-
-                    <p className="text-gray-600 leading-relaxed mb-8 text-lg">{project.description}</p>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
-                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Budget</span>
-                            <span className="text-xl font-bold text-gray-900">${project.budget?.toLocaleString()}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Project Brief */}
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+                    <div className="flex items-start justify-between flex-wrap gap-3">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900">{project.title}</h2>
+                            <p className="text-xs text-gray-400 mt-0.5">Project #{project.id?.substring(0, 8)}</p>
                         </div>
-                        <div className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
-                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Deadline</span>
-                            <span className="text-xl font-bold text-gray-900">
-                                {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'No deadline'}
-                            </span>
-                        </div>
-                        <div className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
-                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Tasks</span>
-                            <span className="text-xl font-bold text-gray-900">{tasks.filter(t => t.status === 'done').length}/{tasks.length}</span>
-                        </div>
-                        <div className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
-                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Team</span>
-                            <span className="text-xl font-bold text-gray-900">{contracts.filter(c => c.status === 'signed').length + 1}</span>
-                        </div>
-                    </div>
-                </Card>
-
-                <div className="space-y-6">
-                    {/* AI Suggestions Section */}
-                    <Card className="p-6 bg-gradient-to-br from-primary/5 to-white border-primary/10">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                <Sparkles size={18} className="text-primary" /> AI Roadmap
-                            </h3>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-primary text-xs h-7 hover:bg-primary/10"
-                                onClick={handleGetRoadmap}
-                                disabled={isGeneratingRoadmap}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${
+                                project.status === 'active' ? 'bg-green-100 text-green-700' :
+                                project.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                            }`}>{project.status}</span>
+                            <button
+                                onClick={() => setShowInvite(!showInvite)}
+                                className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
                             >
-                                {isGeneratingRoadmap ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="mr-1" />}
-                                {aiSuggestions ? 'Refresh' : 'Get Roadmap'}
-                            </Button>
+                                <Plus size={12} /> Add Member
+                            </button>
                         </div>
+                    </div>
 
+                    <AnimatePresence>
+                        {showInvite && (
+                            <motion.form
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                onSubmit={handleInvite}
+                                className="flex gap-2"
+                            >
+                                <input
+                                    type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                                    placeholder="Team member's email…" required
+                                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                />
+                                <button type="submit" disabled={inviting}
+                                    className="px-4 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-xl disabled:opacity-60 transition-colors">
+                                    {inviting ? <Loader2 size={14} className="animate-spin" /> : 'Invite'}
+                                </button>
+                            </motion.form>
+                        )}
+                    </AnimatePresence>
+
+                    <p className="text-gray-600 text-sm leading-relaxed">{project.description || 'No description provided.'}</p>
+
+                    {/* Progress bar */}
+                    <div>
+                        <div className="flex justify-between text-xs font-semibold text-gray-500 mb-1.5">
+                            <span>Completion</span><span className="text-green-600">{pct}%</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <motion.div
+                                initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 1, ease: 'easeOut' }}
+                                className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sidebar cards */}
+                <div className="space-y-4">
+                    {/* AI Roadmap */}
+                    <div className="bg-gradient-to-br from-violet-50 to-white border border-violet-100 rounded-2xl p-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                                <Sparkles size={14} className="text-violet-500" /> AI Roadmap
+                            </h3>
+                            <button
+                                onClick={handleGetRoadmap} disabled={generatingRoadmap}
+                                className="text-xs font-bold text-violet-600 hover:text-violet-800 disabled:opacity-50"
+                            >
+                                {generatingRoadmap ? <Loader2 size={12} className="animate-spin" /> : aiSuggestions ? 'Refresh' : 'Generate'}
+                            </button>
+                        </div>
                         {aiSuggestions ? (
-                            <div className="space-y-4">
-                                <div>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-widest">Suggested Milestones</p>
-                                    <div className="space-y-2">
-                                        {aiSuggestions.milestones?.map((m, i) => (
-                                            <div key={i} className="flex gap-2 p-2 bg-white rounded-lg border border-gray-100 text-sm">
-                                                <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0 mt-0.5">{i + 1}</div>
-                                                <div>
-                                                    <p className="font-bold text-gray-800">{m.title}</p>
-                                                    <p className="text-xs text-gray-500">{m.description}</p>
-                                                </div>
-                                            </div>
-                                        ))}
+                            <div className="space-y-2">
+                                {aiSuggestions.milestones?.slice(0, 3).map((m, i) => (
+                                    <div key={i} className="flex gap-2 p-2 bg-white rounded-xl border border-violet-50 text-xs">
+                                        <div className="w-4 h-4 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
+                                        <div><p className="font-bold text-gray-800">{m.title}</p><p className="text-gray-400 mt-0.5">{m.description}</p></div>
                                     </div>
-                                </div>
-                                <Button
-                                    className="w-full text-xs h-8 bg-primary/10 text-primary border-none shadow-none hover:bg-primary/20"
-                                    onClick={() => setAiSuggestions(null)}
-                                >
-                                    Dismiss
-                                </Button>
+                                ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-gray-500 leading-relaxed italic">
-                                Need help planning? Get AI-driven milestones and task suggestions tailored to your project.
-                            </p>
+                            <p className="text-xs text-gray-400 italic">Get AI-generated milestones tailored to this project.</p>
                         )}
-                    </Card>
-                    <Card className="p-6">
-                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <Users2 size={18} className="text-primary" /> Team Leader
-                        </h3>
-                        <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                            <Avatar name={project.client_name || "Client"} className="bg-primary text-white h-10 w-10 text-sm" />
-                            <div>
-                                <p className="font-bold text-gray-900 text-sm">{project.client_name || "Client Name"}</p>
-                                <span className="text-xs text-primary font-medium">Project Owner</span>
-                            </div>
-                        </div>
-                    </Card>
+                    </div>
 
-                    <Card className="p-6">
-                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <CheckCircle2 size={18} className="text-green-600" /> Progress
+                    {/* Project Owner */}
+                    <div className="bg-white border border-gray-100 rounded-2xl p-5">
+                        <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2 mb-3">
+                            <Users2 size={14} className="text-primary" /> Project Owner
                         </h3>
-                        <div className="relative pt-1">
-                            <div className="flex mb-2 items-center justify-between">
-                                <div>
-                                    <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-green-600 bg-green-200">
-                                        Completion
-                                    </span>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-xs font-semibold inline-block text-green-600">
-                                        {tasks.length ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100) : 0}%
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-green-100">
-                                <div style={{ width: `${tasks.length ? (tasks.filter(t => t.status === 'done').length / tasks.length) * 100 : 0}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500 transition-all duration-500"></div>
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                            <Avatar name={project.client_name || 'Client'} className="h-9 w-9 bg-primary/10 text-primary text-xs" />
+                            <div>
+                                <p className="font-bold text-gray-900 text-sm">{project.client_name || 'Client'}</p>
+                                <p className="text-[11px] text-primary font-medium">Project Owner</p>
                             </div>
                         </div>
-                    </Card>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-const MessagesTab = ({ messages, onSend, user, typingUsers = [], onTyping = () => { } }) => {
+// ─── MESSAGES TAB ─────────────────────────────────────────────────────────────
+const MessagesTab = ({ messages, onSend, user, typingUsers = [], onTyping = () => {} }) => {
     const [message, setMessage] = useState('');
-    const scrollRef = useRef(null);
+    const [uploading, setUploading]   = useState(false);
+    const scrollRef  = useRef(null);
+    const fileRef    = useRef(null);
+
+    useEffect(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }, [messages]);
 
     const handleSend = (e) => {
-        e.preventDefault();
+        e?.preventDefault();
         if (!message.trim()) return;
         onSend(message);
         setMessage('');
     };
 
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const handleFileSend = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        const toastId = toast.loading(`Uploading ${file.name}…`);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await api.files.uploadImage({ data: await fileToBase64(file), name: file.name });
+            await onSend(`📎 [${file.name}](${res.url})`);
+            toast.success('File shared in chat!', { id: toastId });
+        } catch (err) {
+            toast.error('File share failed.', { id: toastId });
+        } finally {
+            setUploading(false);
+            e.target.value = '';
         }
-    }, [messages]);
+    };
+
+    const fileToBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+
+    const renderContent = (content) => {
+        // Render file links as clickable
+        const fileLink = content.match(/📎 \[(.+?)\]\((.+?)\)/);
+        if (fileLink) {
+            return (
+                <a href={fileLink[2]} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 underline underline-offset-2 opacity-90 hover:opacity-100">
+                    <FileText size={13} /> {fileLink[1]}
+                </a>
+            );
+        }
+        return content;
+    };
+
+    const isMe = (msg) => msg.sender_id === user.id;
 
     return (
-        <Card className="h-[calc(100vh-220px)] flex flex-col p-0 overflow-hidden shadow-lg border-0 ring-1 ring-gray-100">
-            <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-center shadow-sm z-10">
+        <Card className="h-[calc(100vh-220px)] flex flex-col p-0 overflow-hidden shadow-sm border-gray-100">
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between bg-white">
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        <MessageSquare size={20} />
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <MessageSquare size={16} />
                     </div>
                     <div>
-                        <h3 className="font-bold text-gray-900">Project Chat</h3>
-                        <p className="text-xs text-green-500 font-medium flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
+                        <h3 className="font-bold text-gray-900 text-sm">Project Chat</h3>
+                        <p className="text-[11px] text-green-500 font-semibold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Live
                         </p>
                     </div>
                 </div>
+                <span className="text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+                    {messages.length} messages
+                </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50" ref={scrollRef}>
+            {/* Messages */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50 scroll-smooth">
                 {messages.length === 0 && (
-                    <EmptyState
-                        icon={MessageSquare}
-                        title="No messages yet"
-                        description="Start the conversation with your team."
-                    />
+                    <EmptyState icon={MessageSquare} title="No messages yet" description="Start the conversation with your team." />
                 )}
-                {messages.map((msg) => {
-                    const isMe = msg.sender_id === user.id;
-                    return (
-                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]`}>
-                                <div className={`px-5 py-3 rounded-2xl shadow-sm border ${isMe
-                                    ? 'bg-primary text-white rounded-br-sm border-primary'
-                                    : 'bg-white text-gray-800 rounded-bl-sm border-gray-100'
-                                    }`}>
-                                    <p className="text-sm leading-relaxed">{msg.content}</p>
-                                </div>
-                                <span className="text-[10px] text-gray-400 mt-1 px-1">
-                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                {messages.map((msg) => (
+                    <div key={msg.id} className={`flex ${isMe(msg) ? 'justify-end' : 'justify-start'}`}>
+                        {!isMe(msg) && (
+                            <Avatar name={msg.sender?.name || 'User'} className="h-7 w-7 bg-gray-200 text-gray-600 text-xs mr-2 flex-shrink-0 mt-1" />
+                        )}
+                        <div className={`flex flex-col ${isMe(msg) ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                            {!isMe(msg) && (
+                                <span className="text-[10px] font-bold text-gray-400 mb-0.5 px-1">{msg.sender?.name || 'Team Member'}</span>
+                            )}
+                            <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                                isMe(msg)
+                                    ? 'bg-primary text-white rounded-br-sm'
+                                    : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
+                            } ${msg.isOptimistic ? 'opacity-75' : ''}`}>
+                                {renderContent(msg.content)}
+                            </div>
+                            <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMe(msg) ? 'flex-row-reverse' : ''}`}>
+                                <span className="text-[10px] text-gray-400">{formatTime(msg.created_at)}</span>
+                                {isMe(msg) && (
+                                    msg.isOptimistic
+                                        ? <Loader2 size={10} className="text-gray-300 animate-spin" />
+                                        : <CheckCheck size={10} className="text-primary/50" />
+                                )}
                             </div>
                         </div>
-                    );
-                })}
-                {/* Typing indicators */}
+                    </div>
+                ))}
+
+                {/* Typing indicator */}
                 {typingUsers.length > 0 && (
                     <div className="flex justify-start">
-                        <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-2xl border border-gray-100 flex items-center gap-2 shadow-sm animate-pulse">
+                        <div className="bg-white border border-gray-100 px-4 py-2.5 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-2">
                             <div className="flex gap-1">
-                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
                             </div>
-                            <span className="text-xs text-gray-500 italic">
-                                {typingUsers.map(u => u.name).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+                            <span className="text-[11px] text-gray-400 italic">
+                                {typingUsers.map(u => u.name).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing…
                             </span>
                         </div>
                     </div>
                 )}
             </div>
 
-            <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
-                <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-full border border-gray-200 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
-                    <Button type="button" size="icon" variant="ghost" className="rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200/50">
-                        <Paperclip size={18} />
-                    </Button>
+            {/* Input */}
+            <form onSubmit={handleSend} className="p-3 bg-white border-t border-gray-100">
+                <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border-2 border-gray-200 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+                    <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                        className="text-gray-400 hover:text-primary transition-colors flex-shrink-0"
+                        title="Share a file"
+                    >
+                        {uploading ? <Loader2 size={16} className="animate-spin text-primary" /> : <Paperclip size={16} />}
+                    </button>
+                    <input ref={fileRef} type="file" className="hidden" onChange={handleFileSend} />
                     <input
                         type="text"
-                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-2 text-gray-800 placeholder:text-gray-400"
-                        placeholder="Type your message..."
+                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-800 placeholder:text-gray-300"
+                        placeholder="Type a message…"
                         value={message}
-                        onChange={(e) => {
-                            setMessage(e.target.value);
-                            onTyping();
-                        }}
+                        onChange={e => { setMessage(e.target.value); onTyping(); }}
+                        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend(e)}
                     />
-                    <Button
+                    <button
                         type="submit"
-                        size="icon"
-                        className={`rounded-full transition-all duration-200 ${message.trim() ? 'bg-primary text-white shadow-md hover:bg-primary/90' : 'bg-gray-200 text-gray-400'}`}
                         disabled={!message.trim()}
+                        className={`p-2 rounded-full transition-all ${message.trim() ? 'bg-primary text-white shadow-md' : 'bg-gray-200 text-gray-400'}`}
                     >
-                        <Send size={18} />
-                    </Button>
+                        <Send size={14} />
+                    </button>
                 </div>
             </form>
         </Card>
     );
 };
 
+// ─── FILES TAB ────────────────────────────────────────────────────────────────
 const FilesTab = ({ files, onUpload }) => {
     const fileInputRef = useRef(null);
-    const [uploading, setUploading] = useState(false);
+    const [uploading, setUploading]   = useState(false);
+    const [dragOver, setDragOver]     = useState(false);
 
-    const handleFileChange = async (e) => {
-        const file = e.target.files[0];
+    const doUpload = async (file) => {
         if (!file) return;
         setUploading(true);
-        const toastId = toast.loading('Uploading file...');
+        const toastId = toast.loading(`Uploading ${file.name}…`);
         try {
             await onUpload(file);
-            toast.success('File uploaded successfully', { id: toastId });
-        } catch (error) {
-            console.error(error);
-            toast.error('Upload failed: ' + (error.message || 'Unknown error'), { id: toastId });
+            toast.success('File uploaded!', { id: toastId });
+        } catch (err) {
+            toast.error('Upload failed: ' + (err.message || 'Unknown error'), { id: toastId });
         } finally {
             setUploading(false);
         }
     };
 
-    const handleDownload = (file) => {
-        if (file.url) {
-            window.open(file.url, '_blank');
-        } else {
-            toast.error("Preview not available for this file");
-        }
+    const handleDrop = async (e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) await doUpload(file);
+    };
+
+    const fileIcon = (type = '') => {
+        if (type.includes('image')) return '🖼️';
+        if (type.includes('pdf')) return '📄';
+        if (type.includes('zip') || type.includes('rar')) return '📦';
+        if (type.includes('word') || type.includes('document')) return '📝';
+        if (type.includes('sheet') || type.includes('excel')) return '📊';
+        if (type.includes('video')) return '🎬';
+        return '📎';
     };
 
     return (
-        <Card className="p-6">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h3 className="font-bold text-gray-900 text-lg">Project Files</h3>
-                    <p className="text-sm text-gray-500">Manage and share project assets</p>
+        <div className="space-y-6">
+            {/* Drop Zone */}
+            <div
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`cursor-pointer flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-2xl transition-all ${
+                    dragOver
+                        ? 'border-primary bg-primary/5 scale-[1.01]'
+                        : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
+                }`}
+            >
+                <input ref={fileInputRef} type="file" className="hidden" onChange={e => doUpload(e.target.files?.[0])} />
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 transition-colors ${dragOver ? 'bg-primary/10' : 'bg-gray-100'}`}>
+                    {uploading
+                        ? <Loader2 size={24} className="animate-spin text-primary" />
+                        : <Upload size={24} className={dragOver ? 'text-primary' : 'text-gray-400'} />
+                    }
                 </div>
-                <div>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        onChange={handleFileChange}
-                    />
-                    <Button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                        {uploading ? <div className="animate-spin mr-2 h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div> : <Upload size={18} className="mr-2" />}
-                        Upload File
-                    </Button>
-                </div>
+                <p className="font-bold text-gray-700 text-sm">{uploading ? 'Uploading…' : dragOver ? 'Drop to upload' : 'Drag & drop or click to upload'}</p>
+                <p className="text-xs text-gray-400 mt-1">Supports any file type</p>
             </div>
 
-            {files.length === 0 ? (
+            {/* File Grid */}
+            {files.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {files.map(file => (
+                        <motion.div
+                            key={file.id}
+                            layout
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="group bg-white border border-gray-100 rounded-2xl p-5 hover:border-primary/30 hover:shadow-lg transition-all duration-200"
+                        >
+                            <div className="flex items-start justify-between mb-3">
+                                <span className="text-2xl">{fileIcon(file.type || file.mime_type)}</span>
+                                <button
+                                    onClick={() => file.url && window.open(file.url, '_blank')}
+                                    className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                    title="Download"
+                                >
+                                    <Download size={14} />
+                                </button>
+                            </div>
+                            <h4 className="font-bold text-gray-900 text-sm truncate mb-1" title={file.name}>{file.name}</h4>
+                            <div className="flex items-center justify-between text-[11px] text-gray-400 border-t border-gray-50 pt-2 mt-2">
+                                <span>{file.size ? `${(file.size / 1024).toFixed(1)} KB` : '—'}</span>
+                                <span>{formatDate(file.created_at || file.uploaded_at || Date.now())}</span>
+                            </div>
+                        </motion.div>
+                    ))}
+                </div>
+            ) : !uploading && (
                 <EmptyState
                     icon={FolderOpen}
                     title="No files yet"
-                    description="Upload documents, designs, or resources to share with the team."
-                    action={
-                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                            Select File
-                        </Button>
-                    }
+                    description="Upload documents, designs, or resources. Drag-and-drop supported."
                 />
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {files.map(file => (
-                        <div key={file.id} className="group p-5 border border-gray-100 rounded-xl bg-white hover:border-primary/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                            <div className="flex justify-between items-start mb-3">
-                                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                    <FileText size={20} />
-                                </div>
-                                <Button variant="ghost" size="icon" className="text-gray-300 hover:text-primary h-8 w-8" onClick={() => handleDownload(file)}>
-                                    <Download size={16} />
-                                </Button>
-                            </div>
-                            <h4 className="font-bold text-gray-900 truncate mb-1" title={file.name}>{file.name}</h4>
-                            <div className="flex justify-between items-center text-xs text-gray-400 mt-2 border-t border-gray-50 pt-3">
-                                <span>{(file.size / 1024).toFixed(1)} KB</span>
-                                <span>{new Date(file.created_at || file.uploaded_at).toLocaleDateString()}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
             )}
-        </Card>
+        </div>
     );
 };
 
+// ─── TASKS TAB ────────────────────────────────────────────────────────────────
 const TasksTab = ({ tasks, onCreate, onUpdateStatus, project }) => {
-    const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+    const [newTitle, setNewTitle]           = useState('');
+    const [generatingTasks, setGenerating]  = useState(false);
 
-    const handleSuggestTasks = async () => {
+    const handleSuggest = async () => {
+        setGenerating(true);
         try {
-            setIsGeneratingTasks(true);
             const res = await api.ai.collaborationHelp(project);
-            if (res.tasks && res.tasks.length > 0) {
-                // For demo/simplicity, we just toast and maybe could auto-add them.
-                // For now, let's just show a toast or a list.
-                toast.success(`AI suggested ${res.tasks.length} tasks!`);
-                // Auto-create them? Or let user pick? 
-                // Let's auto-create the top 3 for "wow" factor
-                const topTasks = res.tasks.slice(0, 3);
-                for (const t of topTasks) {
-                    await onCreate({ title: t.title, status: 'todo' });
-                }
+            if (res.tasks?.length > 0) {
+                const top = res.tasks.slice(0, 3);
+                for (const t of top) await onCreate({ title: t.title, status: 'todo' });
+                toast.success(`Added ${top.length} AI-suggested tasks!`);
             }
-        } catch (e) {
-            console.error(e);
-            toast.error("Failed to suggest tasks");
-        } finally {
-            setIsGeneratingTasks(false);
-        }
+        } catch { toast.error('Failed to suggest tasks.'); }
+        finally { setGenerating(false); }
     };
 
     const handleCreate = (e) => {
         e.preventDefault();
-        if (!newTaskTitle.trim()) return;
-        onCreate({ title: newTaskTitle, status: 'todo' });
-        setNewTaskTitle('');
+        if (!newTitle.trim()) return;
+        onCreate({ title: newTitle, status: 'todo' });
+        setNewTitle('');
     };
 
-    const StatusColumn = ({ id, label, color, icon: Icon, items }) => (
-        <div className="flex-1 min-w-[300px] flex flex-col h-full bg-gray-50/50 rounded-2xl p-4 border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-md ${color} bg-opacity-20 text-${color.split('-')[1]}-700`}>
-                        <Icon size={16} />
-                    </div>
-                    <span className="font-bold text-gray-700">{label}</span>
-                </div>
-                <span className="bg-white px-2.5 py-0.5 rounded-full text-xs font-bold text-gray-500 border border-gray-200">
-                    {items.length}
-                </span>
-            </div>
-
-            <div className="flex-1 space-y-3 overflow-y-auto">
-                {items.map(task => (
-                    <div key={task.id} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow group cursor-pointer">
-                        <p className="text-gray-900 font-medium mb-3 text-sm">{task.title}</p>
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                            <span className="text-[10px] text-gray-400">{new Date(task.created_at || Date.now()).toLocaleDateString()}</span>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {id !== 'todo' && <button onClick={() => onUpdateStatus(task.id, 'todo')} className="h-2 w-2 rounded-full bg-gray-300 hover:scale-125" title="Move to Todo" />}
-                                {id !== 'in_progress' && <button onClick={() => onUpdateStatus(task.id, 'in_progress')} className="h-2 w-2 rounded-full bg-blue-400 hover:scale-125" title="Move to In Progress" />}
-                                {id !== 'done' && <button onClick={() => onUpdateStatus(task.id, 'done')} className="h-2 w-2 rounded-full bg-green-400 hover:scale-125" title="Move to Done" />}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                {items.length === 0 && (
-                    <div className="py-8 text-center text-gray-300 text-sm border-2 border-dashed border-gray-100 rounded-xl">
-                        No tasks
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+    const cols = [
+        { id: 'todo',        label: 'To Do',       colorClass: 'bg-gray-100 text-gray-600',  icon: Clock },
+        { id: 'in_progress', label: 'In Progress',  colorClass: 'bg-blue-100 text-blue-600',  icon: Play },
+        { id: 'done',        label: 'Done',          colorClass: 'bg-green-100 text-green-600', icon: CheckCircle2 },
+    ];
 
     return (
-        <div className="space-y-6 h-[calc(100vh-200px)] flex flex-col">
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <h3 className="font-bold text-gray-900 text-lg">Project Tasks</h3>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-primary text-xs hover:bg-primary/5 border border-primary/20"
-                        onClick={handleSuggestTasks}
-                        disabled={isGeneratingTasks}
+        <div className="flex flex-col h-[calc(100vh-220px)] space-y-4">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <h3 className="font-bold text-gray-900">Project Tasks</h3>
+                    <button
+                        onClick={handleSuggest} disabled={generatingTasks}
+                        className="flex items-center gap-1 text-xs font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-1.5 rounded-full transition-colors disabled:opacity-60"
                     >
-                        {isGeneratingTasks ? <Loader2 size={14} className="animate-spin mr-1" /> : <Sparkles size={14} className="mr-1" />}
-                        AI Suggest Tasks
-                    </Button>
+                        {generatingTasks ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                        AI Suggest
+                    </button>
                 </div>
-                <form onSubmit={handleCreate} className="flex gap-2">
+                <form onSubmit={handleCreate} className="flex gap-2 flex-1 max-w-sm">
                     <input
-                        type="text"
-                        placeholder="Add a new task..."
-                        className="w-64 px-4 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
-                        value={newTaskTitle}
-                        onChange={e => setNewTaskTitle(e.target.value)}
+                        value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                        placeholder="Add a task…"
+                        className="flex-1 px-4 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                     />
-                    <Button type="submit" size="sm" disabled={!newTaskTitle.trim()}>
-                        <Plus size={16} /> Add
-                    </Button>
+                    <button type="submit" disabled={!newTitle.trim()}
+                        className="px-4 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-xl disabled:opacity-50 transition-colors">
+                        <Plus size={14} />
+                    </button>
                 </form>
             </div>
 
-            <div className="flex gap-6 overflow-x-auto pb-4 h-full">
-                <StatusColumn id="todo" label="To Do" color="bg-gray-100" icon={Clock} items={tasks.filter(t => t.status === 'todo')} />
-                <StatusColumn id="in_progress" label="In Progress" color="bg-blue-100" icon={Play} items={tasks.filter(t => t.status === 'in_progress')} />
-                <StatusColumn id="done" label="Completed" color="bg-green-100" icon={CheckCircle2} items={tasks.filter(t => t.status === 'done')} />
+            {/* Kanban columns */}
+            <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+                {cols.map(col => {
+                    const items = tasks.filter(t => t.status === col.id);
+                    return (
+                        <div key={col.id} className="flex-1 min-w-[280px] flex flex-col bg-gray-50 rounded-2xl border border-gray-100">
+                            <div className="flex items-center justify-between p-4 pb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className={`p-1.5 rounded-lg ${col.colorClass}`}><col.icon size={13} /></span>
+                                    <span className="font-bold text-gray-700 text-sm">{col.label}</span>
+                                </div>
+                                <span className="text-xs font-bold text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-100">{items.length}</span>
+                            </div>
+                            <div className="flex-1 p-3 pt-0 space-y-2 overflow-y-auto">
+                                {items.map(task => (
+                                    <div key={task.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow group">
+                                        <p className="text-sm font-medium text-gray-900 mb-3">{task.title}</p>
+                                        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                                            <span className="text-[10px] text-gray-400">{formatDate(task.created_at || Date.now())}</span>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {col.id !== 'todo'        && <button onClick={() => onUpdateStatus(task.id, 'todo')}        className="w-3 h-3 rounded-full bg-gray-300 hover:scale-125 transition-transform" title="Todo" />}
+                                                {col.id !== 'in_progress' && <button onClick={() => onUpdateStatus(task.id, 'in_progress')} className="w-3 h-3 rounded-full bg-blue-400 hover:scale-125 transition-transform" title="In Progress" />}
+                                                {col.id !== 'done'        && <button onClick={() => onUpdateStatus(task.id, 'done')}        className="w-3 h-3 rounded-full bg-green-400 hover:scale-125 transition-transform" title="Done" />}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {items.length === 0 && (
+                                    <div className="py-8 text-center text-xs text-gray-300 border-2 border-dashed border-gray-100 rounded-xl">
+                                        Nothing here yet
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
 };
 
-// ... Include other tabs (Video, Contracts) with similar styling ...
+// ─── VIDEO CONFERENCE TAB ─────────────────────────────────────────────────────
 const VideoConferenceTab = ({ project, user, onNotify }) => {
     const [inMeeting, setInMeeting] = useState(false);
-    const roomName = `africakonnect-project-${project.id}`;
+    const [copied, setCopied]       = useState(false);
+
+    const roomName   = `africakonnect-project-${project.id}`;
     const meetingLink = `https://meet.jit.si/${roomName}`;
 
     const handleJoin = () => {
         setInMeeting(true);
-        if (onNotify) {
-            onNotify(`I've started a video meeting for project: ${project.title}. \n\nJoin here: ${meetingLink}`);
-        }
+        onNotify?.(`📹 I've started a video meeting for **${project.title}**.\n\nJoin here: ${meetingLink}`);
     };
 
-    const copyMeetingLink = () => {
-        navigator.clipboard.writeText(meetingLink);
-        toast.success("Meeting link copied to clipboard!");
+    const handleCopy = async () => {
+        await navigator.clipboard.writeText(meetingLink);
+        setCopied(true);
+        toast.success('Meeting link copied!');
+        setTimeout(() => setCopied(false), 2000);
     };
 
     if (inMeeting) {
         return (
-            <div className="h-[calc(100vh-150px)] rounded-2xl overflow-hidden shadow-2xl bg-black">
-                <div className="bg-gray-900 p-4 flex justify-between items-center text-white border-b border-gray-800">
+            <div className="h-[calc(100vh-180px)] rounded-2xl overflow-hidden shadow-2xl bg-black flex flex-col">
+                <div className="bg-gray-900 px-5 py-3 flex items-center justify-between text-white border-b border-gray-800 flex-shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-600 rounded-lg animate-pulse">
-                            <Video size={16} />
-                        </div>
-                        <span className="font-bold">Live Meeting: {project.title}</span>
+                        <div className="p-2 bg-red-600 rounded-lg animate-pulse"><Video size={14} /></div>
+                        <span className="font-bold text-sm">Live: {project.title}</span>
+                        <span className="text-[10px] bg-red-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Live</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700" onClick={copyMeetingLink}>
-                            Copy Link
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => setInMeeting(false)}>
-                            Leave Meeting
-                        </Button>
+                        <button onClick={handleCopy}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors">
+                            {copied ? <Check size={12} /> : <Link size={12} />} {copied ? 'Copied' : 'Copy Link'}
+                        </button>
+                        <button onClick={() => setInMeeting(false)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                            <X size={12} /> Leave
+                        </button>
                     </div>
                 </div>
-                <div className="h-full">
+                <div className="flex-1">
                     <MeetingRoom roomName={roomName} userName={user?.name || 'User'} onLeave={() => setInMeeting(false)} />
                 </div>
             </div>
@@ -575,144 +613,263 @@ const VideoConferenceTab = ({ project, user, onNotify }) => {
     }
 
     return (
-        <div className="flex items-center justify-center h-[calc(100vh-250px)]">
-            <Card className="max-w-md w-full p-8 text-center space-y-8">
-                <div className="mx-auto w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center relative">
-                    <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-75"></div>
-                    <Video size={40} className="text-primary relative z-10" />
+        <div className="flex items-center justify-center h-[calc(100vh-260px)]">
+            <div className="max-w-md w-full text-center space-y-6">
+                {/* Animated video icon */}
+                <div className="relative mx-auto w-28 h-28">
+                    <div className="absolute inset-0 bg-primary/10 rounded-full animate-ping opacity-40"></div>
+                    <div className="absolute inset-3 bg-primary/10 rounded-full animate-ping opacity-30 [animation-delay:0.5s]"></div>
+                    <div className="relative w-full h-full bg-white border-4 border-primary/20 rounded-full flex items-center justify-center shadow-xl">
+                        <Video size={36} className="text-primary" />
+                    </div>
                 </div>
+
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Team Video Room</h2>
-                    <p className="text-gray-500">Connect with your team in real-time. HD video and screen sharing enabled.</p>
+                    <h2 className="text-2xl font-black text-gray-900 mb-2">Team Video Room</h2>
+                    <p className="text-gray-500 text-sm">HD video, screen sharing, and whiteboard. All powered by Jitsi — no download required.</p>
                 </div>
-                <div className="pt-4 space-y-3">
-                    <Button size="lg" className="w-full text-base py-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02] transition-all" onClick={handleJoin}>
-                        Join Meeting Room & Notify Team
-                    </Button>
-                    <Button variant="outline" className="w-full" onClick={copyMeetingLink}>
-                        Copy Invite Link
-                    </Button>
+
+                {/* Meeting link preview */}
+                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-left">
+                    <Link size={13} className="text-gray-400 flex-shrink-0" />
+                    <span className="text-xs text-gray-500 truncate flex-1">{meetingLink}</span>
+                    <button onClick={handleCopy} className="text-xs font-bold text-primary hover:text-primary/80 flex-shrink-0">
+                        {copied ? 'Copied!' : 'Copy'}
+                    </button>
                 </div>
-            </Card>
+
+                <div className="space-y-3">
+                    <button
+                        onClick={handleJoin}
+                        className="w-full py-4 text-base font-bold text-white bg-primary hover:bg-primary/90 rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.99] transition-all"
+                    >
+                        <Video size={18} className="inline mr-2" />
+                        Start Meeting & Notify Team
+                    </button>
+                    <button onClick={handleCopy}
+                        className="w-full py-3 text-sm font-semibold text-gray-600 bg-white border border-gray-200 hover:border-gray-300 rounded-2xl transition-colors">
+                        {copied ? <><Check size={14} className="inline mr-1.5 text-green-500" />Link copied!</> : 'Copy invite link only'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
 
-// --- Main Layout ---
+// ─── CONTRACT TAB ─────────────────────────────────────────────────────────────
+const ContractTab = ({ project, user, onMessage }) => {
+    const [showAIDraft, setShowAIDraft] = useState(false);
+    const [savedContract, setSavedContract] = useState(null);
 
+    const handleSaveContract = (text) => {
+        setSavedContract(text);
+        // Also notify team in chat
+        onMessage?.(`📄 A new AI-generated contract draft has been saved for review.`);
+    };
+
+    return (
+        <div className="space-y-5">
+            {/* AI Draft Banner */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-violet-50 to-white border border-violet-100 rounded-2xl">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                        <Sparkles size={18} className="text-violet-600" />
+                    </div>
+                    <div>
+                        <p className="font-bold text-gray-900 text-sm">AI Contract Drafting</p>
+                        <p className="text-xs text-gray-400">Describe your contract — AI generates it in real-time</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => setShowAIDraft(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-violet-700 bg-violet-100 hover:bg-violet-200 rounded-xl transition-colors"
+                >
+                    <Sparkles size={14} /> Draft with AI
+                </button>
+            </div>
+
+            {/* Saved AI Draft preview */}
+            {savedContract && (
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                            <FileText size={14} className="text-primary" /> AI Generated Draft
+                        </h3>
+                        <button
+                            onClick={() => navigator.clipboard.writeText(savedContract).then(() => toast.success('Copied!'))}
+                            className="text-xs font-semibold text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                        >
+                            <Copy size={11} /> Copy
+                        </button>
+                    </div>
+                    <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono bg-gray-50 p-4 rounded-xl max-h-56 overflow-y-auto leading-relaxed">
+                        {savedContract}
+                    </pre>
+                </div>
+            )}
+
+            {/* Existing contracts from Step4Contract */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-2">
+                    <FileSignature size={16} className="text-primary" />
+                    <h3 className="font-bold text-gray-900 text-sm">Smart Contracts</h3>
+                </div>
+                <div className="p-4">
+                    <Step4Contract project={project} hideProceed={true} onNext={() => {}} />
+                </div>
+            </div>
+
+            <AIDraftModal
+                isOpen={showAIDraft}
+                onClose={() => setShowAIDraft(false)}
+                onSave={handleSaveContract}
+                project={project}
+                clientName={project?.client_name}
+                expertName={project?.expert_name}
+            />
+        </div>
+    );
+};
+
+// ─── MAIN COLLABORATION PAGE ──────────────────────────────────────────────────
 export default function Collaboration() {
-    const { user } = useAuth();
-    const location = useLocation();
-    const navigate = useNavigate();
-    const projectId = location.state?.projectId;
-    const [project, setProject] = useState(null);
+    const { user }      = useAuth();
+    const location      = useLocation();
+    const navigate      = useNavigate();
+    const projectId     = location.state?.projectId;
+    const [project, setProject]         = useState(null);
     const [initLoading, setInitLoading] = useState(true);
 
-    const {
-        activeTab,
-        setActiveTab,
-        data,
-        loading,
-        actions
-    } = useCollaboration(projectId, user);
+    const { activeTab, setActiveTab, data, loading, actions } = useCollaboration(projectId, user);
 
     useEffect(() => {
         const loadProject = async () => {
             if (!user) return;
-            // ... existing load logic
-            if (projectId) {
-                try {
+            try {
+                if (projectId) {
                     const p = await api.projects.getById(projectId);
                     setProject(p);
-                } catch (e) {
-                    console.error(e);
-                    toast.error("Failed to load project details");
+                } else {
+                    const p = await api.projects.getMine();
+                    if (p?.projects?.length > 0) setProject(p.projects[0]);
                 }
-            } else {
-                const p = await api.projects.getMine();
-                if (p?.projects?.length > 0) setProject(p.projects[0]);
+            } catch (e) {
+                console.error(e);
+                toast.error('Failed to load project.');
+            } finally {
+                setInitLoading(false);
             }
-            setInitLoading(false);
         };
         loadProject();
     }, [user, projectId]);
 
-    if (initLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary"></div></div>;
-    if (!project) return <EmptyState icon={FolderOpen} title="No Project Selected" description="Please select a project from your dashboard." action={<Button onClick={() => navigate('/expert-dashboard')}>Go to Dashboard</Button>} />;
+    if (initLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 size={36} className="animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!project) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-8">
+                <EmptyState
+                    icon={FolderOpen}
+                    title="No Project Found"
+                    description="Please select a project from your dashboard to access the collaboration hub."
+                    action={
+                        <button onClick={() => navigate(user?.role === 'expert' ? '/expert-dashboard' : '/project-hub')}
+                            className="px-5 py-2.5 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-xl transition-colors">
+                            Go to Dashboard
+                        </button>
+                    }
+                />
+            </div>
+        );
+    }
 
     const tabs = [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'messages', label: 'Chat', icon: MessageSquare },
-        { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-        { id: 'files', label: 'Files', icon: FolderOpen },
-        { id: 'contracts', label: 'Contract', icon: FileSignature },
-        { id: 'video', label: 'Meeting', icon: Video },
+        { id: 'overview',  label: 'Overview',  icon: LayoutDashboard },
+        { id: 'messages',  label: 'Project Chat', icon: MessageSquare, badge: data.messages.length > 0 ? data.messages.length : null },
+        { id: 'tasks',     label: 'Tasks',     icon: CheckSquare, badge: data.tasks.filter(t => t.status !== 'done').length || null },
+        { id: 'files',     label: 'Files',     icon: FolderOpen, badge: data.files.length > 0 ? data.files.length : null },
+        { id: 'contracts', label: 'Contract',  icon: FileSignature },
+        { id: 'video',     label: 'Meeting',   icon: Video },
+        { id: 'dm',        label: 'Direct Messages', icon: Mail },
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row pt-20">
-            <SEO title={`${project.title} - Hub`} />
+        <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row pt-16">
+            <SEO title={`${project.title} – Collaboration Hub`} description="Realtime collaboration workspace." />
 
-            {/* Sidebar */}
-            <div className="w-full md:w-72 bg-white h-auto md:h-[calc(100vh-80px)] border-b md:border-b-0 md:border-r border-gray-200 flex flex-col flex-shrink-0 sticky top-20 z-20">
-                <div className="p-6 border-b border-gray-50 bg-gradient-to-r from-primary/5 to-transparent">
-                    <div className="flex items-center gap-3 mb-4 text-gray-500 cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(-1)}>
-                        <ChevronLeft size={16} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Back to Dashboard</span>
-                    </div>
-                    <h1 className="font-bold text-gray-900 text-lg leading-tight line-clamp-2" title={project.title}>{project.title}</h1>
-                    <div className="flex items-center gap-2 mt-2">
-                        <span className={`w-2 h-2 rounded-full ${project.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                        <span className="text-xs text-gray-500 capitalize">{project.status} Project</span>
+            {/* ── Sidebar ────────────────────────────────────────────────── */}
+            <aside className="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-gray-100 flex flex-col flex-shrink-0 md:h-[calc(100vh-64px)] sticky top-16 z-20">
+                <div className="p-5 border-b border-gray-50">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="flex items-center gap-2 text-gray-400 hover:text-primary transition-colors text-xs font-bold uppercase tracking-wider mb-4"
+                    >
+                        <ChevronLeft size={14} /> Dashboard
+                    </button>
+                    <h1 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{project.title}</h1>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                        <span className={`w-2 h-2 rounded-full ${project.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                        <span className="text-[11px] text-gray-500 capitalize">{project.status}</span>
                     </div>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === tab.id
-                                ? 'bg-primary text-white shadow-md shadow-primary/20'
-                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all duration-150 ${
+                                activeTab === tab.id
+                                    ? 'bg-primary text-white shadow-md shadow-primary/20 font-bold'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
+                            }`}
                         >
-                            <div className="flex items-center gap-3">
-                                <tab.icon size={20} className={activeTab === tab.id ? 'text-white' : 'text-gray-400 group-hover:text-primary'} />
-                                <span className="font-medium">{tab.label}</span>
-                            </div>
-                            {tab.id === 'messages' && <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">{data.messages.length}</span>}
-                            {tab.id === 'tasks' && <span className="text-xs bg-gray-100 text-gray-500 group-hover:bg-white px-2 py-0.5 rounded-full">{data.tasks.filter(t => t.status !== 'done').length}</span>}
+                            <span className="flex items-center gap-3">
+                                <tab.icon size={16} className={activeTab === tab.id ? 'text-white' : 'text-gray-400'} />
+                                {tab.label}
+                            </span>
+                            {tab.badge && (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                    activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                                }`}>{tab.badge}</span>
+                            )}
                         </button>
                     ))}
                 </nav>
-            </div>
 
-            {/* Main Layout */}
-            <main className="flex-1 p-4 md:p-8 h-[calc(100vh-80px)] overflow-y-auto bg-gray-50/50 relative">
+                {/* Security badge */}
+                <div className="p-4 border-t border-gray-50">
+                    <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                        <Shield size={11} className="text-green-500" />
+                        <span>End-to-end encrypted · Escrow protected</span>
+                    </div>
+                </div>
+            </aside>
+
+            {/* ── Main Content ───────────────────────────────────────────── */}
+            <main className="flex-1 p-4 md:p-6 md:h-[calc(100vh-64px)] overflow-y-auto bg-gray-50/50">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeTab}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.2 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.15 }}
                         className="h-full"
                     >
-                        {activeTab === 'overview' && <OverviewTab project={project} tasks={data.tasks} contracts={data.contracts} onInvite={actions.inviteUser} />}
-                        {activeTab === 'contracts' && (
-                            <div className="h-full overflow-y-auto">
-                                <Step4Contract
-                                    project={project}
-                                    hideProceed={true}
-                                    onNext={() => { }} // No next action needed in Hub
-                                />
-                            </div>
-                        )}
-                        {activeTab === 'messages' && <MessagesTab messages={data.messages} onSend={actions.sendMessage} onTyping={actions.sendTyping} typingUsers={data.typingUsers} user={user} />}
-                        {activeTab === 'files' && <FilesTab files={data.files} onUpload={actions.uploadFile} />}
-                        {activeTab === 'tasks' && <TasksTab tasks={data.tasks} onCreate={actions.createTask} onUpdateStatus={actions.updateTaskStatus} project={project} />}
-                        {activeTab === 'video' && <VideoConferenceTab project={project} user={user} onNotify={(msg) => actions.sendMessage(msg)} />}
+                        {activeTab === 'overview'  && <OverviewTab project={project} tasks={data.tasks} contracts={data.contracts} onInvite={actions.inviteUser} />}
+                        {activeTab === 'messages'  && <MessagesTab messages={data.messages} onSend={actions.sendMessage} onTyping={actions.sendTyping} typingUsers={data.typingUsers} user={user} />}
+                        {activeTab === 'tasks'     && <TasksTab tasks={data.tasks} onCreate={actions.createTask} onUpdateStatus={actions.updateTaskStatus} project={project} />}
+                        {activeTab === 'files'     && <FilesTab files={data.files} onUpload={actions.uploadFile} />}
+                        {activeTab === 'contracts' && <ContractTab project={project} user={user} onMessage={actions.sendMessage} />}
+                        {activeTab === 'video'     && <VideoConferenceTab project={project} user={user} onNotify={actions.sendMessage} />}
+                        {activeTab === 'dm'        && <DirectMessagesPanel project={project} />}
                     </motion.div>
                 </AnimatePresence>
             </main>

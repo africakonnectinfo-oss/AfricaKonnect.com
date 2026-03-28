@@ -34,7 +34,6 @@ import EmailVerification from './pages/EmailVerification';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import OAuthConsent from './pages/OAuthConsent';
-import AIChatAssistant from './components/ai/AIChatAssistant';
 // Neon Auth Pages (Lazy loaded to isolate dependencies)
 const NeonHome = React.lazy(() => import('./pages/NeonHome').then(m => ({ default: m.Home })));
 const Auth = React.lazy(() => import('./pages/AuthPage'));
@@ -156,7 +155,6 @@ function App() {
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/security" element={<Security />} />
             </Routes>
-            <AIChatAssistant />
           </Layout>
         </ProjectProvider>
       </AuthProvider>
