@@ -41,6 +41,7 @@ const Navbar = () => {
                 return [
                     ...baseLinks,
                     { name: 'Project Hub', path: '/project-hub' },
+                    { name: 'Marketplace', path: '/marketplace' },
                     { name: 'Collaboration', path: '/collaboration' },
                     { name: 'Pricing', path: '/pricing' },
                 ];
@@ -401,6 +402,7 @@ const ClientDropdown = ({ profile, user, signOut, closeMenu }) => (
 
         <div className="p-3">
             <DropdownLink to="/project-hub" icon={Settings} label="Project Hub" onClick={closeMenu} />
+            <DropdownLink to="/marketplace" icon={User} label="Browse Projects" onClick={closeMenu} />
             <DropdownLink to="/collaboration" icon={User} label="Collaborations" onClick={closeMenu} />
             <div className="my-2 border-t border-gray-100 mx-2"></div>
             <DropdownLink to="/profile" icon={User} label="My Profile" onClick={closeMenu} />

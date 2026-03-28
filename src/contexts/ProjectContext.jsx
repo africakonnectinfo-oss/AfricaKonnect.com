@@ -208,7 +208,7 @@ export const ProjectProvider = ({ children }) => {
     const updateProject = async (projectId, updates) => {
         try {
             // Only update core project fields via API
-            const coreFields = ['title', 'description', 'budget', 'status'];
+            const coreFields = ['title', 'description', 'budget', 'min_budget', 'max_budget', 'status', 'open_for_bidding', 'bidding_deadline'];
             const hasCoreUpdates = Object.keys(updates).some(k => coreFields.includes(k));
 
             if (hasCoreUpdates) {

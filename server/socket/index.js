@@ -1,4 +1,5 @@
 const socketIo = require('socket.io');
+let io;
 
 const setupSocket = (server) => {
     const allowedOrigins = [
@@ -10,7 +11,7 @@ const setupSocket = (server) => {
         "https://africa-konnect.netlify.app"
     ];
 
-    const io = socketIo(server, {
+    io = socketIo(server, {
         cors: {
             origin: allowedOrigins,
             methods: ["GET", "POST"],
@@ -18,7 +19,7 @@ const setupSocket = (server) => {
         }
     });
 
-    // Authentication Middleware
+    // ... (rest of the logic)
     io.use((socket, next) => {
         const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
 
@@ -67,16 +68,18 @@ const setupSocket = (server) => {
 
         // Message Read Receipts
         socket.on('message_read', ({ messageId, roomId, userId }) => {
-            // Update in DB (fire and forget from socket perspective, handled by controller ideally or here)
-            // Ideally we call a service method here if we want socket-only update
             socket.to(`project_${roomId}`).emit('message_read_update', { messageId, userId });
         });
-
-        // Task & Milestone Updates (can be emitted from controller, but clients can listen)
-
     });
 
     return io;
 };
 
-module.exports = setupSocket;
+const getIO = () => {
+    if (!io) {
+        throw new Error('Socket.io not initialized');
+    }
+    return io;
+};
+
+module.exports = { setupSocket, getIO };

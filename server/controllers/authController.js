@@ -534,7 +534,7 @@ exports.updateUserProfile = async (req, res) => {
         const updatedUser = await updateUser(userId, {
             name,
             email,
-            profileImageUrl: profileImageUrl || profile_image_url, // Handle both cases
+            profile_image_url: profile_image_url || profileImageUrl, // Support both
             bio
         });
 
@@ -590,7 +590,7 @@ exports.getPublicProfile = async (req, res) => {
             company: user.role === 'client' ? user.company : null,
             website: user.website,
             title: user.title,
-            profileImage: user.profile_image_url
+            profile_image_url: user.profile_image_url
         };
 
         // Merge expert details if available
@@ -607,7 +607,7 @@ exports.getPublicProfile = async (req, res) => {
             publicProfile.vettingStatus = expertProfile.vetting_status;
             publicProfile.availability = expertProfile.availability_calendar;
             // Ensure profile image uses expert one if set, else user one
-            publicProfile.profileImage = expertProfile.profile_image_url || publicProfile.profileImage;
+            publicProfile.profile_image_url = expertProfile.profile_image_url || publicProfile.profile_image_url;
         }
 
         res.json(publicProfile);

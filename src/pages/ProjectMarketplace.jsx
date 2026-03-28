@@ -34,9 +34,10 @@ const ProjectMarketplace = () => {
     const [savedSearches, setSavedSearches] = useState([]);
 
     useEffect(() => {
-        if (user?.role !== 'expert') {
-            toast.error('Only experts can access the marketplace');
-            navigate('/');
+        // Allow both experts and clients
+        if (user?.role !== 'expert' && user?.role !== 'client') {
+            toast.error('Access denied: Login required to browse projects');
+            navigate('/signin');
             return;
         }
         fetchMarketplaceProjects();

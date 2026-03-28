@@ -22,7 +22,13 @@ const Step1Vault = ({ onNext }) => {
     const [projectTitle, setProjectTitle] = useState(currentProject?.title || '');
     const [budget, setBudget] = useState(currentProject?.budget || '');
     const [duration, setDuration] = useState(currentProject?.duration || '');
-    const [isGenerating, setIsGenerating] = useState(false);
+    const [isGenerating, setIsGenerating]   = useState(false);
+    
+    // Marketplace bidding state
+    const [isOpenForBidding, setIsOpenForBidding] = useState(currentProject?.open_for_bidding || false);
+    const [minBudget, setMinBudget]               = useState(currentProject?.min_budget || '');
+    const [maxBudget, setMaxBudget]               = useState(currentProject?.max_budget || '');
+    const [biddingDeadline, setBiddingDeadline]   = useState(currentProject?.bidding_deadline ? new Date(currentProject.bidding_deadline).toISOString().split('T')[0] : '');
 
     const handleAIGenerate = async () => {
         if (!projectTitle.trim()) {
@@ -123,7 +129,11 @@ const Step1Vault = ({ onNext }) => {
                     techStack: selectedStack,
                     description: 'Created via Vault',
                     budget: parseFloat(budget || 0),
-                    duration: duration
+                    min_budget: parseFloat(minBudget || 0),
+                    max_budget: parseFloat(maxBudget || 0),
+                    duration: duration,
+                    open_for_bidding: isOpenForBidding,
+                    bidding_deadline: biddingDeadline ? new Date(biddingDeadline).toISOString() : null
                 });
                 projectId = newProject.id;
             } else {
@@ -132,7 +142,11 @@ const Step1Vault = ({ onNext }) => {
                     techStack: selectedStack,
                     title: projectTitle || currentProject.title,
                     budget: parseFloat(budget || currentProject.budget || 0),
-                    duration: duration || currentProject.duration
+                    min_budget: parseFloat(minBudget || 0),
+                    max_budget: parseFloat(maxBudget || 0),
+                    duration: duration || currentProject.duration,
+                    open_for_bidding: isOpenForBidding,
+                    bidding_deadline: biddingDeadline ? new Date(biddingDeadline).toISOString() : null
                 });
             }
 
@@ -262,6 +276,77 @@ const Step1Vault = ({ onNext }) => {
                         ))}
                     </div>
                 )}
+            </Card>
+            
+            {/* Marketplace Bidding Section */}
+            <Card className="p-8 mb-8 border-2 border-primary/10 bg-gradient-to-br from-white to-primary/5">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900">Project Marketplace</h3>
+                        <p className="text-sm text-gray-500">Allow experts to find and bid on your project publicly</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            className="sr-only peer"
+                            checked={isOpenForBidding}
+                            onChange={(e) => setIsOpenForBidding(e.target.checked)}
+                        />
+                        <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
+
+                <AnimatePresence>
+                    {isOpenForBidding && (
+                        <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="space-y-6 overflow-hidden"
+                        >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Minimum Budget (USD)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                        <input
+                                            type="number"
+                                            className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                                            placeholder="Min"
+                                            value={minBudget}
+                                            onChange={(e) => setMinBudget(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Maximum Budget (USD)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                        <input
+                                            type="number"
+                                            className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                                            placeholder="Max"
+                                            value={maxBudget}
+                                            onChange={(e) => setMaxBudget(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Bidding Deadline</label>
+                                <input
+                                    type="date"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                                    value={biddingDeadline}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setBiddingDeadline(e.target.value)}
+                                />
+                                <p className="text-[11px] text-gray-400 mt-1">Experts won't be able to bid after this date</p>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </Card>
 
             <Card className="p-8 mb-8">

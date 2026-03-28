@@ -3,9 +3,9 @@ const { getMarketplaceProjects } = require('../models/marketplaceModel');
 // Get marketplace projects (open for bidding)
 const getMarketplace = async (req, res) => {
     try {
-        // Only experts can access marketplace
-        if (req.user.role !== 'expert') {
-            return res.status(403).json({ message: 'Only experts can access the marketplace' });
+        // Both experts and clients can access marketplace
+        if (req.user.role !== 'expert' && req.user.role !== 'client') {
+            return res.status(403).json({ message: 'Access denied: Only experts and clients can browse the marketplace' });
         }
 
         const filters = {

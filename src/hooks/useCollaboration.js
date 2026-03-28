@@ -209,6 +209,10 @@ export const useCollaboration = (projectId, user) => {
 
     // Actions
     const sendMessage = useCallback(async (content) => {
+        if (!projectId) {
+            console.error("Cannot send message: Project ID is missing.");
+            return;
+        }
         const tempId = Date.now();
         try {
             // Optimistic update

@@ -730,6 +730,11 @@ export const api = {
             method: 'POST',
             body: JSON.stringify({ projectDescription: projectData.projectDescription, requirements: projectData.requirements, experts }),
             headers: getHeaders(),
+        }),
+        analyzeBids: async (project, bids) => apiRequest('/ai/analyze-bids', {
+            method: 'POST',
+            body: JSON.stringify({ project, bids }),
+            headers: getHeaders(),
         })
     },
 

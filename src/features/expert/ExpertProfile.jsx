@@ -125,7 +125,7 @@ const ExpertProfile = ({ user, existingProfile, onComplete }) => {
                 location: formData.location,
                 skills: formData.skills,
                 hourlyRate: parseFloat(formData.hourly_rate) || 0, // Ensure number type
-                profileImageUrl: profileImage || user?.profile_image_url,
+                profile_image_url: profileImage || user?.profile_image_url,
                 certifications: formData.certifications
             };
 

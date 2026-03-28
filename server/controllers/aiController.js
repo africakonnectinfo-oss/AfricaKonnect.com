@@ -358,6 +358,52 @@ const aiController = {
             console.error('AI Collab Suggestions Error:', error);
             res.status(500).json({ error: error.message });
         }
+    },
+
+    // 5. AI Bid Analysis
+    analyzeBids: async (req, res) => {
+        try {
+            const { project, bids } = req.body;
+            if (!project || !bids || bids.length === 0) {
+                return res.status(400).json({ error: "Missing project or bids for analysis" });
+            }
+
+            const prompt = `
+                You are a senior technical project manager at Africa Konnect. 
+                Your task is to analyze and compare these bids for a client.
+                
+                PROJECT:
+                Title: ${project.title}
+                Description: ${project.description}
+                Budget Range: $${project.min_budget} - $${project.max_budget}
+                
+                BIDS:
+                ${JSON.stringify(bids.map(b => ({
+                id: b.id,
+                expertName: b.expert_name,
+                expertTitle: b.expert_title,
+                bidAmount: b.bid_amount,
+                timeline: b.proposed_timeline,
+                coverLetter: b.cover_letter?.substring(0, 300)
+            })))}
+
+                TASK:
+                1. Rank the top 3 bidders.
+                2. Explain WHY each is a good fit (technical alignment, value, timeline).
+                3. Highlight any risks for each.
+                4. Provide a final recommendation.
+                
+                OUTPUT:
+                Professional, data-driven reasoning in Markdown format.
+            `;
+
+            const analysis = await callRapidAPI(prompt);
+            res.json({ analysis });
+
+        } catch (error) {
+            console.error('AI Bid Analysis Error:', error);
+            res.status(500).json({ error: error.message });
+        }
     }
 };
 

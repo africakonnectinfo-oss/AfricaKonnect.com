@@ -740,7 +740,7 @@ export default function Collaboration() {
     const [project, setProject]         = useState(null);
     const [initLoading, setInitLoading] = useState(true);
 
-    const { activeTab, setActiveTab, data, loading, actions } = useCollaboration(projectId, user);
+    const { activeTab, setActiveTab, data, loading, actions } = useCollaboration(project?.id || projectId, user);
 
     useEffect(() => {
         const loadProject = async () => {

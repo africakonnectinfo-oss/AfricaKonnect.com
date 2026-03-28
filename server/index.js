@@ -15,7 +15,7 @@ const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const { apiLimiter } = require('./middleware/rateLimitMiddleware');
 
 const http = require('http');
-const setupSocket = require('./socket');
+const setupSocket = require('./socket').setupSocket;
 
 // ... imports remain ...
 

@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }) => {
                 const response = await api.auth.updateProfile({
                     name: updates.name || user.name,
                     email: updates.email || user.email,
-                    profile_image_url: updates.profileImageUrl || updates.profile_image_url || user.profile_image_url
+                    profile_image_url: updates.profile_image_url || updates.profileImageUrl || user.profile_image_url
                 });
 
                 // Merge updated fields into current user state AND preserve token in localStorage

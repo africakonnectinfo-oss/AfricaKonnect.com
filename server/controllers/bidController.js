@@ -67,6 +67,13 @@ exports.submitBid = async (req, res) => {
                 projectTitle: project.title,
                 projectId: projectId
             });
+
+            // Real-time broadcast to project room for monitoring
+            io.to(`project_${projectId}`).emit('new_bid', {
+                projectId,
+                expertName: req.user.name,
+                bidAmount: bidAmount
+            });
         }
 
         res.status(201).json(bid);

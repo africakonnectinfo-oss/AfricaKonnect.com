@@ -12,5 +12,6 @@ router.post('/generate-project', protect, aiController.generateProjectDetails);
 router.post('/generate-proposal', protect, aiController.generateProposal);
 router.post('/generate-interview', protect, aiController.generateInterviewQuestions);
 router.post('/collaboration-help', protect, aiController.getCollaborationSuggestions);
+router.post('/analyze-bids', protect, aiController.analyzeBids);
 
 module.exports = router;

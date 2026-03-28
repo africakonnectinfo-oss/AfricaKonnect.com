@@ -2,8 +2,6 @@ import React from 'react';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 
-import { AIAssistant } from '../AIAssistant';
-
 const Layout = ({ children }) => {
     return (
         <div className="min-h-screen flex flex-col bg-gray-50">
@@ -12,7 +10,6 @@ const Layout = ({ children }) => {
                 {children}
             </main>
             <Footer />
-            <AIAssistant />
         </div>
     );
 };
