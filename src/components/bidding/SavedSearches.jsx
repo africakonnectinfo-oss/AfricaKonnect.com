@@ -54,7 +54,7 @@ const SavedSearches = ({ onExecuteSearch }) => {
         return <div className="p-4 text-center text-gray-500">Loading saved searches...</div>;
     }
 
-    if (searches.length === 0) {
+    if (!Array.isArray(searches) || searches.length === 0) {
         return (
             <div className="p-8 text-center bg-gray-50 rounded-lg border border-gray-100">
                 <Search className="w-8 h-8 text-gray-400 mx-auto mb-3" />
