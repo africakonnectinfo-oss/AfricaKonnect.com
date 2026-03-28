@@ -167,7 +167,11 @@ const ProjectMarketplace = () => {
                     </div>
                     <span className="text-sm text-gray-600">{project.client_name}</span>
                 </div>
-                <Button size="sm" className="flex items-center gap-2">
+                <Button 
+                    size="sm" 
+                    className="flex items-center gap-2"
+                    onClick={() => navigate(`/marketplace/projects/${project.id}`)}
+                >
                     View Details
                     <ChevronRight size={16} />
                 </Button>

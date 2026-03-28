@@ -51,7 +51,7 @@ const ManageProjectBids = () => {
                 api.projects.getById(id),
                 api.projects.getBids(id)
             ]);
-            setProject(projRes.project);
+            setProject(projRes?.project || projRes);
             setBids(bidsRes.bids || []);
         } catch (error) {
             console.error('Failed to fetch data:', error);

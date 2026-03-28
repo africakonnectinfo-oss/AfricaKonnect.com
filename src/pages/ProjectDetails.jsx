@@ -32,12 +32,13 @@ const ProjectDetails = () => {
         setLoading(true);
         try {
             const data = await api.projects.getById(id);
-            setProject(data.project);
+            setProject(data?.project || data);
             
             // If expert, check if they already bid
             if (isExpert) {
-                const bidsRes = await api.get('/bids/my-bids');
-                const existingBid = bidsRes.bids.find(b => b.project_id === id);
+                const bidsRes = await api.bids.getMyBids();
+                const bids = bidsRes?.bids || (Array.isArray(bidsRes) ? bidsRes : []);
+                const existingBid = bids.find(b => b.project_id === id);
                 if (existingBid) setHasAlreadyBid(true);
             }
         } catch (error) {
