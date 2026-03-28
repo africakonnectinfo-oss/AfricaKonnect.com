@@ -326,6 +326,8 @@ const aiController = {
             const anthropic = getAnthropicClient();
             if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
 
+            const prompt = `Generate a detailed project structure for the following idea: ${idea}. Include title, description, and list of milestones. Format as JSON.`;
+
             let text;
             if (deepseek) {
                 const completion = await deepseek.chat.completions.create({
@@ -360,6 +362,8 @@ const aiController = {
             const anthropic = getAnthropicClient();
             if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
 
+            const prompt = `Expert: ${expert?.name || 'Expert'} (${expert?.title || 'Professional'})\nProject: ${project?.title || 'Project'}\n\nDraft a professional project proposal emphasizing the expert's suitability for the project requirements.`;
+
             let proposal;
             if (deepseek) {
                 const completion = await deepseek.chat.completions.create({
@@ -392,6 +396,8 @@ const aiController = {
             const anthropic = getAnthropicClient();
             if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
 
+            const prompt = `Generate 5 technical interview questions for ${expert?.name || 'the expert'} regarding project "${project?.title || 'the project'}".`;
+
             let questions;
             if (deepseek) {
                 const completion = await deepseek.chat.completions.create({
@@ -423,6 +429,8 @@ const aiController = {
             const deepseek = getDeepSeekClient();
             const anthropic = getAnthropicClient();
             if (!deepseek && !anthropic) return res.json({ error: "AI disabled" });
+
+            const prompt = `Project Title: ${project?.title || ''}\nDescription: ${project?.description || ''}\n\nSuggest a roadmap for this project. Return ONLY a JSON object with: 1. "milestones": array of {title, description}. 2. "tasks": array of {title, description}`;
 
             let text;
             if (deepseek) {

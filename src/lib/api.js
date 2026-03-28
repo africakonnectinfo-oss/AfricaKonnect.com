@@ -668,8 +668,17 @@ Provide a helpful response as an AI assistant for Africa Konnect Hub.
             const prompt = `Context: ${JSON.stringify(context)}\nUser: ${message}`;
             const ai = await ensurePuterAI();
             const response = await ai.chat(prompt, { model });
-            if (onChunk) onChunk(response);
-            return response;
+            
+            const fullText = response?.toString() || String(response);
+            if (onChunk) {
+                // Simulate streaming for better UX
+                const chunkSize = 4;
+                for (let i = 0; i < fullText.length; i += chunkSize) {
+                    onChunk(fullText.slice(i, i + chunkSize));
+                    await new Promise(r => setTimeout(r, 20)); // tiny delay
+                }
+            }
+            return fullText;
         },
         collaborationHelp: async (project) => {
             const model = "gpt-4o";
@@ -722,8 +731,16 @@ Example: {"milestones": [...], "tasks": [...]}
             const prompt = `Draft a simple freelance contract for: ${JSON.stringify(data)}`;
             const ai = await ensurePuterAI();
             const response = await ai.chat(prompt, { model });
-            if (onChunk) onChunk(response);
-            return { contract: response };
+            
+            const fullText = response?.toString() || String(response);
+            if (onChunk) {
+                const chunkSize = 4;
+                for (let i = 0; i < fullText.length; i += chunkSize) {
+                    onChunk(fullText.slice(i, i + chunkSize));
+                    await new Promise(r => setTimeout(r, 20));
+                }
+            }
+            return { contract: fullText };
         },
         matchExperts: async (projectData, experts) => {
             const model = "gpt-4o";
