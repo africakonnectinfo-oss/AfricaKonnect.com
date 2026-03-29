@@ -12,7 +12,8 @@ const {
     updatePassword,
     generatePasswordResetToken,
     verifyPasswordResetToken,
-    updateUser
+    updateUser,
+    revokeSessionByToken
 } = require('../models/userModel');
 const { createExpertProfile, getExpertProfile } = require('../models/expertModel');
 const { sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
@@ -61,9 +62,14 @@ exports.registerUser = async (req, res) => {
             return res.status(400).json({ message: 'Please provide a valid email address' });
         }
 
-        // Validate password strength
-        if (password.length < 6) {
-            return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+        // Validate password strength (Match resetPassword requirements)
+        if (password.length < 8) {
+            return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+        }
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/.test(password)) {
+            return res.status(400).json({ 
+                message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character' 
+            });
         }
 
         // Check if user exists
@@ -297,11 +303,24 @@ exports.refreshToken = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Generate new access token
+        // Revoke old session/refresh token
+        await revokeSessionByToken(refreshToken);
+
+        // Generate new tokens (Rotation)
         const newToken = generateToken(decoded.id, user.role);
+        const newRefreshToken = generateRefreshToken(decoded.id);
+
+        // Create new session
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await createSession(user.id, { token: newToken, refreshToken: newRefreshToken, expiresAt }, {
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+            info: 'Token refresh rotation'
+        });
 
         res.json({
-            token: newToken
+            token: newToken,
+            refreshToken: newRefreshToken
         });
     } catch (error) {
         console.error('Refresh token error:', error);

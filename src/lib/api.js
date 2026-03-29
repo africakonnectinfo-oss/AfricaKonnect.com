@@ -21,18 +21,37 @@ const debugLog = (type, ...args) => {
     }
 };
 
+// Auth management
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
 
 
-// Wrapper for fetch to handle logging
+
+// Wrapper for fetch to handle logging and automatic token refresh
 const apiRequest = async (endpoint, options = {}) => {
     const url = `${API_URL}${endpoint}`;
 
     let bodyPreview = '';
     if (options.body) {
         try {
-            bodyPreview = JSON.parse(options.body);
+            if (typeof options.body === 'string') {
+                bodyPreview = JSON.parse(options.body);
+            } else {
+                bodyPreview = options.body instanceof FormData ? '[FormData]' : '[Binary/Other]';
+            }
         } catch (e) {
-            bodyPreview = options.body instanceof FormData ? '[FormData]' : '[Binary/Other]';
+            bodyPreview = '[Parse Error]';
         }
     }
 
@@ -40,8 +59,6 @@ const apiRequest = async (endpoint, options = {}) => {
 
     // Automatically handle FormData headers
     if (options.body instanceof FormData) {
-        // When using FormData, we MUST NOT set Content-Type header manually
-        // so the browser can set it with the correct boundary
         if (options.headers && options.headers['Content-Type']) {
             delete options.headers['Content-Type'];
         }
@@ -50,6 +67,67 @@ const apiRequest = async (endpoint, options = {}) => {
     try {
         const response = await fetch(url, options);
         debugLog('RES', response.status, endpoint);
+
+        // Handle 401 Unauthorized - Attempt Automatic Refresh
+        if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh-token')) {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            const refreshToken = userInfo.refreshToken;
+
+            if (refreshToken) {
+                if (isRefreshing) {
+                    // Queue this request for when refresh finishes
+                    return new Promise((resolve, reject) => {
+                        failedQueue.push({ resolve, reject });
+                    }).then(token => {
+                        const newOptions = { ...options };
+                        newOptions.headers = { ...newOptions.headers, 'Authorization': `Bearer ${token}` };
+                        return apiRequest(endpoint, newOptions);
+                    }).catch(err => {
+                        throw err;
+                    });
+                }
+
+                isRefreshing = true;
+
+                try {
+                    debugLog('AUTH', 'Attempting token refresh...');
+                    const refreshRes = await fetch(`${API_URL}/auth/refresh-token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refreshToken })
+                    });
+
+                    if (refreshRes.ok) {
+                        const { token: newToken, refreshToken: newRefreshToken } = await refreshRes.json();
+                        debugLog('AUTH', 'Refresh successful, retrying request');
+                        
+                        // Update storage
+                        const newUserInfo = { ...userInfo, token: newToken, refreshToken: newRefreshToken };
+                        localStorage.setItem('userInfo', JSON.stringify(newUserInfo));
+                        
+                        // Trigger event for Context to update state
+                        window.dispatchEvent(new CustomEvent('auth-token-refreshed', { detail: newUserInfo }));
+
+                        processQueue(null, newToken);
+                        isRefreshing = false;
+
+                        // Retry original request with new token
+                        const retryOptions = { ...options };
+                        retryOptions.headers = { ...retryOptions.headers, 'Authorization': `Bearer ${newToken}` };
+                        return apiRequest(endpoint, retryOptions);
+                    } else {
+                        debugLog('AUTH', 'Refresh failed - session dead');
+                        processQueue(new Error('Session expired'), null);
+                        isRefreshing = false;
+                        return handleResponse(response); // Fall through to logout logic
+                    }
+                } catch (refreshErr) {
+                    isRefreshing = false;
+                    processQueue(refreshErr, null);
+                    throw refreshErr;
+                }
+            }
+        }
 
         return handleResponse(response);
     } catch (error) {
@@ -777,25 +855,19 @@ const handleResponse = async (response) => {
     if (!response.ok) {
         // Handle 401 errors (authentication failures)
         if (response.status === 401) {
-            // Check if we already have userInfo - if not, we were never logged in
             const hasUserInfo = localStorage.getItem('userInfo');
 
             if (hasUserInfo) {
-                // Only clear and redirect if we're CERTAIN the session is dead
-                // We avoid clearing on /auth/profile which can be transient
-                if (response.url.includes('/auth/profile')) {
-                    console.warn('Session verification failed. Attempting to maintain state...');
-                    // Don't clear localStorage yet, let AuthContext handle it if it persists
-                } else {
-                    localStorage.removeItem('userInfo');
+                // If we reached here, automatic refresh already failed or wasn't possible
+                localStorage.removeItem('userInfo');
+                window.dispatchEvent(new CustomEvent('auth-logout'));
 
-                    const publicPaths = ['/', '/signup', '/signin', '/experts', '/about', '/how-it-works', '/pricing'];
-                    const currentPath = window.location.pathname;
+                const publicPaths = ['/', '/signup', '/signin', '/experts', '/about', '/how-it-works', '/pricing'];
+                const currentPath = window.location.pathname;
 
-                    if (!publicPaths.includes(currentPath) && !currentPath.startsWith('/expert/')) {
-                        console.warn('Session expired. Redirecting to sign in...');
-                        window.location.href = '/signin';
-                    }
+                if (!publicPaths.includes(currentPath) && !currentPath.startsWith('/expert/')) {
+                    console.warn('Session expired. Redirecting to sign in...');
+                    window.location.href = '/signin';
                 }
             }
         }

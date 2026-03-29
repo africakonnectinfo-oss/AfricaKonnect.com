@@ -61,7 +61,26 @@ export const AuthProvider = ({ children }) => {
     }, [loadProfile]);
 
     useEffect(() => {
+        const handleRefresh = (e) => {
+            console.log("🔄 AuthContext: Token refreshed in background");
+            setUser(e.detail);
+        };
+
+        const handleLogout = () => {
+            console.log("🚪 AuthContext: Session expired, logging out");
+            setUser(null);
+            setProfile(null);
+        };
+
+        window.addEventListener('auth-token-refreshed', handleRefresh);
+        window.addEventListener('auth-logout', handleLogout);
+
         checkSession();
+
+        return () => {
+            window.removeEventListener('auth-token-refreshed', handleRefresh);
+            window.removeEventListener('auth-logout', handleLogout);
+        };
     }, [checkSession]);
 
     const signUp = async (email, password, name, role) => {
@@ -107,7 +126,8 @@ export const AuthProvider = ({ children }) => {
 
     const signOut = async () => {
         try {
-            // Backend signout (if needed) or just local cleanup
+            // Backend signout to revoke session in DB
+            await api.auth.logout();
         } catch (error) {
             console.error('Sign out error:', error);
         } finally {

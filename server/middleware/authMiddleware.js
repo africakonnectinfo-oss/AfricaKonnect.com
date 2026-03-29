@@ -1,8 +1,12 @@
 const jwt = require('jsonwebtoken');
-const { findUserById } = require('../models/userModel');
+const { findUserById, findSessionByToken, updateSessionActivity } = require('../models/userModel');
 const { getExpertProfile } = require('../models/expertModel');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('FATAL ERROR: JWT_SECRET is not defined in .env');
+    // In production, we should probably crash or at least log very loudly
+}
 
 // Protect routes - verify JWT token
 const protect = async (req, res, next) => {
@@ -17,7 +21,21 @@ const protect = async (req, res, next) => {
             // Verify token
             const decoded = jwt.verify(token, JWT_SECRET);
 
-            // Get user from token
+            // 1. Verify session exists in DB (revocation check)
+            const session = await findSessionByToken(token);
+            if (!session) {
+                return res.status(401).json({ 
+                    message: 'Session revoked or expired',
+                    code: 'SESSION_REVOKED'
+                });
+            }
+
+            // 2. Update session activity (Async - don't await to avoid blocking)
+            updateSessionActivity(token).catch(err => 
+                console.error('Failed to update session activity:', err)
+            );
+
+            // 3. Get user from token
             req.user = await findUserById(decoded.id);
 
             if (!req.user) {
@@ -64,11 +82,19 @@ const optionalAuth = async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, JWT_SECRET);
-            req.user = await findUserById(decoded.id);
-            delete req.user?.password_hash;
+            
+            // Check session for optional auth too
+            const session = await findSessionByToken(token);
+            if (session) {
+                req.user = await findUserById(decoded.id);
+                delete req.user?.password_hash;
+                
+                // Track activity
+                updateSessionActivity(token).catch(() => {});
+            }
         } catch (error) {
             // Token invalid but continue anyway
-            console.log('Optional auth: Invalid token, continuing without user');
+            console.log('Optional auth: Invalid token or session, continuing without user');
         }
     }
 

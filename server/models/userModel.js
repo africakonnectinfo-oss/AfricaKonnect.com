@@ -216,6 +216,24 @@ const revokeOtherSessions = async (userId, currentSessionId) => {
     return result.rows;
 };
 
+// Find session by token
+const findSessionByToken = async (token) => {
+    const text = `
+        SELECT id, user_id, last_activity, expires_at
+        FROM user_sessions 
+        WHERE token = $1 AND expires_at > NOW()
+    `;
+    const result = await query(text, [token]);
+    return result.rows[0];
+};
+
+// Revoke session by token
+const revokeSessionByToken = async (token) => {
+    const text = 'DELETE FROM user_sessions WHERE token = $1 RETURNING id';
+    const result = await query(text, [token]);
+    return result.rows[0];
+};
+
 // Clean up expired sessions
 const cleanupExpiredSessions = async () => {
     const text = 'DELETE FROM user_sessions WHERE expires_at < NOW()';
@@ -292,6 +310,8 @@ module.exports = {
     generatePasswordResetToken,
     verifyPasswordResetToken,
     updatePassword,
+    findSessionByToken,
+    revokeSessionByToken,
     // Aliases for compatibility
     getUserById: findUserById,
     getUserByEmail: findUserByEmail
