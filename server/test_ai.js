@@ -4,8 +4,8 @@ const aiController = require('./controllers/aiController');
 const testHelper = async () => {
     try {
         console.log('Testing AI Controller initialization...');
-        if (!process.env.AI_API_KEY) {
-            console.error('Error: AI_API_KEY is missing in .env');
+        if (!process.env.RAPIDAPI_KEY) {
+            console.error('Error: RAPIDAPI_KEY is missing in .env');
             process.exit(1);
         }
 

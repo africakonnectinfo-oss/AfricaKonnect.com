@@ -476,7 +476,7 @@ const TasksTab = ({ tasks, onCreate, onUpdateStatus, project }) => {
         try {
             const res = await api.ai.collaborationHelp(project);
             if (res.tasks?.length > 0) {
-                const top = res.tasks.slice(0, 3);
+                const top = res.tasks.slice(0, 10);
                 for (const t of top) await onCreate({ title: t.title, status: 'todo' });
                 toast.success(`Added ${top.length} AI-suggested tasks!`);
             }

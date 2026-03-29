@@ -19,8 +19,9 @@ const { getAllSkills, getSkillsByCategory, getAllCategories, searchSkills } = re
 // Create expert profile
 exports.createProfile = async (req, res) => {
     try {
-        const { title, bio, location, skills, hourlyRate, profileImageUrl, certifications } = req.body;
+        const { title, bio, location, skills, hourlyRate, profileImageUrl, profile_image_url, certifications } = req.body;
         const userId = req.user.id;
+        const unifiedProfileImageUrl = profile_image_url || profileImageUrl;
 
         // Check if user is an expert
         if (req.user.role !== 'expert') {
@@ -40,12 +41,12 @@ exports.createProfile = async (req, res) => {
             location,
             skills,
             hourlyRate,
-            profileImageUrl,
+            profileImageUrl: unifiedProfileImageUrl,
             certifications
         });
 
         // Sync with base users table
-        await updateUser(userId, { profileImageUrl, bio });
+        await updateUser(userId, { profileImageUrl: unifiedProfileImageUrl, bio });
 
         // Emit event to notify clients about the new expert
         const io = req.app.get('io');
@@ -92,7 +93,8 @@ exports.updateProfile = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this profile' });
         }
 
-        const { title, bio, location, skills, hourlyRate, profileImageUrl, certifications } = req.body;
+        const { title, bio, location, skills, hourlyRate, profileImageUrl, profile_image_url, certifications } = req.body;
+        const unifiedProfileImageUrl = profile_image_url || profileImageUrl;
 
         const profile = await updateExpertProfile(userId, {
             title,
@@ -100,7 +102,7 @@ exports.updateProfile = async (req, res) => {
             location,
             skills,
             hourlyRate,
-            profileImageUrl,
+            profileImageUrl: unifiedProfileImageUrl,
             certifications
         });
 
@@ -109,7 +111,7 @@ exports.updateProfile = async (req, res) => {
         }
 
         // Sync with base users table
-        await updateUser(userId, { profileImageUrl, bio });
+        await updateUser(userId, { profileImageUrl: unifiedProfileImageUrl, bio });
 
         // Emit update event
         const io = req.app.get('io');

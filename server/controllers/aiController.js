@@ -69,7 +69,65 @@ async function callRapidAPI(promptStr) {
     }
 }
 
+/**
+ * Robust JSON extraction from AI response
+ * Handles markdown code blocks, preamble, and postamble
+ */
+function extractJSON(text) {
+    if (!text) return null;
+    
+    try {
+        // 1. Try to find JSON inside markdown code blocks
+        const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch && codeBlockMatch[1]) {
+            try {
+                return JSON.parse(codeBlockMatch[1].trim());
+            } catch (e) {
+                // Ignore and try other methods
+            }
+        }
+        
+        // 2. Try to find the first '{' and last '}'
+        const firstBrace = text.indexOf('{');
+        const lastBrace = text.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            try {
+                const jsonCandidate = text.substring(firstBrace, lastBrace + 1);
+                return JSON.parse(jsonCandidate);
+            } catch (e) {
+                // If outer-most fails, try to find the last valid-looking object
+                // This is a bit brute-force but effective for small amounts of text
+                let start = 0;
+                while ((start = text.indexOf('{', start)) !== -1) {
+                    let end = text.lastIndexOf('}');
+                    while (end > start) {
+                        try {
+                            const candidate = text.substring(start, end + 1);
+                            const parsed = JSON.parse(candidate);
+                            if (parsed) return parsed;
+                        } catch (err) {
+                            // Continue searching
+                        }
+                        end = text.lastIndexOf('}', end - 1);
+                    }
+                    start++;
+                }
+            }
+        }
+        
+        // 3. Last resort: try to parse the whole string
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("JSON Extraction Error:", e.message, "Original text snippet:", text.substring(0, 100));
+        return null;
+    }
+}
+
 const aiController = {
+    // Robust JSON extraction helper
+    extractJSON,
+
     // Match Experts
     matchExperts: async (req, res) => {
         try {
@@ -117,14 +175,10 @@ const aiController = {
             `;
 
             const text = await callRapidAPI(prompt);
+            const parsedResult = extractJSON(text);
 
-            let parsedResult;
-            try {
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
-                const cleanedText = jsonMatch ? jsonMatch[0] : text;
-                parsedResult = JSON.parse(cleanedText);
-            } catch (e) {
-                console.error("Failed to parse AI JSON response:", text);
+            if (!parsedResult || !parsedResult.matches) {
+                console.error("Failed to parse AI JSON response or missing matches:", text);
                 return res.status(500).json({ error: "AI response parsing failed" });
             }
 
@@ -299,11 +353,35 @@ const aiController = {
             const { idea } = req.body;
             if (!idea) return res.status(400).json({ error: "No idea provided" });
 
-            const prompt = `Generate a detailed project structure for the following idea: ${idea}. Include title, description, and list of milestones. Format as JSON.`;
+            const prompt = `
+                You are a senior project architect at Africa Konnect. 
+                Generate a detailed project structure for the following idea: "${idea}".
+                
+                REQUIREMENTS:
+                1. Professional title and comprehensive description.
+                2. At least 4 key milestones with titles and descriptions.
+                3. Estimated budget in USD (approximate).
+                4. Estimated duration (e.g., "3 months", "6 weeks").
+                5. Tech stack list (at least 5 relevant technologies).
+
+                OUTPUT FORMAT:
+                Return ONLY a valid JSON object with the following keys:
+                - "title": string
+                - "description": string
+                - "milestones": array of { "title": string, "description": string }
+                - "estimated_budget": number (value only)
+                - "estimated_duration": string
+                - "techStack": array of strings
+                
+                Do not include any preamble or postamble text.
+            `;
 
             const text = await callRapidAPI(prompt);
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            const parsedResult = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+            const parsedResult = extractJSON(text);
+
+            if (!parsedResult) {
+                throw new Error("Failed to generate project details from AI response.");
+            }
 
             res.json(parsedResult);
         } catch (error) {
@@ -347,11 +425,30 @@ const aiController = {
         try {
             const { project } = req.body;
 
-            const prompt = `Project Title: ${project?.title || ''}\nDescription: ${project?.description || ''}\n\nSuggest a roadmap for this project. Return ONLY a JSON object with: 1. "milestones": array of {title, description}. 2. "tasks": array of {title, description}`;
+            const prompt = `
+                Generate a roadmap for this project:
+                Title: ${project?.title || ''}
+                Description: ${project?.description || ''}
+                
+                TASK:
+                1. Create a logical sequence of milestones.
+                2. Break down each milestone into specific, actionable tasks.
+                3. Provide 10 distinct, professional tasks in total across all milestones.
+
+                OUTPUT FORMAT:
+                Return ONLY a valid JSON object with:
+                1. "milestones": array of { "title": string, "description": string }
+                2. "tasks": array of { "title": string, "description": string }
+                
+                No preamble or postamble.
+            `;
 
             const text = await callRapidAPI(prompt);
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            const parsedResult = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+            const parsedResult = extractJSON(text);
+
+            if (!parsedResult) {
+                throw new Error("Failed to generate roadmap from AI response.");
+            }
 
             res.json(parsedResult);
         } catch (error) {

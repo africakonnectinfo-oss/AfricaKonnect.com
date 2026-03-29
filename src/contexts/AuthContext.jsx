@@ -126,7 +126,8 @@ export const AuthProvider = ({ children }) => {
                 const response = await api.auth.updateProfile({
                     name: updates.name || user.name,
                     email: updates.email || user.email,
-                    profile_image_url: updates.profile_image_url || updates.profileImageUrl || user.profile_image_url
+                    profile_image_url: updates.profile_image_url || updates.profileImageUrl || user.profile_image_url,
+                    profileImageUrl: updates.profile_image_url || updates.profileImageUrl || user.profile_image_url
                 });
 
                 // Merge updated fields into current user state AND preserve token in localStorage
@@ -140,7 +141,11 @@ export const AuthProvider = ({ children }) => {
 
             // Update expert profile if user is an expert
             if (user?.role === 'expert') {
-                const updated = await api.experts.updateProfile(user.id, updates);
+                const expertUpdates = {
+                    ...updates,
+                    profileImageUrl: updates.profile_image_url || updates.profileImageUrl
+                };
+                const updated = await api.experts.updateProfile(user.id, expertUpdates);
                 const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
                 setProfile({ ...stored, ...updated });
                 return { profile: updated, error: null };
