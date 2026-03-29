@@ -385,17 +385,20 @@ All work product developed belongs to the Client upon final payment. Both partie
     // 1. AI Project Generator
     generateProjectDetails: async (req, res) => {
         try {
-            const { idea } = req.body;
-            if (!idea) return res.status(400).json({ error: "No idea provided" });
+            const { title, description } = req.body;
+            // idea is kept for backward compatibility if needed, but title/description are now preferred
+            const idea = title || req.body.idea;
+
+            if (!idea && !description) return res.status(400).json({ error: "No title or description provided" });
 
             const prompt = `
                 You are a senior project architect at Africa Konnect. 
-                Generate a detailed project structure for the following idea: "${idea}".
+                ${description ? `Refine and expand the following project description: "${description}" (Title: "${title}")` : `Generate a detailed project structure for the following idea: "${title}"`}.
                 
                 REQUIREMENTS:
-                1. Professional title and comprehensive description.
+                1. Professional title and comprehensive description (at least 250 words for description).
                 2. At least 4 key milestones with titles and descriptions.
-                3. Estimated budget in USD (approximate).
+                3. Estimated budget in USD (as a single number).
                 4. Estimated duration (e.g., "3 months", "6 weeks").
                 5. Tech stack list (at least 5 relevant technologies).
 
@@ -437,8 +440,8 @@ All work product developed belongs to the Client upon final payment. Both partie
             console.error('AI Project Gen Error (Handled by Fallback):', error);
             // Universal fallback
             res.json({
-                title: req.body.idea?.substring(0, 30) + " Spec",
-                description: req.body.idea || "Project scope needs manual refinement.",
+                title: title?.substring(0, 30) || "Project Spec",
+                description: description || title || "Project scope needs manual refinement.",
                 milestones: [{ title: "Phase 1", description: "Initial phase." }],
                 estimated_budget: 1000,
                 estimated_duration: "1 month",

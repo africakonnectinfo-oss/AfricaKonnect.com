@@ -230,7 +230,7 @@ const Navbar = () => {
                                         <>
                                             <div className="p-3 bg-gray-50 rounded-lg mb-2">
                                                 <p className="text-sm font-medium text-gray-900">
-                                                    {profile?.name || user.email?.split('@')[0]}
+                                                    {profile?.name || user?.email?.split('@')[0]}
                                                 </p>
                                                 <p className="text-xs text-gray-500">
                                                     {isExpert ? 'Expert Account' : 'Client Account'}

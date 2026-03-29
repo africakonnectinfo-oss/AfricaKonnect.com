@@ -772,9 +772,9 @@ export const api = {
             body: JSON.stringify({ project }),
             headers: getHeaders(),
         }),
-        generateProject: async (idea) => apiRequest('/ai/generate-project', {
+        generateProject: async (title, description = '') => apiRequest('/ai/generate-project', {
             method: 'POST',
-            body: JSON.stringify({ idea }),
+            body: JSON.stringify({ title, description }),
             headers: getHeaders(),
         }),
         generateProposal: async (project, expert) => apiRequest('/ai/generate-proposal', {

@@ -394,15 +394,20 @@ export const ProjectProvider = ({ children }) => {
     };
 
     const inviteExpert = async (projectId, expertId) => {
+        if (!projectId || !expertId) {
+            console.error('Missing projectId or expertId for invitation:', { projectId, expertId });
+            throw new Error('Project ID and Expert ID are required to send an invitation.');
+        }
+
         try {
             const updated = await api.projects.invite(projectId, expertId);
             setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updated } : p));
             if (currentProject?.id === projectId) {
-                setCurrentProject(prev => ({ ...prev, ...updated }));
+                setCurrentProject(prev => prev ? { ...prev, ...updated } : updated);
             }
             return updated;
         } catch (error) {
-            console.error('Error inviting expert:', error);
+            console.error('Error inviting expert (ProjectContext):', error);
             throw error;
         }
     };

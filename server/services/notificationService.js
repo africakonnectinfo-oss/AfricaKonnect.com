@@ -103,7 +103,7 @@ const deliverRealtime = async (userId, notification, io) => {
     }
 
     // Emit to user's room
-    io.to(`user:${userId}`).emit('notification', {
+    io.to(`user_${userId}`).emit('notification', {
         id: notification.id,
         type: notification.type,
         message: notification.message,

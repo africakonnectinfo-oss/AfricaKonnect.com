@@ -20,6 +20,7 @@ const Step1Vault = ({ onNext }) => {
     const [selectedStack, setSelectedStack] = useState(currentProject?.techStack || []);
     const [isDragging, setIsDragging] = useState(false);
     const [projectTitle, setProjectTitle] = useState(currentProject?.title || '');
+    const [projectDescription, setProjectDescription] = useState(currentProject?.description || '');
     const [budget, setBudget] = useState(currentProject?.budget || '');
     const [duration, setDuration] = useState(currentProject?.duration || '');
     const [isGenerating, setIsGenerating]   = useState(false);
@@ -34,6 +35,7 @@ const Step1Vault = ({ onNext }) => {
     React.useEffect(() => {
         if (currentProject) {
             setProjectTitle(currentProject.title || '');
+            setProjectDescription(currentProject.description || '');
             setBudget(currentProject.budget || '');
             setDuration(currentProject.duration || '');
             setFiles(currentProject.files || []);
@@ -53,12 +55,13 @@ const Step1Vault = ({ onNext }) => {
 
         try {
             setIsGenerating(true);
-            const result = await api.ai.generateProject(projectTitle);
+            const result = await api.ai.generateProject(projectTitle, projectDescription);
 
             if (result.error) {
                 toast.error(result.error);
             } else {
                 setProjectTitle(result.title || projectTitle);
+                setProjectDescription(result.description || projectDescription);
                 setBudget(result.estimated_budget || budget);
                 setDuration(result.estimated_duration || duration);
 
@@ -142,7 +145,7 @@ const Step1Vault = ({ onNext }) => {
                 const newProject = await createProject({
                     title: projectTitle || 'New Project',
                     techStack: selectedStack,
-                    description: 'Created via Vault',
+                    description: projectDescription || 'Created via Vault',
                     budget: parseFloat(budget || 0),
                     min_budget: parseFloat(minBudget || 0),
                     max_budget: parseFloat(maxBudget || 0),
@@ -156,6 +159,7 @@ const Step1Vault = ({ onNext }) => {
                 await updateProject(projectId, {
                     techStack: selectedStack,
                     title: projectTitle || currentProject.title,
+                    description: projectDescription || currentProject.description,
                     budget: parseFloat(budget || currentProject.budget || 0),
                     min_budget: parseFloat(minBudget || 0),
                     max_budget: parseFloat(maxBudget || 0),
@@ -206,11 +210,11 @@ const Step1Vault = ({ onNext }) => {
                         className="flex items-center gap-2 border-primary/30 text-primary hover:bg-primary/5"
                     >
                         {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                        AI Help
+                        {projectDescription ? 'Refine with AI' : 'AI Help'}
                     </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <div>
                         <h3 className="font-semibold text-gray-900 mb-2">Budget Match</h3>
                         <div className="relative">
@@ -240,7 +244,21 @@ const Step1Vault = ({ onNext }) => {
                     </div>
                 </div>
 
-                <h3 className="font-semibold text-gray-900 mb-4">1. What are you building?</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">Project Description</h3>
+                <p className="text-xs text-gray-500 mb-3">Provide a clear description of your goals, target audience, and key features. AI can help you refine this.</p>
+                <div className="relative mb-8">
+                    <textarea
+                        className="w-full h-48 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none font-sans text-sm"
+                        placeholder="E.g. I want to build a marketplace for local artisans in Africa to sell their crafts globally. It needs secure payments, review systems, and multi-language support..."
+                        value={projectDescription}
+                        onChange={(e) => setProjectDescription(e.target.value)}
+                    />
+                    <div className="absolute bottom-3 right-3 text-[10px] font-mono text-gray-400">
+                        {projectDescription.length} characters
+                    </div>
+                </div>
+
+                <h3 className="font-semibold text-gray-900 mb-4">2. Supporting Documents (Optional)</h3>
                 <div
                     className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${isDragging ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/50'
                         }`}

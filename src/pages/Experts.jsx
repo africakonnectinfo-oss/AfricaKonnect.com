@@ -8,6 +8,8 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useSocket } from '../hooks/useSocket';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
 
 // --- Expert Card Component ---
 const ExpertCard = ({ expert, onHire, onMessage }) => {
@@ -114,6 +116,7 @@ const FilterSection = ({ title, children }) => (
 export default function Experts() {
     const navigate = useNavigate();
     const socket = useSocket();
+    const { user } = useAuth();
     const [experts, setExperts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -185,7 +188,7 @@ export default function Experts() {
     const handleMessage = async (expert) => {
         if (!user) {
             toast.error('Please log in to message experts');
-            navigate('/login');
+            navigate('/signin');
             return;
         }
 
