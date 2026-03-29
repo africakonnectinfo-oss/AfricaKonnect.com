@@ -5,6 +5,7 @@ const {
     getMessages,
     getMessageById,
     getDirectMessages,
+    getDirectChatUsers,
     markAsRead,
     markProjectMessagesAsRead,
     getUnreadCount,
@@ -28,6 +29,9 @@ router.get('/project/:projectId', validateId, getMessages);
 
 // Get direct messages with another user
 router.get('/direct/:userId', validateId, getDirectMessages);
+
+// Get all unique users who have exchanged direct messages with the current user
+router.get('/direct', getDirectChatUsers);
 
 // Mark message as read
 router.put('/:id/read', validateId, markAsRead);

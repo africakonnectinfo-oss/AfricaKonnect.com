@@ -22,8 +22,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
-const JWT_EXPIRES_IN = '7d'; // Access token expires in 7 days
-const REFRESH_TOKEN_EXPIRES_IN = '30d'; // Refresh token expires in 30 days
+const JWT_EXPIRES_IN = '30d'; // Access token expires in 30 days
+const REFRESH_TOKEN_EXPIRES_IN = '365d'; // Refresh token expires in 365 days
 
 /**
  * Generate access token
@@ -101,7 +101,7 @@ exports.registerUser = async (req, res) => {
             const refreshToken = generateRefreshToken(user.id);
 
             // Create session
-            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+            const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 365 days
             await createSession(user.id, { token, refreshToken, expiresAt }, {
                 ipAddress: req.ip,
                 userAgent: req.headers['user-agent']
@@ -193,7 +193,7 @@ exports.loginUser = async (req, res) => {
             const refreshToken = generateRefreshToken(user.id);
 
             // Create session
-            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+            const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 365 days
             await createSession(user.id, { token, refreshToken, expiresAt }, {
                 ipAddress: req.ip,
                 userAgent: req.headers['user-agent']
@@ -315,7 +315,7 @@ exports.refreshToken = async (req, res) => {
         const newRefreshToken = generateRefreshToken(decoded.id);
 
         // Create new session
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
         await createSession(user.id, { token: newToken, refreshToken: newRefreshToken, expiresAt }, {
             ipAddress: req.ip,
             userAgent: req.headers['user-agent'],
@@ -612,7 +612,7 @@ exports.getPublicProfile = async (req, res) => {
             joinedAt: user.created_at,
             bio: user.bio, // Default user bio
             location: user.location,
-            company: user.role === 'client' ? user.company : null,
+            company: user.company,
             website: user.website,
             title: user.title,
             profile_image_url: user.profile_image_url
@@ -623,6 +623,8 @@ exports.getPublicProfile = async (req, res) => {
             publicProfile.bio = expertProfile.bio || publicProfile.bio; // Prefer expert bio
             publicProfile.title = expertProfile.title || publicProfile.title;
             publicProfile.location = expertProfile.location || publicProfile.location;
+            publicProfile.company = expertProfile.company || publicProfile.company;
+            publicProfile.website = expertProfile.website || publicProfile.website;
             publicProfile.hourlyRate = expertProfile.hourly_rate;
             publicProfile.skills = expertProfile.skills || [];
             publicProfile.certifications = expertProfile.certifications || [];

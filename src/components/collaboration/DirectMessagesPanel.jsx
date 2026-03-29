@@ -252,25 +252,28 @@ const DirectMessagesPanel = ({ project, defaultContact }) => {
     const [loading, setLoading]             = useState(true);
 
     useEffect(() => {
-        if (!project) return;
         let cancelled = false;
         const loadContacts = async () => {
             setLoading(true);
             try {
-                // Build contacts from project members/team (client + experts linked to this project)
-                const list = [];
-                // If current user is expert, show project client
-                if (project.client_id && project.client_id !== user.id) {
-                    list.push({ id: project.client_id, name: project.client_name || 'Project Client', role: 'client', profile_image_url: null });
+                if (project) {
+                    // Build contacts from project members (client + expert)
+                    const list = [];
+                    if (project.client_id && project.client_id !== user.id) {
+                        list.push({ id: project.client_id, name: project.client_name || 'Project Client', role: 'client', profile_image_url: project.client_avatar });
+                    }
+                    if (project.expert_id && project.expert_id !== user.id) {
+                        list.push({ id: project.expert_id, name: project.expert_name || 'Assigned Expert', role: 'expert', profile_image_url: project.expert_avatar });
+                    }
+                    if (!cancelled) setContacts(list);
+                } else {
+                    // Load all general direct message contacts
+                    const data = await api.messages.getDirectChatUsers();
+                    if (!cancelled) setContacts(Array.isArray(data) ? data : []);
                 }
-                // If current user is client, show assigned experts (via contracts)
-                if (project.expert_id && project.expert_id !== user.id) {
-                    list.push({ id: project.expert_id, name: project.expert_name || 'Assigned Expert', role: 'expert', profile_image_url: null });
-                }
-                // Also try fetching from experts API for richer data
-                if (!cancelled) setContacts(list.length > 0 ? list : []);
             } catch (err) {
                 console.error('Failed to load DM contacts:', err);
+                if (!cancelled) toast.error('Failed to load conversations');
             } finally {
                 if (!cancelled) setLoading(false);
             }

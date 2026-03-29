@@ -152,7 +152,7 @@ const ProjectHub = () => {
                         </div>
                         <Button
                             onClick={() => { clearCurrentProject(); setViewMode('wizard'); setCurrentStep(1); }}
-                            className="shadow-lg shadow-primary/20"
+                            className="shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white font-bold"
                         >
                             <Plus className="mr-2" size={20} />
                             Start New Project
@@ -214,31 +214,31 @@ const ProjectHub = () => {
                         </Card>
                     </div>
 
-                    {/* Pending Actions Section - Could be dynamic based on project states */}
+                    {/* Drafts / Saved Projects */}
                     {clientProjects.some(p => p.status === 'draft') && (
                         <div className="mb-10">
                             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                                <AlertCircle className="text-orange-500 mr-2" size={20} />
-                                Action Needed
+                                <Clock className="text-orange-500 mr-2" size={20} />
+                                Resume Setup
                             </h2>
-                            <div className="grid gap-4">
+                            <div className="grid gap-4 lg:grid-cols-2">
                                 {clientProjects.filter(p => p.status === 'draft').map(p => (
-                                    <div key={p.id} className="bg-orange-50 border border-orange-100 rounded-lg p-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                                    <div key={p.id} className="bg-white border border-orange-100 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 flex-shrink-0">
                                                 <FileText size={20} />
                                             </div>
-                                            <div>
-                                                <h4 className="font-semibold text-gray-900">{p.title || 'Untitled Draft'}</h4>
-                                                <p className="text-sm text-gray-600">Draft saved on {new Date(p.created_at).toLocaleDateString()}</p>
+                                            <div className="min-w-0">
+                                                <h4 className="font-semibold text-gray-900 truncate">{p.title || 'Untitled Draft'}</h4>
+                                                <p className="text-xs text-gray-500 truncate">Saved {new Date(p.created_at).toLocaleDateString()}</p>
                                             </div>
                                         </div>
-                                        <Button size="sm" variant="secondary" onClick={() => {
+                                        <Button size="sm" variant="outline" className="text-orange-600 border-orange-200 hover:bg-orange-50" onClick={() => {
                                             setActiveProject(p.id);
                                             setViewMode('wizard');
                                             setCurrentStep(1);
                                         }}>
-                                            Continue Setup
+                                            Resume
                                         </Button>
                                     </div>
                                 ))}
@@ -247,7 +247,10 @@ const ProjectHub = () => {
                     )}
 
                     {/* Active Work */}
-                    <h2 className="text-xl font-bold text-gray-900 mb-6">Active Workspaces</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                        <Briefcase className="text-primary" size={22} />
+                        Your Project Workspaces
+                    </h2>
 
                     {clientProjects.length === 0 ? (
                         <Card className="p-16 text-center border-dashed border-2 bg-gray-50/50">

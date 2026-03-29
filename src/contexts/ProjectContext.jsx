@@ -139,12 +139,26 @@ export const ProjectProvider = ({ children }) => {
 
             if (user) {
                 let data;
+                let projectList = [];
                 if (user.role === 'client') {
                     data = await api.projects.getClientProjects(user.id);
-                    setProjects(data?.projects || (Array.isArray(data) ? data : []));
+                    projectList = data?.projects || (Array.isArray(data) ? data : []);
                 } else {
                     data = await api.projects.getAll();
-                    setProjects(data?.projects || (Array.isArray(data) ? data : []));
+                    projectList = data?.projects || (Array.isArray(data) ? data : []);
+                }
+                setProjects(projectList);
+
+                // Restore active project if exists
+                const savedId = localStorage.getItem('currentProjectId');
+                if (savedId && projectList.some(p => p.id === savedId)) {
+                    const active = projectList.find(p => p.id === savedId);
+                    setCurrentProject(active);
+                    loadProjectDetails(savedId);
+                    
+                    // Also ensure socket joins
+                    socketService.connect();
+                    socketService.joinProject(savedId);
                 }
             } else {
                 setProjects([]);

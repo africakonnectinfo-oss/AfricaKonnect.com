@@ -24,8 +24,8 @@ const { paymentLimiter } = require('../middleware/rateLimitMiddleware');
 // All routes require authentication
 router.use(protect);
 
-// Marketplace route (experts only)
-router.get('/marketplace', authorize('expert'), getMarketplace);
+// Marketplace route (experts and clients)
+router.get('/marketplace', authorize('expert', 'client'), getMarketplace);
 
 // Create project (clients only)
 router.post('/', authorize('client'), validateProject, createProject);

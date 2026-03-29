@@ -20,7 +20,10 @@ const ExpertCard = ({ expert, onHire, onMessage }) => {
             exit={{ opacity: 0, scale: 0.95 }}
             className="h-full"
         >
-            <Card className="h-full flex flex-col p-0 overflow-hidden border border-gray-100 hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-white group">
+            <Card 
+                className="h-full flex flex-col p-0 overflow-hidden border border-gray-100 hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-white group cursor-pointer"
+                onClick={() => window.location.href = `/profile/view/${expert.id || expert.user_id}`}
+            >
                 {/* Header / Banner */}
                 <div className="h-24 bg-gradient-to-r from-blue-50 to-indigo-50 relative">
                     <div className="absolute top-3 right-3">
@@ -91,10 +94,17 @@ const ExpertCard = ({ expert, onHire, onMessage }) => {
 
                 {/* Actions */}
                 <div className="mt-auto px-6 py-4 bg-gray-50/50 border-t border-gray-100 grid grid-cols-2 gap-3">
-                    <Button variant="outline" onClick={() => onMessage(expert)} className="w-full bg-white hover:bg-gray-50 border-gray-200">
+                    <Button 
+                        variant="outline" 
+                        onClick={(e) => { e.stopPropagation(); onMessage(expert); }} 
+                        className="w-full bg-white hover:bg-gray-50 border-gray-200"
+                    >
                         Message
                     </Button>
-                    <Button onClick={() => onHire(expert)} className="w-full shadow-sm shadow-primary/20">
+                    <Button 
+                        onClick={(e) => { e.stopPropagation(); onHire(expert); }} 
+                        className="w-full shadow-sm shadow-primary/20"
+                    >
                         Hire Now
                     </Button>
                 </div>
@@ -197,14 +207,9 @@ export default function Experts() {
             return;
         }
 
-        try {
-            const project = await api.projects.getOrCreateInquiry(expert.id);
-            toast.success('Opening conversation...');
-            navigate(`/collaboration/${project.id}`);
-        } catch (error) {
-            console.error('Failed to start conversation:', error);
-            toast.error('Failed to start conversation');
-        }
+        // Direct Messaging Flow: skip project inquiry and go straight to direct chat
+        toast.success('Opening direct conversation...');
+        navigate('/collaboration', { state: { view: 'messages', defaultContact: { ...expert, id: expert.id || expert.user_id } } });
     };
 
     return (

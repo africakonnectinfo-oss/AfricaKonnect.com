@@ -93,7 +93,7 @@ exports.updateProfile = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this profile' });
         }
 
-        const { title, bio, location, skills, hourlyRate, profileImageUrl, profile_image_url, certifications } = req.body;
+        const { title, bio, location, skills, hourlyRate, profileImageUrl, profile_image_url, certifications, company, website, country, city } = req.body;
         const unifiedProfileImageUrl = profile_image_url || profileImageUrl;
 
         const profile = await updateExpertProfile(userId, {
@@ -103,7 +103,11 @@ exports.updateProfile = async (req, res) => {
             skills,
             hourlyRate,
             profileImageUrl: unifiedProfileImageUrl,
-            certifications
+            certifications,
+            company,
+            website,
+            country,
+            city
         });
 
         if (!profile) {

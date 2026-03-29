@@ -7,6 +7,7 @@ const {
     getUnreadCount,
     getAllUnreadMessages,
     getDirectMessages,
+    getDirectChatUsers,
     deleteMessage
 } = require('../models/messageModel');
 const { getProjectById } = require('../models/projectModel');
@@ -282,6 +283,17 @@ exports.deleteMessage = async (req, res) => {
         res.json({ message: 'Message deleted successfully' });
     } catch (error) {
         console.error('Delete message error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+// Get all unique users who have exchanged direct messages with the current user
+exports.getDirectChatUsers = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const users = await getDirectChatUsers(userId);
+        res.json(users);
+    } catch (error) {
+        console.error('Get direct chat users error:', error);
         res.status(500).json({ message: error.message });
     }
 };

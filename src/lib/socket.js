@@ -53,6 +53,7 @@ class SocketClient {
             off: () => { },
             emit: () => { },
             joinUser: () => { },
+            joinProject: () => { },
             connect: () => this,
             disconnect: () => { }
         };
@@ -124,6 +125,15 @@ class SocketClient {
             this.socket.emit('join_user', userId);
             if (import.meta.env.DEV) {
                 console.log(`Socket: Joined user room ${userId}`);
+            }
+        }
+    }
+
+    joinProject(projectId) {
+        if (this.socket && this.isEnabled && projectId) {
+            this.socket.emit('join_project', projectId);
+            if (import.meta.env.DEV) {
+                console.log(`Socket: Joined project room ${projectId}`);
             }
         }
     }

@@ -139,11 +139,33 @@ const getDirectMessages = async (user1Id, user2Id, limit = 100, offset = 0) => {
     return result.rows;
 };
 
+// Get all unique users who have exchanged direct messages with the current user
+const getDirectChatUsers = async (userId) => {
+    const text = `
+        SELECT DISTINCT ON (u.id)
+            u.id,
+            u.name,
+            u.email,
+            u.role,
+            u.profile_image_url,
+            m.content as last_message,
+            m.created_at as last_message_time
+        FROM users u
+        JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = $1) OR (m.sender_id = $1 AND m.receiver_id = u.id)
+        WHERE m.project_id IS NULL
+        ORDER BY u.id, m.created_at DESC
+    `;
+    const result = await query(text, [userId]);
+    // Re-sort by last message time descending
+    return result.rows.sort((a, b) => new Date(b.last_message_time) - new Date(a.last_message_time));
+};
+
 module.exports = {
     createMessage,
     getMessagesByProject,
     getMessageById,
     getDirectMessages,
+    getDirectChatUsers,
     markAsRead,
     markProjectMessagesAsRead,
     getUnreadCount,

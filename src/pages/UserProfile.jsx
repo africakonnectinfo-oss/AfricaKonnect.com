@@ -205,7 +205,8 @@ const UserProfile = () => {
                 country: formData.country,
                 city:    formData.city,
                 company: formData.company,
-                profile_image_url: imagePreview // Use standardized field name
+                website: formData.website,
+                profile_image_url: imagePreview
             });
 
             if (isExpert) {
@@ -215,6 +216,7 @@ const UserProfile = () => {
                     country:     formData.country,
                     city:        formData.city,
                     company:     formData.company,
+                    website:     formData.website,
                     skills:      formData.skills,
                     services:    formData.services,
                     documents:   formData.documents,

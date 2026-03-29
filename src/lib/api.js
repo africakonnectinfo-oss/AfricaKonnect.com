@@ -501,6 +501,9 @@ export const api = {
         getDirect: async (userId) => apiRequest(`/messages/direct/${userId}`, {
             headers: getHeaders(),
         }),
+        getDirectChatUsers: async () => apiRequest('/messages/direct', {
+            headers: getHeaders(),
+        }),
         sendDirect: async (toUserId, content) => apiRequest('/messages', {
             method: 'POST',
             headers: getHeaders(),
