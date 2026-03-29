@@ -21,7 +21,14 @@ export const AuthProvider = ({ children }) => {
             if (userData.role === 'expert') {
                 try {
                     const profileData = await api.experts.getProfile(userData.id);
-                    setProfile(profileData);
+                    // Merge user-level bio/image with expert-level if expert-level is missing
+                    const mergedProfile = {
+                        ...userData,
+                        ...profileData,
+                        profile_image_url: profileData.profile_image_url || userData.profile_image_url,
+                        bio: profileData.bio || userData.bio
+                    };
+                    setProfile(mergedProfile);
                 } catch (error) {
                     console.log('No expert profile found yet');
                     setProfile(userData);
@@ -44,7 +51,12 @@ export const AuthProvider = ({ children }) => {
 
                 // Merge with stored data to keep the token in React state
                 const stored = JSON.parse(storedUserJson);
-                const newUser = { ...stored, ...dbUser };
+                const newUser = { 
+                    ...stored, 
+                    ...dbUser,
+                    profile_image_url: dbUser.profile_image_url || stored.profile_image_url,
+                    bio: dbUser.bio || stored.bio
+                };
 
                 setUser(newUser);
                 loadProfile(newUser);

@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner';
 
 const ProjectMarketplace = () => {
-    const { user } = useAuth();
+    const { user, isClient } = useAuth();
     const navigate = useNavigate();
 
     const [projects, setProjects] = useState([]);
@@ -192,9 +192,20 @@ const ProjectMarketplace = () => {
             <SEO title="Project Marketplace" />
 
             <div className="max-w-7xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">Project Marketplace</h1>
-                    <p className="text-gray-600">Browse and bid on open projects from clients worldwide</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div>
+                        <h1 className="text-4xl font-bold text-gray-900 mb-2">Project Marketplace</h1>
+                        <p className="text-gray-600">Browse and bid on open projects from clients worldwide</p>
+                    </div>
+                    {isClient && (
+                        <Button 
+                            onClick={() => navigate('/project-hub')}
+                            className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-primary/20 transition-all font-bold text-lg group"
+                        >
+                            <Briefcase size={22} className="group-hover:scale-110 transition-transform" />
+                            Start a Project
+                        </Button>
+                    )}
                 </div>
 
                 <SavedSearches onExecuteSearch={handleApplySavedSearch} />
