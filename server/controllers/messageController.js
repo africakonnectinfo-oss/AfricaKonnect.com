@@ -64,9 +64,11 @@ exports.sendMessage = async (req, res) => {
             if (projectId) {
                 io.to(`project_${projectId}`).emit('receive_message', messagePayload);
             } else if (receiverId) {
-                const roomIds = [senderId, receiverId].sort();
-                const roomName = `dm_${roomIds[0]}_${roomIds[1]}`;
-                io.to(roomName).emit('receive_message', messagePayload);
+                // Send DM directly to both the sender (for multi-device sync) and receiver
+                io.to(`user_${receiverId}`).emit('direct_message', messagePayload);
+                io.to(`user_${senderId}`).emit('direct_message', messagePayload);
+                
+                // Keep the global notification event
                 io.to(`user_${receiverId}`).emit('new_direct_message', messagePayload);
             }
         }

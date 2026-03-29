@@ -2,14 +2,14 @@ const { query } = require('../database/db');
 
 // Create a new project
 const createProject = async (projectData) => {
-    const { clientId, title, description, budget, status = 'draft', techStack } = projectData;
+    const { clientId, title, description, budget, status = 'draft', techStack, min_budget, max_budget, duration, open_for_bidding, bidding_deadline, deadline } = projectData;
 
     const text = `
-        INSERT INTO projects (client_id, title, description, budget, status, tech_stack, deadline, duration)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO projects (client_id, title, description, budget, status, tech_stack, min_budget, max_budget, duration, open_for_bidding, bidding_deadline, deadline)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
     `;
-    const values = [clientId, title, description, budget, status, techStack, projectData.deadline, projectData.duration];
+    const values = [clientId, title, description, budget, status, techStack, min_budget, max_budget, duration, open_for_bidding, bidding_deadline, deadline];
 
     const result = await query(text, values);
     return result.rows[0];

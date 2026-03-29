@@ -35,34 +35,54 @@ const PublicProfile = () => {
         }
     }, [id]);
 
-    const handleHire = () => {
+    const handleHire = async () => {
         if (!currentUser) {
             navigate('/signin', { state: { returnUrl: `/expert/${id}` } });
             return;
         }
-        navigate('/project-hub', { state: { expertToHire: { ...profile, user_id: profile.id, hourly_rate: profile.hourlyRate }, view: 'wizard', step: 1 } });
-    };
 
-    const handleMessage = async () => {
-        if (!currentUser) { // Changed from `user` to `currentUser` to match component's state
-            toast.error('Please log in to message experts');
-            navigate('/signin'); // Changed from `/login` to `/signin` to match existing app routes
+        if (currentUser.role !== 'client') {
+            toast.error('Only clients can hire experts');
             return;
         }
 
-        if (currentUser.role !== 'client') { // Changed from `user` to `currentUser`
+        setHiring(true);
+        try {
+            // Send an automated DM directly to the expert notifying them of a potential hire
+            await api.messages.sendDirect(
+                profile.id,
+                `Hi ${profile.name}, I am interested in hiring you for a potential engagement! Let's discuss requirements.`
+            );
+            
+            toast.success('Engagement initiated! Expert has been notified via Direct Message.');
+            // Route client straight to project hub wizard to start creating the project spec
+            navigate('/project-hub', { state: { expertToHire: { ...profile, user_id: profile.id, hourly_rate: profile.hourlyRate }, view: 'wizard', step: 1 } });
+        } catch (error) {
+            console.error("Failed to initiate hire:", error);
+            toast.error("Failed to start engagement. Please try again.");
+        } finally {
+            setHiring(false);
+        }
+    };
+
+    const handleMessage = async () => {
+        if (!currentUser) { 
+            toast.error('Please log in to message experts');
+            navigate('/signin'); 
+            return;
+        }
+
+        if (currentUser.role !== 'client') {
             toast.error('Only clients can message experts');
             return;
         }
 
-        setMessaging(true); // Use `setMessaging` state for this action
+        setMessaging(true);
         try {
-            // Use the new inquiry endpoint
-            const project = await api.projects.getOrCreateInquiry(profile.id);
-
+            // Go straight to the Collaboration Workspace, which handles DMs dynamically via DirectMessagesPanel
+            // We pass the expert down in state so the panel automatically opens their chat
             toast.success('Opening conversation...');
-            navigate(`/collaboration/${project.id}`);
-
+            navigate('/collaboration', { state: { view: 'messages', defaultContact: profile } });
         } catch (error) {
             console.error("Failed to start conversation:", error);
             toast.error("Failed to start conversation. Please try again.");

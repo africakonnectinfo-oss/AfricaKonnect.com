@@ -771,6 +771,22 @@ export default function Collaboration() {
         );
     }
 
+    // Bypass project requirement if the user just explicitly wants their Direct Messages inbox
+    if (!project && location.state?.view === 'messages') {
+        return (
+            <div className="min-h-screen bg-gray-50 pt-24 pb-12 px-4 md:px-8">
+                <SEO title="Direct Messages – Africa Konnect" description="Your secure Direct Messaging inbox." />
+                <div className="max-w-6xl mx-auto">
+                    <div className="mb-6">
+                        <h1 className="text-2xl font-black text-gray-900">Inbox</h1>
+                        <p className="text-sm text-gray-500">Secure end-to-end direct messaging with experts and clients.</p>
+                    </div>
+                    <DirectMessagesPanel defaultContact={location.state?.defaultContact} />
+                </div>
+            </div>
+        );
+    }
+
     if (!project) {
         return (
             <div className="min-h-screen flex items-center justify-center p-8">

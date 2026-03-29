@@ -70,6 +70,11 @@ const setupSocket = (server) => {
         socket.on('message_read', ({ messageId, roomId, userId }) => {
             socket.to(`project_${roomId}`).emit('message_read_update', { messageId, userId });
         });
+
+        // Direct Messaging Events
+        socket.on('typing_dm', ({ toUserId, userId }) => {
+            socket.to(`user_${toUserId}`).emit('user_typing_dm', { userId });
+        });
     });
 
     return io;

@@ -11,7 +11,7 @@ const projectMatchingService = require('../services/projectMatchingService');
 // Create new project
 exports.createProject = async (req, res) => {
     try {
-        const { title, description, budget, status, techStack } = req.body;
+        const { title, description, budget, status, techStack, min_budget, max_budget, duration, open_for_bidding, bidding_deadline } = req.body;
         const clientId = req.user.id;
 
         // Validate client role
@@ -31,8 +31,11 @@ exports.createProject = async (req, res) => {
             budget,
             status: status || 'draft',
             techStack,
-            deadline: req.body.deadline,
-            duration: req.body.duration
+            min_budget,
+            max_budget,
+            open_for_bidding,
+            bidding_deadline,
+            duration: duration || req.body.duration
         });
 
         // Trigger background matching job
