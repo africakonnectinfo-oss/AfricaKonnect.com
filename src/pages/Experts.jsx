@@ -40,12 +40,12 @@ const ExpertCard = ({ expert, onHire, onMessage }) => {
                     <div className="flex justify-between items-end -mt-12 mb-4">
                         <div className="relative">
                             <div className="h-24 w-24 rounded-2xl border-4 border-white shadow-md overflow-hidden bg-white">
-                                {expert.profile_image_url ? (
+                                { (expert.profile_image_url || expert.profileImageUrl) ? (
                                     <img
-                                        src={expert.profile_image_url}
+                                        src={expert.profile_image_url || expert.profileImageUrl}
                                         alt={expert.name}
                                         className="h-full w-full object-cover"
-                                        onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${expert.name}&background=0D8ABC&color=fff`; }}
+                                        onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(expert.name || 'Expert')}&background=0D8ABC&color=fff`; }}
                                     />
                                 ) : (
                                     <div className="h-full w-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-2xl font-bold">

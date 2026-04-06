@@ -62,16 +62,26 @@ const Step1Vault = ({ onNext }) => {
             } else {
                 setProjectTitle(result.title || projectTitle);
                 setProjectDescription(result.description || projectDescription);
-                setBudget(result.estimated_budget || budget);
+                
+                // Set budgets if available
+                if (result.min_budget) setMinBudget(result.min_budget);
+                if (result.max_budget) setMaxBudget(result.max_budget);
+                
+                // If AI doesn't provide min/max, use the single estimated_budget as fallback
+                if (!result.min_budget && result.estimated_budget) {
+                    setBudget(result.estimated_budget);
+                }
+
                 setDuration(result.estimated_duration || duration);
 
-                if (result.techStack && Array.from(result.techStack).length > 0) {
-                    // Merge with existing techStacks but only if they are in our predefined list 
-                    // or just add them to selectedStack
-                    const newStacks = result.techStack.filter(tech =>
-                        techStacks.includes(tech) || !selectedStack.includes(tech)
+                if (result.techStack && Array.isArray(result.techStack)) {
+                    // Filter out duplicates and invalid entries
+                    const newStacks = result.techStack.filter(tech => 
+                        tech && typeof tech === 'string' && !selectedStack.includes(tech)
                     );
-                    setSelectedStack(prev => [...new Set([...prev, ...newStacks])]);
+                    if (newStacks.length > 0) {
+                        setSelectedStack(prev => [...new Set([...prev, ...newStacks])]);
+                    }
                 }
                 toast.success("AI has refined your project details!");
             }

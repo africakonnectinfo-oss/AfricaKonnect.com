@@ -129,8 +129,8 @@ const PublicProfile = () => {
                             <div className="px-6 pb-6 relative">
                                 <div className="flex justify-center -mt-16 mb-4">
                                     <div className="w-32 h-32 rounded-2xl border-4 border-white bg-white shadow-md overflow-hidden">
-                                        {profile.profile_image_url ? (
-                                            <img src={profile.profile_image_url} alt={profile.name} className="w-full h-full object-cover" />
+                                        {(profile.profile_image_url || profile.profileImageUrl) ? (
+                                            <img src={profile.profile_image_url || profile.profileImageUrl} alt={profile.name} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-3xl font-bold">
                                                 {profile.name.charAt(0)}

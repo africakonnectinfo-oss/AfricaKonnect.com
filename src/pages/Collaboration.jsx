@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import SEO from '../components/SEO';
 import { useAuth } from '../contexts/AuthContext';
@@ -570,12 +570,11 @@ const VideoConferenceTab = ({ project, user, onNotify }) => {
     const [inMeeting, setInMeeting] = useState(false);
     const [copied, setCopied]       = useState(false);
 
-    const roomName   = `africakonnect-project-${project.id}`;
-    const meetingLink = `https://meet.jit.si/${roomName}`;
+    const meetingLink = `${window.location.origin}${window.location.pathname}?projectId=${project.id}&tab=video`;
 
-    const handleJoin = () => {
+    const handleJoin = async () => {
         setInMeeting(true);
-        onNotify?.(`📹 I've started a video meeting for **${project.title}**.\n\nJoin here: ${meetingLink}`);
+        onNotify?.(`📹 I've started a secure video meeting for **${project.title}**.\n\nJoin here: ${meetingLink}`);
     };
 
     const handleCopy = async () => {
@@ -606,7 +605,13 @@ const VideoConferenceTab = ({ project, user, onNotify }) => {
                     </div>
                 </div>
                 <div className="flex-1">
-                    <MeetingRoom roomName={roomName} userName={user?.name || 'User'} onLeave={() => setInMeeting(false)} />
+                    <MeetingRoom 
+                        roomName={project.title} 
+                        userName={user?.name || 'User'} 
+                        userData={user}
+                        meetingId={project.id}
+                        onLeave={() => setInMeeting(false)} 
+                    />
                 </div>
             </div>
         );
@@ -740,7 +745,16 @@ export default function Collaboration() {
     const [project, setProject]         = useState(null);
     const [initLoading, setInitLoading] = useState(true);
 
+    const [searchParams] = useSearchParams();
+    const tabParam     = searchParams.get('tab');
+
     const { activeTab, setActiveTab, data, loading, actions } = useCollaboration(project?.id || projectId, user);
+
+    useEffect(() => {
+        if (tabParam && activeTab !== tabParam) {
+            setActiveTab(tabParam);
+        }
+    }, [tabParam, activeTab, setActiveTab]);
 
     useEffect(() => {
         const loadProject = async () => {

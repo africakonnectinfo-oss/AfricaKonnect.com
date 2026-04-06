@@ -83,7 +83,7 @@ const FeaturedExperts = () => {
                             <Card key={expert.id} hoverEffect className="p-0 flex flex-col h-full">
                                 <div className="p-6 flex items-start gap-4">
                                     <img
-                                        src={expert.profile_image_url || `https://ui-avatars.com/api/?name=${expert.name}`}
+                                        src={expert.profile_image_url || expert.profileImageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(expert.name || 'Expert')}`}
                                         alt={expert.name}
                                         className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md bg-gray-200"
                                     />

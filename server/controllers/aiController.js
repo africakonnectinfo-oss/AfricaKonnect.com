@@ -4,8 +4,8 @@ const pool = require('../database/db');
 async function callRapidAPI(promptStr) {
     const fetchFn = typeof fetch !== 'undefined' ? fetch : (await import('node-fetch')).default;
     
-    // Fallbacks just in case .env didn't load properly
-    const rapidApiKey = process.env.RAPIDAPI_KEY || "c7e5534adbmshe7aeff69caa00e0p1b6db5jsn7fb9d7c8861b";
+    // Verify key exists to avoid 403 errors
+    const rapidApiKey = process.env.RAPIDAPI_KEY;
     const rapidApiHost = process.env.RAPIDAPI_HOST || "chatgpt-vision1.p.rapidapi.com";
     const rapidApiUrl = process.env.RAPIDAPI_URL || "https://chatgpt-vision1.p.rapidapi.com/matagvision2";
 
@@ -116,8 +116,9 @@ function extractJSON(text) {
             }
         }
         
-        // 3. Last resort: try to parse the whole string
-        return JSON.parse(text);
+        // 3. Last resort: try to parse the whole string, but clean it first
+        const cleanedText = text.trim();
+        return JSON.parse(cleanedText);
     } catch (e) {
         console.error("JSON Extraction Error:", e.message, "Original text snippet:", text.substring(0, 100));
         return null;
@@ -407,7 +408,8 @@ All work product developed belongs to the Client upon final payment. Both partie
                 - "title": string
                 - "description": string
                 - "milestones": array of { "title": string, "description": string }
-                - "estimated_budget": number (value only)
+                - "min_budget": number (value only)
+                - "max_budget": number (value only, slightly higher than min_budget)
                 - "estimated_duration": string
                 - "techStack": array of strings
                 
@@ -424,14 +426,15 @@ All work product developed belongs to the Client upon final payment. Both partie
                     title: idea.substring(0, 50) + " Project",
                     description: `This is a manually initiated project based on: "${idea}". Please edit the description to add more requirements.`,
                     milestones: [
-                        { title: "Requirements Gathering", description: "Define technical scope." },
-                        { title: "Development", description: "Build core features." },
-                        { title: "Testing & QA", description: "Ensure quality and fix bugs." },
-                        { title: "Deployment", description: "Launch the project." }
+                        { title: "Requirements Gathering", description: "Define technical scope and finalize project roadmap." },
+                        { title: "Initial Development", description: "Build core features and foundational infrastructure." },
+                        { title: "Testing & Refinement", description: "Comprehensive QA and bug fixing phase." },
+                        { title: "Final Launch", description: "Global deployment and initial user onboarding." }
                     ],
-                    estimated_budget: 1500,
+                    min_budget: 1500,
+                    max_budget: 2500,
                     estimated_duration: "4 weeks",
-                    techStack: ["React", "Node.js", "PostgreSQL"]
+                    techStack: ["React", "Node.js", "PostgreSQL", "TailwindCSS", "AWS"]
                 };
             }
 
@@ -440,10 +443,11 @@ All work product developed belongs to the Client upon final payment. Both partie
             console.error('AI Project Gen Error (Handled by Fallback):', error);
             // Universal fallback
             res.json({
-                title: title?.substring(0, 30) || "Project Spec",
-                description: description || title || "Project scope needs manual refinement.",
-                milestones: [{ title: "Phase 1", description: "Initial phase." }],
-                estimated_budget: 1000,
+                title: title?.substring(0, 50) || "Project Specification",
+                description: description || title || "Project scope needs manual refinement to ensure accuracy.",
+                milestones: [{ title: "Phase 1: Discovery", description: "Initial phase focusing on requirements and setup." }],
+                min_budget: 1000,
+                max_budget: 2000,
                 estimated_duration: "1 month",
                 techStack: []
             });

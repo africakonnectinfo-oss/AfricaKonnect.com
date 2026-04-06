@@ -58,7 +58,10 @@ exports.createProfile = async (req, res) => {
             });
         }
 
-        res.status(201).json(profile);
+        res.status(201).json({
+            ...profile,
+            profile_image_url: profile.profile_image_url || profile.profileImageUrl
+        });
     } catch (error) {
         console.error('Create profile error:', error);
         res.status(500).json({ message: error.message });
@@ -123,7 +126,10 @@ exports.updateProfile = async (req, res) => {
             io.emit('expert_updated', profile);
         }
 
-        res.json(profile);
+        res.json({
+            ...profile,
+            profile_image_url: profile.profile_image_url || profile.profileImageUrl
+        });
     } catch (error) {
         console.error('Update profile error:', error);
         res.status(500).json({ message: error.message });
@@ -145,11 +151,14 @@ exports.getAllExperts = async (req, res) => {
             offset: offset ? parseInt(offset) : 0
         };
 
-        const experts = await getAllExperts(filters);
+        const expertsWithNames = experts.map(e => ({
+            ...e,
+            profile_image_url: e.profile_image_url || e.profileImageUrl
+        }));
 
         res.json({
-            count: experts.length,
-            experts
+            count: expertsWithNames.length,
+            experts: expertsWithNames
         });
     } catch (error) {
         console.error('Get all experts error:', error);

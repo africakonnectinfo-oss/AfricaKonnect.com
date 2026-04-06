@@ -148,7 +148,9 @@ const Step3Interview = ({ onNext }) => {
                     </div>
                     <MeetingRoom
                         roomName={activeMeeting.roomName}
-                        userName={user?.user_metadata?.name || user?.email || 'User'}
+                        userName={user?.name || user?.email || 'User'}
+                        userData={user}
+                        meetingId={activeMeeting.id}
                         onLeave={() => setActiveMeeting(null)}
                     />
                 </div>
