@@ -134,6 +134,14 @@ const apiRequest = async (endpoint, options = {}) => {
         if (import.meta.env.DEV) {
             console.error(`API Error (${endpoint}):`, error);
         }
+        
+        // Handle network errors (Failed to fetch)
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+            const networkError = new Error('Network error: Could not connect to the Africa Konnect server. Please check your internet connection or ensuring the backend is running.');
+            networkError.isNetworkError = true;
+            throw networkError;
+        }
+        
         throw error;
     }
 };
@@ -778,6 +786,11 @@ export const api = {
         generateProject: async (title, description = '') => apiRequest('/ai/generate-project', {
             method: 'POST',
             body: JSON.stringify({ title, description }),
+            headers: getHeaders(),
+        }),
+        analyzeDocument: async (fileData) => apiRequest('/ai/analyze-document', {
+            method: 'POST',
+            body: JSON.stringify({ fileData }),
             headers: getHeaders(),
         }),
         generateProposal: async (project, expert) => apiRequest('/ai/generate-proposal', {

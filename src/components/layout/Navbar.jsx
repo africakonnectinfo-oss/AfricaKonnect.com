@@ -136,15 +136,15 @@ const Navbar = () => {
                                                     <p className="text-sm font-bold text-gray-900 leading-tight">
                                                         {profile?.name || user?.name || user?.email?.split('@')[0]}
                                                     </p>
-                                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/70 flex items-center gap-1">
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.1em] text-primary/80 flex items-center gap-1.5">
                                                         {isExpert ? (
                                                             <>
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-primary/70"></span>
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(102,126,234,0.6)]"></div>
                                                                 Expert
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600/70"></span>
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
                                                                 Client
                                                             </>
                                                         )}
@@ -156,12 +156,11 @@ const Navbar = () => {
                                             {/* Enhanced User Dropdown Menu */}
                                             <AnimatePresence>
                                                 {showUserMenu && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                        transition={{ duration: 0.2, ease: "easeOut" }}
-                                                        className="absolute right-0 top-full mt-4 w-80 bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white/20 overflow-hidden z-50 origin-top-right ring-1 ring-black/5"
+                                                        initial={{ opacity: 0, scale: 0.95, y: -20, filter: "blur(10px)" }}
+                                                        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+                                                        exit={{ opacity: 0, scale: 0.95, y: -20, filter: "blur(10px)" }}
+                                                        transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                                                        className="absolute right-0 top-full mt-4 w-85 bg-white/80 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-white/40 overflow-hidden z-50 origin-top-right ring-1 ring-black/5"
                                                     >
                                                         {isExpert ? (
                                                             <ExpertDropdown
@@ -273,11 +272,15 @@ const Navbar = () => {
 // --- Sub-components (Internal to this file or could be moved) ---
 
 const DropdownHeader = ({ profile, user, isExpert }) => (
-    <div className="relative bg-gradient-to-br from-primary/5 via-blue-50/50 to-purple-50/30 px-6 py-5 border-b border-gray-100">
-        <div className="flex items-center gap-4">
+    <div className="relative overflow-hidden px-8 py-7 border-b border-white/20">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-blue-400/5 to-transparent"></div>
+        <div className="flex items-center gap-5 relative z-10">
             <div className="relative flex-shrink-0">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-blue-600 p-[2px] shadow-lg shadow-primary/20">
-                    <div className="w-full h-full rounded-full overflow-hidden bg-white">
+                <motion.div 
+                    whileHover={{ scale: 1.05 }}
+                    className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary via-blue-500 to-indigo-600 p-[3px] shadow-2xl shadow-primary/20"
+                >
+                    <div className="w-full h-full rounded-full overflow-hidden bg-white border-2 border-white">
                         {(profile?.profile_image_url || user?.profile_image_url) ? (
                             <img
                                 src={profile?.profile_image_url || user?.profile_image_url}
@@ -285,24 +288,24 @@ const DropdownHeader = ({ profile, user, isExpert }) => (
                                 className="w-full h-full object-cover"
                             />
                         ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-blue-600/20 flex items-center justify-center">
-                                <span className="text-primary font-bold text-2xl">
+                            <div className="w-full h-full bg-gradient-to-br from-primary/10 to-blue-600/10 flex items-center justify-center">
+                                <span className="text-transparent bg-clip-text bg-gradient-to-br from-primary to-blue-600 font-black text-3xl">
                                     {(profile?.name || user?.name || user?.email)?.charAt(0).toUpperCase()}
                                 </span>
                             </div>
                         )}
                     </div>
-                </div>
-                <div className="absolute bottom-0 right-0 w-4.5 h-4.5 bg-green-500 border-[3px] border-white rounded-full"></div>
+                </motion.div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-white/90 backdrop-blur-sm rounded-full shadow-lg"></div>
             </div>
             <div className="flex-1 min-w-0">
-                <p className="text-lg font-bold text-gray-900 truncate leading-tight">
+                <p className="text-xl font-black text-gray-900 truncate leading-tight tracking-tight">
                     {profile?.name || user?.name || 'User'}
                 </p>
-                <p className="text-xs text-gray-500 truncate mb-2">{user?.email}</p>
-                <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border ${isExpert ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-blue-50 border-blue-100 text-blue-700'} font-bold text-[10px] uppercase tracking-wider`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${isExpert ? 'bg-primary' : 'bg-blue-600'} animate-pulse`}></div>
-                    {isExpert ? 'Expert' : 'Client'}
+                <p className="text-xs font-medium text-gray-500 truncate mb-3">{user?.email}</p>
+                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${isExpert ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-blue-500/10 border-blue-500/30 text-blue-600'} font-black text-[10px] uppercase tracking-[0.15em]`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isExpert ? 'bg-primary' : 'bg-blue-600'} animate-pulse shadow-[0_0_8px_currentColor]`}></div>
+                    {isExpert ? 'Expert Tier' : 'Client Plus'}
                 </div>
             </div>
         </div>
@@ -314,22 +317,22 @@ const DropdownLink = ({ to, icon: Icon, label, onClick, variant = "default" }) =
         to={to}
         onClick={onClick}
         className={cn(
-            "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-200 group mb-1",
+            "flex items-center gap-4 px-5 py-4 text-sm font-bold rounded-[1.25rem] transition-all duration-300 group mb-1.5",
             variant === "danger"
                 ? "text-red-600 hover:bg-red-50"
-                : "text-gray-700 hover:bg-primary/5 hover:text-primary"
+                : "text-gray-700 hover:bg-white hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.1)] hover:text-primary active:scale-[0.98]"
         )}
     >
         <div className={cn(
-            "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200",
+            "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300",
             variant === "danger"
-                ? "bg-red-50 group-hover:bg-red-100 shadow-sm"
-                : "bg-gray-50 group-hover:bg-primary/10 group-hover:shadow-sm"
+                ? "bg-red-50 group-hover:bg-red-100"
+                : "bg-gray-100/50 group-hover:bg-primary/10 group-hover:rotate-6 shadow-sm group-hover:shadow-primary/20"
         )}>
-            <Icon size={18} className={variant === "danger" ? "text-red-500" : "text-gray-600 group-hover:text-primary"} />
+            <Icon size={20} className={variant === "danger" ? "text-red-500" : "text-gray-600 group-hover:text-primary transition-transform group-hover:scale-110"} />
         </div>
-        <span className="flex-1">{label}</span>
-        <ChevronRight size={14} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+        <span className="flex-1 tracking-tight">{label}</span>
+        <ChevronRight size={14} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-all -translate-x-3 group-hover:translate-x-0" />
     </Link>
 );
 
@@ -337,29 +340,33 @@ const ExpertDropdown = ({ profile, user, signOut, closeMenu }) => (
     <>
         <DropdownHeader profile={profile} user={user} isExpert={true} />
 
-        <div className="px-5 py-4 border-b border-gray-100">
-            <div className="flex justify-between items-center mb-3">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Performance</span>
-                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
-                    {profile?.profile_completeness || 0}% Complete
+        <div className="px-8 py-6 border-b border-gray-100/50 bg-gray-50/30">
+            <div className="flex justify-between items-center mb-4">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Live Performance</span>
+                <span className="text-[10px] font-black text-primary bg-white px-3 py-1 rounded-full shadow-sm border border-primary/10">
+                    {profile?.profile_completeness || 0}% PRO
                 </span>
             </div>
-            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden mb-4">
+            <div className="h-2 w-full bg-gray-200/50 rounded-full overflow-hidden mb-6 shadow-inner p-[1px]">
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${profile?.profile_completeness || 0}%` }}
-                    transition={{ duration: 0.5 }}
-                    className="h-full bg-gradient-to-r from-primary to-blue-600"
-                />
+                    transition={{ duration: 1, ease: [0.23, 1, 0.32, 1] }}
+                    className="h-full bg-gradient-to-r from-primary via-blue-500 to-indigo-600 rounded-full relative overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:20px_20px] animate-[slide_1s_linear_infinite]"></div>
+                </motion.div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 text-center">
-                    <p className="text-xs text-gray-500 mb-0.5">Rating</p>
-                    <p className="text-sm font-bold text-gray-900">⭐ {profile?.rating || '5.0'}</p>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-default">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Global Rating</p>
+                    <p className="text-lg font-black text-gray-900 flex items-center gap-1.5">
+                        <span className="text-yellow-400 font-serif">★</span> {profile?.rating || '5.0'}
+                    </p>
                 </div>
-                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 text-center">
-                    <p className="text-xs text-gray-500 mb-0.5">Earnings</p>
-                    <p className="text-sm font-bold text-gray-900">${profile?.total_earnings || '0.00'}</p>
+                <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-default">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Impact</p>
+                    <p className="text-lg font-black text-gray-900">${profile?.total_earnings || '0.00'}</p>
                 </div>
             </div>
         </div>

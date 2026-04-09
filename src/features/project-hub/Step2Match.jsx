@@ -12,7 +12,7 @@ const Step2Match = ({ onNext, expertToHire }) => {
     const [statsLoading, setStatsLoading] = useState(true);
     const [experts, setExperts] = useState([]);
     const [applicants, setApplicants] = useState([]);
-    const [selectedExpert, setSelectedExpert] = useState(null);
+    const [selectedExperts, setSelectedExperts] = useState([]);
     const [inviting, setInviting] = useState(false);
     const [activeTab, setActiveTab] = useState('matches'); // 'matches' | 'applicants'
     const [isMatching, setIsMatching] = useState(false);
@@ -47,14 +47,13 @@ const Step2Match = ({ onNext, expertToHire }) => {
             if (expertToHire) {
                 // Determine if expertToHire is already in the list
                 setExperts(prev => {
-                    const exists = prev.find(e => e.id === expertToHire.id);
+                    const exists = prev.find(e => (e.id === expertToHire.id || e.user_id === expertToHire.id));
                     if (!exists) {
                         return [expertToHire, ...prev];
                     }
                     return prev;
                 });
-                setSelectedExpert(expertToHire.id);
-                // Optional: Auto-run AI match not needed since we have a specific hire
+                setSelectedExperts([expertToHire.id]);
             }
             setTimeout(() => setStatsLoading(false), 2000);
         }
@@ -104,27 +103,37 @@ const Step2Match = ({ onNext, expertToHire }) => {
         }
     };
 
+    const toggleExpert = (id) => {
+        setSelectedExperts(prev => 
+            prev.includes(id) 
+                ? prev.filter(eId => eId !== id)
+                : [...prev, id]
+        );
+    };
+
     const handleInvite = async () => {
-        if (!selectedExpert || !currentProject) return;
+        if (selectedExperts.length === 0 || !currentProject) return;
 
         try {
             setInviting(true);
-            // If selected expert is an applicant, we accept the application
-            const applicant = applicants.find(a => a.expert_id === selectedExpert);
+            
+            // Loop through all selected experts and send invitations
+            const promises = selectedExperts.map(async (expertId) => {
+                const applicant = applicants.find(a => a.expert_id === expertId);
+                
+                if (applicant) {
+                    await api.applications.updateStatus(applicant.id, 'shortlisted');
+                }
+                
+                return inviteExpert(currentProject.id, expertId);
+            });
 
-            if (applicant) {
-                // Update application status
-                await api.applications.updateStatus(applicant.id, 'shortlisted'); // or accepted
-                // Also invite/assign to project logic
-                await inviteExpert(currentProject.id, selectedExpert);
-            } else {
-                // Regular invite
-                await inviteExpert(currentProject.id, selectedExpert);
-            }
-
+            await Promise.all(promises);
+            toast.success(`Successfully invited ${selectedExperts.length} expert(s)!`);
             onNext();
         } catch (error) {
-            alert('Failed to invite expert');
+            console.error('Batch invitation failed:', error);
+            toast.error('Failed to invite some experts. Please try again.');
         } finally {
             setInviting(false);
         }
@@ -215,14 +224,14 @@ const Step2Match = ({ onNext, expertToHire }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 {activeTab === 'matches' ? (
                     experts.map((expert) => (
                         <ExpertCard
                             key={expert.id}
                             expert={expert}
-                            selected={selectedExpert === expert.id}
-                            onSelect={() => setSelectedExpert(expert.id)}
+                            selected={selectedExperts.includes(expert.id)}
+                            onSelect={() => toggleExpert(expert.id)}
                             type="match"
                         />
                     ))
@@ -238,14 +247,14 @@ const Step2Match = ({ onNext, expertToHire }) => {
                                 expert={{
                                     id: app.expert_id,
                                     name: app.expert_name,
-                                    // placeholder if not joined/fetched fully
-                                    title: 'Applicant',
-                                    location: 'Remote', // placeholder
+                                    title: app.expert_title || 'Applicant',
+                                    location: app.expert_location || 'Remote',
                                     bio: app.pitch,
-                                    rate: app.rate
+                                    rate: app.rate,
+                                    profile_image_url: app.expert_avatar
                                 }}
-                                selected={selectedExpert === app.expert_id}
-                                onSelect={() => setSelectedExpert(app.expert_id)}
+                                selected={selectedExperts.includes(app.expert_id)}
+                                onSelect={() => toggleExpert(app.expert_id)}
                                 type="applicant"
                                 application={app}
                             />
@@ -275,9 +284,9 @@ const Step2Match = ({ onNext, expertToHire }) => {
                 <Button
                     size="lg"
                     onClick={handleInvite}
-                    disabled={!selectedExpert || inviting}
+                    disabled={selectedExperts.length === 0 || inviting}
                 >
-                    {inviting ? 'Processing...' : activeTab === 'applicants' ? 'Shortlist & Interview' : 'Invite & Continue'}
+                    {inviting ? 'Processing...' : activeTab === 'applicants' ? `Interview ${selectedExperts.length} Selected` : `Invite ${selectedExperts.length} Selected`}
                 </Button>
             </div>
         </div>

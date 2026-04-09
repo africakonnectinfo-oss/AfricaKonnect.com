@@ -66,7 +66,15 @@ const ExpertCard = ({ expert, onHire, onMessage }) => {
 
                     <div className="mb-4">
                         <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors line-clamp-1">{expert.name}</h3>
-                        <p className="text-primary font-medium text-sm mb-1">{expert.title || "Subject Matter Expert"}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <p className="text-primary font-medium text-sm">{expert.title || "Subject Matter Expert"}</p>
+                            {expert.company && (
+                                <>
+                                    <span className="text-gray-300">•</span>
+                                    <p className="text-gray-500 text-sm font-medium">{expert.company}</p>
+                                </>
+                            )}
+                        </div>
                         <div className="flex items-center gap-1 text-gray-500 text-xs">
                             <MapPin size={12} />
                             <span>{expert.location || "Remote"}</span>

@@ -9,6 +9,7 @@ const {
     rejectOtherBids
 } = require('../models/bidModel');
 const { getProjectById, updateProject } = require('../models/projectModel');
+const { createContract } = require('../models/contractModel');
 const { NOTIFICATION_TYPES, emitNotification, emitToMultipleUsers } = require('../utils/biddingNotifications');
 const { getIO } = require('../socket');
 
@@ -140,6 +141,10 @@ exports.acceptBid = async (req, res) => {
 
         // Verify project ownership
         const project = await getProjectById(projectId);
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
         if (project.client_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Not authorized to accept bids for this project' });
         }
@@ -154,6 +159,16 @@ exports.acceptBid = async (req, res) => {
             open_for_bidding: false
         });
 
+        // Create a contract automatically
+        const contract = await createContract({
+            projectId: projectId,
+            expertId: bid.expert_id,
+            clientId: project.client_id,
+            amount: bid.bid_amount,
+            terms: `Project: ${project.title}\nBid Amount: $${bid.bid_amount}\nTimeline: ${bid.proposed_timeline}\nProposal Detail: ${bid.cover_letter}`,
+            status: 'pending' // Pending client funding/escrow
+        });
+
         // Reject all other bids
         await rejectOtherBids(projectId, bidId);
 
@@ -163,13 +178,15 @@ exports.acceptBid = async (req, res) => {
             // Notify accepted expert
             emitNotification(io, bid.expert_id, NOTIFICATION_TYPES.BID_ACCEPTED, {
                 projectTitle: project.title,
-                bidId: bidId
+                bidId: bidId,
+                contractId: contract.id
             });
 
             // Notify project assignment
             emitNotification(io, bid.expert_id, NOTIFICATION_TYPES.PROJECT_ASSIGNED, {
                 projectTitle: project.title,
-                projectId: projectId
+                projectId: projectId,
+                contractId: contract.id
             });
 
             // Get all rejected bids and notify experts
@@ -180,9 +197,21 @@ exports.acceptBid = async (req, res) => {
                     projectTitle: project.title
                 });
             }
+
+            // Real-time update to the project room
+            io.to(`project_${projectId}`).emit('project_update', {
+                projectId,
+                type: 'bid_accepted',
+                bid: acceptedBid,
+                contract: contract
+            });
         }
 
-        res.json({ bid: acceptedBid, message: 'Bid accepted successfully' });
+        res.json({ 
+            bid: acceptedBid, 
+            contract: contract,
+            message: 'Bid accepted and contract created successfully' 
+        });
     } catch (error) {
         console.error('Accept bid error:', error);
         res.status(500).json({ message: error.message });

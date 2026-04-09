@@ -93,9 +93,17 @@ const FeaturedExperts = () => {
                                             <CheckCircle size={14} className="text-blue-500 fill-blue-500 text-white" />
                                         </h3>
                                         <p className="text-primary font-medium text-sm line-clamp-1">{expert.title || 'Expert'}</p>
-                                        <div className="flex items-center gap-1 text-gray-500 text-xs mt-1">
-                                            <MapPin size={12} />
-                                            <span className="line-clamp-1">{expert.location || 'Remote'}</span>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <div className="flex items-center gap-1 text-gray-500 text-xs">
+                                                <MapPin size={12} />
+                                                <span className="line-clamp-1">{expert.location || 'Remote'}</span>
+                                            </div>
+                                            {expert.company && (
+                                                <div className="flex items-center gap-1 text-gray-400 text-xs">
+                                                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                                    <span className="line-clamp-1 font-medium">{expert.company}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="ml-auto flex items-center gap-1 bg-highlight/10 px-2 py-1 rounded-lg shrink-0">

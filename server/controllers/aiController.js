@@ -1,7 +1,7 @@
 const pool = require('../database/db');
 
 // Global helper to query RapidAPI endpoint
-async function callRapidAPI(promptStr) {
+async function callRapidAPI(promptStr, imageData = null) {
     const fetchFn = typeof fetch !== 'undefined' ? fetch : (await import('node-fetch')).default;
     
     // Verify key exists to avoid 403 errors
@@ -13,13 +13,22 @@ async function callRapidAPI(promptStr) {
         throw new Error("RapidAPI Key is missing from configuration.");
     }
 
+    const content = [{ type: "text", text: promptStr }];
+    
+    if (imageData) {
+        // If it's already a full data URI, use it. If not, assume it's pure base64.
+        const imageUrl = imageData.startsWith('data:') ? imageData : `data:image/jpeg;base64,${imageData}`;
+        content.push({
+            type: "image_url",
+            image_url: { url: imageUrl }
+        });
+    }
+
     const payload = {
         messages: [
             {
                 role: "user",
-                content: [
-                    { type: "text", text: promptStr }
-                ]
+                content: content
             }
         ],
         web_access: false
@@ -592,6 +601,50 @@ All work product developed belongs to the Client upon final payment. Both partie
             }
 
             res.json({ analysis: fallbackAnalysis });
+        }
+    },
+
+    // 6. AI Document Analyzer (Vision-enabled)
+    analyzeDocument: async (req, res) => {
+        try {
+            const { fileData } = req.body;
+            if (!fileData) return res.status(400).json({ error: "No file data provided" });
+
+            const prompt = `
+                You are a senior project analyst. 
+                Analyze the provided document (which might be an image of a project brief or requirements list) and extract a detailed project specification.
+                
+                REQUIREMENTS:
+                1. Professional title and comprehensive description (at least 250 words).
+                2. At least 4 key milestones with titles and descriptions.
+                3. Estimated budget range (min and max) in USD.
+                4. Estimated duration.
+                5. Tech stack list (at least 5 relevant technologies).
+
+                OUTPUT FORMAT:
+                Return ONLY a valid JSON object with:
+                - "title": string
+                - "description": string
+                - "milestones": array of { "title": string, "description": string }
+                - "min_budget": number
+                - "max_budget": number
+                - "estimated_duration": string
+                - "techStack": array of strings
+                
+                If you cannot read the document or it is not a project brief, fallback to a sensible generic project specification based on any keywords you see.
+            `;
+
+            const text = await callRapidAPI(prompt, fileData);
+            const result = extractJSON(text);
+
+            if (!result) {
+                return res.status(500).json({ error: "Failed to parse AI document analysis" });
+            }
+
+            res.json(result);
+        } catch (error) {
+            console.error('AI Document Analysis Error:', error);
+            res.status(500).json({ error: error.message || 'Failed to analyze document' });
         }
     }
 };

@@ -22,7 +22,8 @@ const getMessagesByProject = async (projectId, limit = 100, offset = 0) => {
             m.*,
             u.name as sender_name,
             u.email as sender_email,
-            u.role as sender_role
+            u.role as sender_role,
+            u.profile_image_url as sender_avatar
         FROM messages m
         JOIN users u ON m.sender_id = u.id
         WHERE m.project_id = $1
@@ -39,7 +40,8 @@ const getMessageById = async (id) => {
         SELECT 
             m.*,
             u.name as sender_name,
-            u.email as sender_email
+            u.email as sender_email,
+            u.profile_image_url as sender_avatar
         FROM messages m
         JOIN users u ON m.sender_id = u.id
         WHERE m.id = $1
@@ -125,7 +127,8 @@ const getDirectMessages = async (user1Id, user2Id, limit = 100, offset = 0) => {
             m.*,
             u.name as sender_name,
             u.email as sender_email,
-            u.role as sender_role
+            u.role as sender_role,
+            u.profile_image_url as sender_avatar
         FROM messages m
         JOIN users u ON m.sender_id = u.id
         WHERE m.project_id IS NULL AND (

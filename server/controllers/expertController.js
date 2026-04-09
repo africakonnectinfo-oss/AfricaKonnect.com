@@ -153,7 +153,9 @@ exports.getAllExperts = async (req, res) => {
 
         const expertsWithNames = experts.map(e => ({
             ...e,
-            profile_image_url: e.profile_image_url || e.profileImageUrl
+            profile_image_url: e.profile_image_url || e.profileImageUrl,
+            company: e.company || null,
+            title: e.title || 'Expert'
         }));
 
         res.json({

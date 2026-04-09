@@ -40,27 +40,36 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false, // Allow embedding for Socket.IO
 }));
 
-// CORS configuration
 const allowedOrigins = [
     process.env.CLIENT_URL || "http://localhost:5173",
     "http://localhost:5173",
     "http://localhost:5174",
+    "http://localhost:3000",
     "https://africakonnect.com",
     "https://www.africakonnect.com",
-    "https://africa-konnect.netlify.app"
+    "https://africa-konnect.netlify.app",
+    "https://africa-konnect-v2.netlify.app"
 ];
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
+        // Allow requests with no origin (like mobile apps, curl, or same-origin)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
+        
+        const isAllowed = allowedOrigins.includes(origin) || 
+                         origin.endsWith('.netlify.app') || 
+                         origin.includes('localhost');
+                         
+        if (isAllowed) {
             callback(null, true);
         } else {
+            console.warn(`Blocked by CORS: ${origin}`);
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
 // Body parsing

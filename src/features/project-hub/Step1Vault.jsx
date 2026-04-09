@@ -13,6 +13,16 @@ const techStacks = [
     "AWS", "Flutter", "DevOps", "Data Science", "Blockchain"
 ];
 
+// Debounce helper
+function useDebounce(value, delay) {
+    const [debouncedValue, setDebouncedValue] = React.useState(value);
+    React.useEffect(() => {
+        const handler = setTimeout(() => setDebouncedValue(value), delay);
+        return () => clearTimeout(handler);
+    }, [value, delay]);
+    return debouncedValue;
+}
+
 const Step1Vault = ({ onNext }) => {
     const { currentProject, createProject, updateProject, addProjectFile } = useProject();
     const { uploadFile, uploading } = useFileUpload();
@@ -24,28 +34,92 @@ const Step1Vault = ({ onNext }) => {
     const [budget, setBudget] = useState(currentProject?.budget || '');
     const [duration, setDuration] = useState(currentProject?.duration || '');
     const [isGenerating, setIsGenerating]   = useState(false);
+    const [isAnalyzing, setIsAnalyzing]     = useState(false);
     
     // Marketplace bidding state
     const [isOpenForBidding, setIsOpenForBidding] = useState(currentProject?.open_for_bidding || false);
     const [minBudget, setMinBudget]               = useState(currentProject?.min_budget || '');
     const [maxBudget, setMaxBudget]               = useState(currentProject?.max_budget || '');
     const [biddingDeadline, setBiddingDeadline]   = useState(currentProject?.bidding_deadline ? new Date(currentProject.bidding_deadline).toISOString().split('T')[0] : '');
+    const [isSaving, setIsSaving]                 = useState(false);
+    const [lastSaved, setLastSaved]               = useState(null);
 
     // Sync with currentProject when it changes (for "Continue Setup" flow)
     React.useEffect(() => {
         if (currentProject) {
-            setProjectTitle(currentProject.title || '');
-            setProjectDescription(currentProject.description || '');
-            setBudget(currentProject.budget || '');
-            setDuration(currentProject.duration || '');
-            setFiles(currentProject.files || []);
-            setSelectedStack(currentProject.techStack || currentProject.tech_stack || []);
-            setIsOpenForBidding(currentProject.open_for_bidding || false);
-            setMinBudget(currentProject.min_budget || '');
-            setMaxBudget(currentProject.max_budget || '');
-            setBiddingDeadline(currentProject.bidding_deadline ? new Date(currentProject.bidding_deadline).toISOString().split('T')[0] : '');
+            setProjectTitle(prev => prev || currentProject.title || '');
+            setProjectDescription(prev => prev || currentProject.description || '');
+            setBudget(prev => prev || currentProject.budget || '');
+            setDuration(prev => prev || currentProject.duration || '');
+            setFiles(prev => prev.length ? prev : (currentProject.files || []));
+            setSelectedStack(prev => prev.length ? prev : (currentProject.techStack || currentProject.tech_stack || []));
+            setIsOpenForBidding(prev => prev || currentProject.open_for_bidding || false);
+            setMinBudget(prev => prev || currentProject.min_budget || '');
+            setMaxBudget(prev => prev || currentProject.max_budget || '');
+            setBiddingDeadline(prev => prev || (currentProject.bidding_deadline ? new Date(currentProject.bidding_deadline).toISOString().split('T')[0] : ''));
         }
     }, [currentProject]);
+
+    // --- Auto-save Logic ---
+    const debouncedProjectState = useDebounce({
+        title: projectTitle,
+        description: projectDescription,
+        budget,
+        minBudget,
+        maxBudget,
+        duration,
+        techStack: selectedStack,
+        open_for_bidding: isOpenForBidding,
+        bidding_deadline: biddingDeadline
+    }, 2000); // Save after 2s of inactivity
+
+    React.useEffect(() => {
+        const autoSave = async () => {
+            // Only auto-save if we have at least a title and we're not currently generating/analyzing
+            if (!projectTitle || isGenerating || isAnalyzing) return;
+            
+            // Check if anything actually changed since currentProject
+            const hasChanges = 
+                projectTitle !== currentProject?.title ||
+                projectDescription !== (currentProject?.description || '') ||
+                parseFloat(budget || 0) !== parseFloat(currentProject?.budget || 0) ||
+                selectedStack.length !== (currentProject?.techStack || currentProject?.tech_stack || []).length;
+
+            if (!hasChanges && currentProject?.id) return;
+
+            try {
+                setIsSaving(true);
+                let projectId = currentProject?.id;
+                
+                const projectData = {
+                    title: projectTitle || 'Untitled Draft',
+                    techStack: selectedStack,
+                    description: projectDescription,
+                    budget: parseFloat(budget || 0),
+                    min_budget: parseFloat(minBudget || 0),
+                    max_budget: parseFloat(maxBudget || 0),
+                    duration: duration,
+                    open_for_bidding: isOpenForBidding,
+                    bidding_deadline: biddingDeadline ? new Date(biddingDeadline).toISOString() : null,
+                    status: 'draft'
+                };
+
+                if (!projectId) {
+                    const newProject = await createProject(projectData);
+                    console.log('Draft created:', newProject.id);
+                } else {
+                    await updateProject(projectId, projectData);
+                }
+                setLastSaved(new Date());
+            } catch (error) {
+                console.error('Auto-save failed:', error);
+            } finally {
+                setIsSaving(false);
+            }
+        };
+
+        autoSave();
+    }, [debouncedProjectState]);
 
     const handleAIGenerate = async () => {
         if (!projectTitle.trim()) {
@@ -121,9 +195,45 @@ const Step1Vault = ({ onNext }) => {
                 if (currentProject) {
                     addProjectFile(currentProject.id, result.file);
                 }
+
+                // If it's a first file or user hasn't filled much, auto-analyze
+                if (!projectDescription || projectDescription.length < 50) {
+                    await analyzeUploadedFile(result.file);
+                }
             }
         } catch (error) {
-            alert('Error uploading file: ' + error.message);
+            toast.error('Error uploading file: ' + error.message);
+        }
+    };
+
+    const analyzeUploadedFile = async (fileData) => {
+        try {
+            setIsAnalyzing(true);
+            toast.loading("AI is analyzing your document...", { id: "analyzing-doc" });
+            
+            const result = await api.ai.analyzeDocument(fileData.data);
+            
+            if (result) {
+                setProjectTitle(result.title || projectTitle);
+                setProjectDescription(result.description || projectDescription);
+                if (result.min_budget) setMinBudget(result.min_budget);
+                if (result.max_budget) setMaxBudget(result.max_budget);
+                if (result.estimated_duration) setDuration(result.estimated_duration);
+                
+                if (result.techStack && Array.isArray(result.techStack)) {
+                    const newStacks = result.techStack.filter(tech => 
+                        tech && typeof tech === 'string' && !selectedStack.includes(tech)
+                    );
+                    setSelectedStack(prev => [...new Set([...prev, ...newStacks])]);
+                }
+                
+                toast.success("AI has extracted project details from your document!", { id: "analyzing-doc" });
+            }
+        } catch (error) {
+            console.error("Analysis failed", error);
+            toast.error("AI couldn't analyze the document format, but we've stored it.", { id: "analyzing-doc" });
+        } finally {
+            setIsAnalyzing(false);
         }
     };
 
@@ -197,9 +307,24 @@ const Step1Vault = ({ onNext }) => {
 
     return (
         <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-8">
+            <div className="text-center mb-8 relative">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Let's start by understanding your needs</h2>
                 <p className="text-gray-600">Upload your project files securely. We'll analyze them to find your perfect match.</p>
+                
+                {/* Auto-save Indicator */}
+                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[11px] font-medium text-gray-400">
+                    {isSaving ? (
+                        <>
+                            <Loader2 size={12} className="animate-spin text-primary" />
+                            <span>Saving draft...</span>
+                        </>
+                    ) : lastSaved ? (
+                        <>
+                            <Check size={12} className="text-green-500" />
+                            <span>Draft saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </>
+                    ) : null}
+                </div>
             </div>
 
             <Card className="p-8 mb-8">
@@ -282,8 +407,8 @@ const Step1Vault = ({ onNext }) => {
                     <p className="text-gray-900 font-medium mb-1">Drag & drop files here to skip manual entry</p>
                     <p className="text-gray-500 text-sm mb-4">PDF, DOCX, or Images (Max 10MB)</p>
                     <label>
-                        <Button variant="secondary" size="sm" disabled={uploading}>
-                            {uploading ? 'Uploading...' : 'Browse Files'}
+                        <Button variant="secondary" size="sm" disabled={uploading || isAnalyzing}>
+                            {uploading ? 'Uploading...' : isAnalyzing ? 'Analyzing...' : 'Browse Files'}
                         </Button>
                         <input
                             type="file"

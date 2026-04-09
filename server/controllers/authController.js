@@ -354,6 +354,29 @@ exports.getProfile = async (req, res) => {
         });
     } catch (error) {
         console.error('Get profile error:', error);
+        const user = await findUserById(req.user.id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // If user is an expert, attach expert profile data
+        if (user.role === 'expert') {
+            const { getExpertProfile } = require('../models/expertModel');
+            const expertProfile = await getExpertProfile(user.id);
+            
+            if (expertProfile) {
+                return res.json({
+                    ...user,
+                    profile: expertProfile,
+                    // Ensure image is synced from the source of truth if needed
+                    profile_image_url: expertProfile.profile_image_url || user.profile_image_url
+                });
+            }
+        }
+
+        res.json(user);
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };

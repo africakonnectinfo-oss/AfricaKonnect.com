@@ -18,26 +18,20 @@ export const AuthProvider = ({ children }) => {
 
     const loadProfile = useCallback(async (userData) => {
         try {
-            if (userData.role === 'expert') {
-                try {
-                    const profileData = await api.experts.getProfile(userData.id);
-                    // Merge user-level bio/image with expert-level if expert-level is missing
-                    const mergedProfile = {
-                        ...userData,
-                        ...profileData,
-                        profile_image_url: profileData.profile_image_url || userData.profile_image_url,
-                        bio: profileData.bio || userData.bio
-                    };
-                    setProfile(mergedProfile);
-                } catch (error) {
-                    console.log('No expert profile found yet');
-                    setProfile(userData);
-                }
-            } else {
-                setProfile(userData);
-            }
+            // Refetch full consolidated profile from backend
+            const dbProfile = await api.auth.getProfile();
+            setProfile(dbProfile);
+            
+            // Sync with user state too
+            setUser(prev => ({ ...prev, ...dbProfile }));
+            
+            // Persist to localStorage
+            const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            localStorage.setItem('userInfo', JSON.stringify({ ...stored, ...dbProfile }));
         } catch (error) {
-            console.error('Error loading profile:', error);
+            console.error('Error loading consolidated profile:', error);
+            // Fallback to userData if fetch fails
+            setProfile(userData);
         }
     }, []);
 
@@ -46,20 +40,21 @@ export const AuthProvider = ({ children }) => {
             const storedUserJson = localStorage.getItem('userInfo');
 
             if (storedUserJson) {
-                // Verify the token with our backend
-                const dbUser = await api.auth.getProfile();
+                // Verify the token and get consolidated profile from our backend
+                const dbProfile = await api.auth.getProfile();
 
-                // Merge with stored data to keep the token in React state
+                // Merge with stored data to preserve the token/identity but use DB as source of truth for fields
                 const stored = JSON.parse(storedUserJson);
                 const newUser = { 
                     ...stored, 
-                    ...dbUser,
-                    profile_image_url: dbUser.profile_image_url || stored.profile_image_url,
-                    bio: dbUser.bio || stored.bio
+                    ...dbProfile
                 };
 
                 setUser(newUser);
-                loadProfile(newUser);
+                setProfile(dbProfile);
+                
+                // Update localStorage to ensure persistence
+                localStorage.setItem('userInfo', JSON.stringify(newUser));
             }
         } catch (error) {
             console.log("Authentication check failed:", error.message);
@@ -143,7 +138,6 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error('Sign out error:', error);
         } finally {
-            // Always clear local session
             setUser(null);
             setProfile(null);
             localStorage.removeItem('userInfo');
@@ -153,47 +147,39 @@ export const AuthProvider = ({ children }) => {
 
     const updateProfile = async (updates) => {
         try {
-            // Update user table if basic fields changed
-            if (updates.name || updates.email || updates.profileImageUrl || updates.profile_image_url) {
-                const response = await api.auth.updateProfile({
-                    name: updates.name || user.name,
-                    email: updates.email || user.email,
-                    profile_image_url: updates.profile_image_url || updates.profileImageUrl || user.profile_image_url,
-                    profileImageUrl: updates.profile_image_url || updates.profileImageUrl || user.profile_image_url
-                });
-
-                // Merge updated fields into current user state AND preserve token in localStorage
-                const updatedUserData = response.user || response;
-                const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
-                const newUser = { ...stored, ...updatedUserData };
-
-                setUser(newUser);
-                localStorage.setItem('userInfo', JSON.stringify(newUser));
-            }
-
-            // Update expert profile if user is an expert
+            let updatedData;
+            
+            // If expert, update professional profile
             if (user?.role === 'expert') {
                 const expertUpdates = {
                     ...updates,
                     profileImageUrl: updates.profile_image_url || updates.profileImageUrl
                 };
-                const updated = await api.experts.updateProfile(user.id, expertUpdates);
-                const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
-                setProfile({ ...stored, ...updated });
-                return { profile: updated, error: null };
+                updatedData = await api.experts.updateProfile(user.id, expertUpdates);
             } else {
-                // For clients, update the profile state with user data
-                const refreshedUser = await api.auth.getProfile();
-                const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
-                const newUser = { ...stored, ...refreshedUser };
-
-                setUser(newUser);
-                setProfile(newUser);
-                localStorage.setItem('userInfo', JSON.stringify(newUser));
-                return { profile: newUser, error: null };
+                // For all users, update the main identity profile
+                updatedData = await api.auth.updateProfile({
+                    name: updates.name || user.name,
+                    email: updates.email || user.email,
+                    profile_image_url: updates.profile_image_url || updates.profileImageUrl || user.profile_image_url,
+                    profileImageUrl: updates.profile_image_url || updates.profileImageUrl || user.profile_image_url,
+                    bio: updates.bio || user.bio
+                });
             }
+
+            // Refetch fully consolidated profile from backend for absolute consistency
+            const finalProfile = await api.auth.getProfile();
+            
+            const stored = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            const newUser = { ...stored, ...finalProfile };
+
+            setUser(newUser);
+            setProfile(finalProfile);
+            localStorage.setItem('userInfo', JSON.stringify(newUser));
+            
+            return { profile: finalProfile, error: null };
         } catch (error) {
-            console.error(error);
+            console.error('Consolidated update failed:', error);
             return { profile: null, error };
         }
     };

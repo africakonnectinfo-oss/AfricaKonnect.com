@@ -58,7 +58,7 @@ exports.sendMessage = async (req, res) => {
                 sender: {
                     id: req.user.id,
                     name: req.user.name,
-                    avatar_url: req.user.avatar_url
+                    avatar_url: req.user.profile_image_url || req.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.user.name || 'User')}`
                 }
             };
 
