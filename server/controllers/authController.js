@@ -337,25 +337,9 @@ exports.refreshToken = async (req, res) => {
  */
 exports.getProfile = async (req, res) => {
     try {
-        // User is attached to request by auth middleware
-        const user = await findUserByEmail(req.user.email);
-
-        res.json({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            profile_image_url: user.profile_image_url,
-            bio: user.bio,
-            emailVerified: user.email_verified,
-            lastLogin: user.last_login,
-            loginCount: user.login_count,
-            createdAt: user.created_at
-        });
-    } catch (error) {
-        console.error('Get profile error:', error);
+        // Fetch full user and expertly handle profile consolidation
         const user = await findUserById(req.user.id);
-
+        
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -369,7 +353,7 @@ exports.getProfile = async (req, res) => {
                 return res.json({
                     ...user,
                     profile: expertProfile,
-                    // Ensure image is synced from the source of truth if needed
+                    // Identity sync: use expert image if available, otherwise fallback to base user image
                     profile_image_url: expertProfile.profile_image_url || user.profile_image_url
                 });
             }
@@ -377,6 +361,7 @@ exports.getProfile = async (req, res) => {
 
         res.json(user);
     } catch (error) {
+        console.error('Get profile error:', error);
         res.status(500).json({ message: error.message });
     }
 };
